@@ -13,7 +13,7 @@ from app.api.v1 import (
     users,
     clients,
     # client_types,
-    # suppliers,
+    suppliers,  # ENABLED
     # products,
     # quotes,
     # orders,
@@ -27,6 +27,7 @@ from app.api.v1 import (
     # projects,
     # drive,
     lookups,
+    lookup,  # Frontend alias for lookups (singular /lookup/)
     # x3_export,
 )
 
@@ -67,7 +68,7 @@ api_router.include_router(users.router)
 # -----------------------------------------------------------------------------
 api_router.include_router(clients.router)
 # api_router.include_router(client_types.router)
-# api_router.include_router(suppliers.router)
+api_router.include_router(suppliers.router)  # ENABLED
 # api_router.include_router(products.router)
 
 # -----------------------------------------------------------------------------
@@ -103,6 +104,7 @@ api_router.include_router(currencies.router)
 # System & Utilities
 # -----------------------------------------------------------------------------
 api_router.include_router(lookups.router)
+api_router.include_router(lookup.router)  # Frontend alias (singular /lookup/)
 api_router.include_router(health.router)
 api_router.include_router(i18n.router)
 # api_router.include_router(email.router)
