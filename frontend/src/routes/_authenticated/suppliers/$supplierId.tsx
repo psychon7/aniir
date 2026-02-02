@@ -1,0 +1,352 @@
+import { useState } from 'react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { PageContainer } from '@/components/ui/layout/PageContainer'
+import { PageHeader } from '@/components/ui/layout/PageHeader'
+import { Card, CardHeader, CardContent } from '@/components/ui/layout/Card'
+import { StatusBadge } from '@/components/ui/Badge'
+import { LoadingSkeletonCard } from '@/components/ui/feedback/LoadingSkeleton'
+import { EmptyStateError } from '@/components/ui/feedback/EmptyState'
+import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
+import { useToast } from '@/components/ui/feedback/Toast'
+import { SupplierForm } from '@/components/features/suppliers/SupplierForm'
+import { useSupplier, useUpdateSupplier, useDeleteSupplier, useSupplierContacts } from '@/hooks/useSuppliers'
+import type { SupplierCreateDto } from '@/types/supplier'
+
+export const Route = createFileRoute('/_authenticated/suppliers/$supplierId')({
+  component: SupplierDetailPage,
+})
+
+function SupplierDetailPage() {
+  const { supplierId } = Route.useParams()
+  const navigate = useNavigate()
+  const { success, error: showError } = useToast()
+
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+
+  const { data: supplier, isLoading, error } = useSupplier(Number(supplierId))
+  const { data: contacts = [] } = useSupplierContacts(Number(supplierId))
+  const updateMutation = useUpdateSupplier()
+  const deleteMutation = useDeleteSupplier()
+
+  const handleUpdate = async (data: SupplierCreateDto) => {
+    try {
+      await updateMutation.mutateAsync({ ...data, id: Number(supplierId) })
+      success('Supplier updated', 'The supplier has been updated successfully.')
+      setIsFormOpen(false)
+    } catch (err) {
+      showError('Error', 'An error occurred while updating the supplier.')
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      await deleteMutation.mutateAsync(Number(supplierId))
+      success('Supplier deleted', 'The supplier has been deleted successfully.')
+      navigate({ to: '/suppliers' })
+    } catch (err) {
+      showError('Error', 'An error occurred while deleting the supplier.')
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <PageContainer>
+        <LoadingSkeletonCard />
+        <LoadingSkeletonCard />
+      </PageContainer>
+    )
+  }
+
+  if (error || !supplier) {
+    return (
+      <PageContainer>
+        <EmptyStateError
+          message="Supplier not found"
+          onRetry={() => navigate({ to: '/suppliers' })}
+        />
+      </PageContainer>
+    )
+  }
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title={supplier.companyName}
+        description={`${supplier.reference} - ${supplier.supplierTypeName || 'Supplier'}`}
+        breadcrumbs={[
+          { label: 'Suppliers', href: '/suppliers' },
+          { label: supplier.companyName },
+        ]}
+        actions={
+          <>
+            <button onClick={() => setIsFormOpen(true)} className="btn-secondary">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit
+            </button>
+            <button onClick={() => setIsDeleteOpen(true)} className="btn-secondary text-destructive hover:bg-destructive/10">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete
+            </button>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Info */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Company Information */}
+          <Card>
+            <CardHeader title="Company Information" />
+            <CardContent>
+              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InfoItem label="Company Name" value={supplier.companyName} />
+                <InfoItem label="Reference" value={supplier.reference} mono />
+                <InfoItem label="Abbreviation" value={supplier.abbreviation} />
+                <InfoItem label="Supplier Type" value={supplier.supplierTypeName} />
+                <InfoItem label="Email" value={supplier.email} link={`mailto:${supplier.email}`} />
+                <InfoItem label="Phone" value={supplier.phone} link={`tel:${supplier.phone}`} />
+                <InfoItem label="Phone 2" value={supplier.phone2} link={`tel:${supplier.phone2}`} />
+                <InfoItem label="Mobile" value={supplier.mobile} link={`tel:${supplier.mobile}`} />
+                <InfoItem label="Fax" value={supplier.fax} />
+                <InfoItem
+                  label="Status"
+                  value={
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={supplier.isActive ? 'Active' : 'Inactive'} />
+                      {supplier.isBlocked && (
+                        <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-destructive/10 text-destructive">
+                          Blocked
+                        </span>
+                      )}
+                    </div>
+                  }
+                />
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Address */}
+          <Card>
+            <CardHeader title="Address" />
+            <CardContent>
+              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <dt className="text-sm text-muted-foreground mb-1">Street Address</dt>
+                  <dd className="text-foreground">
+                    {supplier.address || '-'}
+                    {supplier.address2 && <><br />{supplier.address2}</>}
+                  </dd>
+                </div>
+                <InfoItem label="City" value={supplier.city} />
+                <InfoItem label="Postal Code" value={supplier.postalCode} />
+                <InfoItem label="Country" value={supplier.country} />
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Business Details */}
+          <Card>
+            <CardHeader title="Business Details" />
+            <CardContent>
+              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InfoItem label="VAT Number" value={supplier.vatNumber} mono />
+                <InfoItem label="SIREN" value={supplier.siren} mono />
+                <InfoItem label="SIRET" value={supplier.siret} mono />
+                <InfoItem label="Society" value={supplier.societyName} />
+                <InfoItem label="Free of Harbor (Min)" value={supplier.freeOfHarbor ? `${supplier.freeOfHarbor.toLocaleString()}` : '-'} />
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Comments */}
+          {(supplier.internalComment || supplier.supplierComment) && (
+            <Card>
+              <CardHeader title="Comments" />
+              <CardContent>
+                <div className="space-y-4">
+                  {supplier.internalComment && (
+                    <div>
+                      <h4 className="text-sm font-medium text-foreground mb-1">Internal Comment</h4>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{supplier.internalComment}</p>
+                    </div>
+                  )}
+                  {supplier.supplierComment && (
+                    <div>
+                      <h4 className="text-sm font-medium text-foreground mb-1">Supplier Comment</h4>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{supplier.supplierComment}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Payment Terms */}
+          <Card>
+            <CardHeader title="Payment Terms" />
+            <CardContent>
+              <dl className="space-y-4">
+                <InfoItem label="Currency" value={supplier.currencyCode} />
+                <InfoItem label="Payment Mode" value={supplier.paymentModeName} />
+                <InfoItem label="Payment Terms" value={supplier.paymentConditionName} />
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Newsletter */}
+          <Card>
+            <CardHeader title="Newsletter" />
+            <CardContent>
+              <dl className="space-y-4">
+                <InfoItem
+                  label="Receives Newsletter"
+                  value={
+                    <span className={supplier.receiveNewsletter ? 'text-green-600' : 'text-muted-foreground'}>
+                      {supplier.receiveNewsletter ? 'Yes' : 'No'}
+                    </span>
+                  }
+                />
+                {supplier.receiveNewsletter && supplier.newsletterEmail && (
+                  <InfoItem label="Newsletter Email" value={supplier.newsletterEmail} link={`mailto:${supplier.newsletterEmail}`} />
+                )}
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Contacts */}
+          <Card>
+            <CardHeader
+              title="Contacts"
+              action={
+                <button className="text-sm text-primary hover:text-primary/80 transition-colors">
+                  + Add
+                </button>
+              }
+            />
+            <CardContent>
+              {contacts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No contacts added</p>
+              ) : (
+                <div className="space-y-4">
+                  {contacts.map((contact) => (
+                    <div key={contact.id} className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-xs font-medium text-primary">
+                          {contact.firstName?.[0]}{contact.lastName?.[0]}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">
+                          {contact.firstName} {contact.lastName}
+                        </p>
+                        {contact.addressTitle && (
+                          <p className="text-xs text-muted-foreground">{contact.addressTitle}</p>
+                        )}
+                        {contact.email && (
+                          <a href={`mailto:${contact.email}`} className="text-xs text-primary hover:underline">
+                            {contact.email}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Metadata */}
+          <Card>
+            <CardHeader title="Record Information" />
+            <CardContent>
+              <dl className="space-y-4 text-sm">
+                <InfoItem
+                  label="Created"
+                  value={new Date(supplier.createdAt).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                />
+                <InfoItem
+                  label="Last Updated"
+                  value={new Date(supplier.updatedAt).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                />
+              </dl>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Edit Form Modal */}
+      <SupplierForm
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleUpdate}
+        supplier={supplier}
+        isSubmitting={updateMutation.isPending}
+      />
+
+      {/* Delete Confirmation */}
+      <DeleteConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDelete}
+        itemName={supplier.companyName}
+        isLoading={deleteMutation.isPending}
+      />
+    </PageContainer>
+  )
+}
+
+// Helper component for displaying info items
+function InfoItem({
+  label,
+  value,
+  link,
+  external,
+  mono,
+}: {
+  label: string
+  value: React.ReactNode
+  link?: string
+  external?: boolean
+  mono?: boolean
+}) {
+  return (
+    <div>
+      <dt className="text-sm text-muted-foreground mb-1">{label}</dt>
+      <dd className={`text-foreground ${mono ? 'font-mono text-sm' : ''}`}>
+        {link && value ? (
+          <a
+            href={link}
+            target={external ? '_blank' : undefined}
+            rel={external ? 'noopener noreferrer' : undefined}
+            className="text-primary hover:underline"
+          >
+            {value}
+            {external && (
+              <svg className="inline-block w-3 h-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            )}
+          </a>
+        ) : (
+          value || '-'
+        )}
+      </dd>
+    </div>
+  )
+}

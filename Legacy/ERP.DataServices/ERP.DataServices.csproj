@@ -1,0 +1,104 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{1A98322F-8624-4451-908A-324C72A43113}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>ERP.DataServices</RootNamespace>
+    <AssemblyName>ERP.DataServices</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.Entity" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AlbumServices.cs" />
+    <Compile Include="BankAccountServices.cs" />
+    <Compile Include="BrandServices.cs" />
+    <Compile Include="CalendarServices.cs" />
+    <Compile Include="ClientServices.cs" />
+    <Compile Include="CommonServices.cs" />
+    <Compile Include="ContactClientServices.cs" />
+    <Compile Include="ClientOrderServices.cs" />
+    <Compile Include="ClientOrderLineServices.cs" />
+    <Compile Include="ClientInvoiceLineServices.cs" />
+    <Compile Include="ClientInvoiceServices.cs" />
+    <Compile Include="CategoryServices.cs" />
+    <Compile Include="ConsigneeServices.cs" />
+    <Compile Include="ECOLECService.cs" />
+    <Compile Include="EcoledService.cs" />
+    <Compile Include="LogisticsServices.cs" />
+    <Compile Include="CostPlanLineServices.cs" />
+    <Compile Include="CostPlanServices.cs" />
+    <Compile Include="DeliveryFormLineServices.cs" />
+    <Compile Include="DeliveryFormServices.cs" />
+    <Compile Include="MessageServices.cs" />
+    <Compile Include="NCPrdServices.cs" />
+    <Compile Include="ProductInstanceServices.cs" />
+    <Compile Include="ProductServices.cs" />
+    <Compile Include="ProductTypeServices.cs" />
+    <Compile Include="ProjectServices.cs" />
+    <Compile Include="PurchaseBaseLineServices.cs" />
+    <Compile Include="PurchaseBaseServices.cs" />
+    <Compile Include="SiteCommonServices.cs" />
+    <Compile Include="SiteProjectServices.cs" />
+    <Compile Include="SocietyServices.cs" />
+    <Compile Include="SupplierContactServices.cs" />
+    <Compile Include="SupplierProductServices.cs" />
+    <Compile Include="SupplierServices.cs" />
+    <Compile Include="UserHServices.cs" />
+    <Compile Include="UserServices.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="WarehouseService.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ERP.Entities\ERP.Entities.csproj">
+      <Project>{95D99810-CA16-4F58-9CAC-CBD1136354DC}</Project>
+      <Name>ERP.Entities</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ERP.Repositories\ERP.Repositories.csproj">
+      <Project>{9F51457D-F56E-4A07-9E41-95C11BA180E6}</Project>
+      <Name>ERP.Repositories</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

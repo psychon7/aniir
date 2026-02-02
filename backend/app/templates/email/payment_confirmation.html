@@ -1,0 +1,45 @@
+{% extends "base_email.html" %}
+
+{% block title %}Payment Confirmation - {{ company_name }}{% endblock %}
+
+{% block header %}
+<h1>Payment Received</h1>
+{% endblock %}
+
+{% block content %}
+<p class="greeting">Dear {{ client_name }},</p>
+
+<p>Thank you for your payment! We have successfully received and processed your payment.</p>
+
+<div class="info-box info-box-success">
+    <ul class="details-list">
+        <li>
+            <span class="details-label">Invoice Number:</span><br>
+            <span class="details-value">{{ invoice_reference }}</span>
+        </li>
+        <li>
+            <span class="details-label">Amount Received:</span><br>
+            <span class="amount-highlight">{{ currency }} {{ "%.2f"|format(payment_amount) }}</span>
+        </li>
+        <li>
+            <span class="details-label">Payment Date:</span><br>
+            <span class="details-value">{{ payment_date }}</span>
+        </li>
+        {% if payment_method %}
+        <li>
+            <span class="details-label">Payment Method:</span><br>
+            <span class="details-value">{{ payment_method }}</span>
+        </li>
+        {% endif %}
+    </ul>
+</div>
+
+<p>Your account has been updated accordingly. A receipt has been attached for your records.</p>
+
+<p>We appreciate your prompt payment and look forward to continuing our business relationship.</p>
+
+<p>If you have any questions, please don't hesitate to contact us.</p>
+
+<p>Best regards,<br>
+<strong>{{ company_name }}</strong></p>
+{% endblock %}

@@ -1,0 +1,701 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="Site.master.cs" Inherits="ERP.Web.SiteMaster" %>
+
+<%@ Register TagPrefix="uc" TagName="ucSilderMenu" Src="UC/SilderMenu.ascx" %>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head id="Head1" runat="server">
+    <asp:ContentPlaceHolder ID="HeadContent" runat="server">
+    </asp:ContentPlaceHolder>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="utf-8">
+    <title>ERP</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <!-- CSS part -->
+    <link rel="stylesheet" type="text/css" href="css/cloud-admin.css?version20170918">
+    <link rel="stylesheet" type="text/css" href="css/themes/default.css?version20170918"
+        id="skin_switcher">
+    <link rel="stylesheet" type="text/css" href="css/responsive.css?version20170918">
+    <!-- STYLESHEETS -->
+    <!--[if lt IE 9]><script src='<%= Page.ResolveClientUrl("~/js/flot/excanvas.min.js") %>'></script><script src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script><script src="http://css3-mediaqueries-js.googlecode.com/svn/trunk/css3-mediaqueries.js"></script><![endif]-->
+    <link href="font-awesome/css/font-awesome.min.css?version20170918" rel="stylesheet">
+    <!-- ANIMATE -->
+    <link rel="stylesheet" type="text/css" href="css/animatecss/animate.min.css?version20170918" />
+    <!-- DATE RANGE PICKER -->
+    <link rel="stylesheet" type="text/css" href="js/bootstrap-daterangepicker/daterangepicker-bs3.css" />
+    <!-- TODO -->
+    <link rel="stylesheet" type="text/css" href="js/jquery-todo/css/styles.css?version20170918" />
+    <!-- FULL CALENDAR -->
+    <link rel="stylesheet" type="text/css" href="js/fullcalendar/fullcalendar.min.css" />
+    <!-- GRITTER -->
+    <link rel="stylesheet" type="text/css" href="js/gritter/css/jquery.gritter.css" />
+    
+    <!-- HUBSPOT MESSENGER -->
+    <link rel="stylesheet" type="text/css" href="js/hubspot-messenger/css/messenger.min.css" />
+    <link rel="stylesheet" type="text/css" href="js/hubspot-messenger/css/messenger-spinner.min.css" />
+    <link rel="stylesheet" type="text/css" href="js/hubspot-messenger/css/messenger-theme-air.min.css" />
+    <link rel="stylesheet" type="text/css" href="js/hubspot-messenger/css/messenger-theme-block.min.css" />
+    <link rel="stylesheet" type="text/css" href="js/hubspot-messenger/css/messenger-theme-flat.min.css" />
+    <link rel="stylesheet" type="text/css" href="js/hubspot-messenger/css/messenger-theme-future.min.css" />
+    <link rel="stylesheet" type="text/css" href="js/hubspot-messenger/css/messenger-theme-ice.min.css" />
+    <!-- /CSS part -->
+    <!-- JAVASCRIPTS -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <!-- JQUERY -->
+    <script src='<%= Page.ResolveClientUrl("~/js/jquery/jquery-2.0.3.min.js")%>'></script>
+    <%--<script src='<%= Page.ResolveClientUrl("~/js/jquery/jquery-1.12.4.js")%>'></script>--%>
+    <!-- JQUERY UI-->
+    <script src='<%= Page.ResolveClientUrl("~/js/jquery-ui-1.10.3.custom/js/jquery-ui-1.10.3.custom.min.js")%>'></script>
+    <!-- BOOTSTRAP -->
+    <script src='<%= Page.ResolveClientUrl("~/bootstrap-dist/js/bootstrap.min.js")%>'></script>
+    <!-- DATE RANGE PICKER -->
+    <script src='<%= Page.ResolveClientUrl("~/js/bootstrap-daterangepicker/moment.min.js")%>'></script>
+    <script src='<%= Page.ResolveClientUrl("~/js/bootstrap-daterangepicker/daterangepicker.min.js")%>'></script>
+    <!-- SLIMSCROLL -->
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/jQuery-slimScroll-1.3.0/jquery.slimscroll.min.js")%>'></script>
+    <!-- SLIMSCROLL -->
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/jQuery-slimScroll-1.3.0/jquery.slimscroll.min.js")%>'></script>
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/jQuery-slimScroll-1.3.0/slimScrollHorizontal.min.js")%>'></script>
+    <!-- BLOCK UI -->
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/jQuery-BlockUI/jquery.blockUI.min.js")%>'></script>
+    <!-- SPARKLINES -->
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/sparklines/jquery.sparkline.min.js")%>'></script>
+    <!-- EASY PIE CHART -->
+    <script src='<%= Page.ResolveClientUrl("~/js/jquery-easing/jquery.easing.min.js")%>'></script>
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/easypiechart/jquery.easypiechart.min.js")%>'></script>
+    <!-- FLOT CHARTS -->
+    <script src='<%= Page.ResolveClientUrl("~/js/flot/jquery.flot.min.js")%>'></script>
+    <script src='<%= Page.ResolveClientUrl("~/js/flot/jquery.flot.time.min.js")%>'></script>
+    <script src='<%= Page.ResolveClientUrl("~/js/flot/jquery.flot.selection.min.js")%>'></script>
+    <script src='<%= Page.ResolveClientUrl("~/js/flot/jquery.flot.resize.min.js")%>'></script>
+    <script src='<%= Page.ResolveClientUrl("~/js/flot/jquery.flot.pie.min.js")%>'></script>
+    <script src='<%= Page.ResolveClientUrl("~/js/flot/jquery.flot.stack.min.js")%>'></script>
+    <script src='<%= Page.ResolveClientUrl("~/js/flot/jquery.flot.crosshair.min.js")%>'></script>
+    <!-- TODO -->
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/jquery-todo/js/paddystodolist.js")%>'></script>
+    <!-- TIMEAGO -->
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/timeago/jquery.timeago.min.js")%>'></script>
+    <!-- FULL CALENDAR -->
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/fullcalendar/fullcalendar.min.js")%>'></script>
+    <!-- COOKIE -->
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/jQuery-Cookie/jquery.cookie.min.js")%>'></script>
+    <!-- GRITTER -->
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/gritter/js/jquery.gritter.min.js")%>'></script>
+    
+    <!-- HUBSPOT MESSENGER -->
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/hubspot-messenger/js/messenger.min.js")%>'></script>
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/hubspot-messenger/js/messenger-theme-flat.js")%>'></script>
+    <script type="text/javascript" src='<%= Page.ResolveClientUrl("~/js/hubspot-messenger/js/messenger-theme-future.js")%>'></script>
+    <!-- CUSTOM SCRIPT -->
+    <script src='<%= Page.ResolveClientUrl("~/js/script.js")%>'></script>
+    <script src='<%= Page.ResolveClientUrl("~/css/loading.css")%>'></script>
+    <link rel="shortcut icon" href="img/logo/logo-icon.png">
+    <%--   <script>
+        jQuery(document).ready(function () {
+            App.setPage("index");  //Set current page
+            App.init(); //Initialise plugins and elements
+        });
+    </script>--%>
+    <!-- /JAVASCRIPTS -->
+    <script type="text/javascript">
+
+
+        function getServicePath() {
+            window.webservicePath ="<%= ResolveUrl("~/Services/ERPWebServices.asmx") %>";
+        }
+    </script>
+    <style>
+        .error_border
+        {
+            border-color: red;
+            border-width: 1px;
+            border-style: solid;
+        }
+        .rt_read
+        {
+        }
+        .rt_valid
+        {
+        }
+        .rt_modify
+        {
+        }
+        .rt_create
+        {
+        }
+        .rt_delete
+        {
+        }
+        .rt_active
+        {
+        }
+        .rt_cancel
+        {
+        }
+        .rt_super
+        {
+        }
+        th
+        {
+            text-align: center !important;
+            vertical-align: middle !important;
+        }
+    </style>
+    <%--<script src='<%= Page.ResolveClientUrl("~/js/ERP/ERPBaseJS.js")%>'></script>--%>
+</head>
+<body>
+    <form id="Form1" runat="server">
+    <!-- HEADER -->
+    <header class="navbar clearfix" id="header">
+		<div class="container">
+            <div class="navbar-brand" id="div-navbar-brand">
+                <!-- COMPANY LOGO -->
+                <a href='<%= ResolveUrl("~/Default.aspx") %>'>
+                <img src='<%= ResolveUrl("img/logo/logo.png") %>' alt="Cloud Admin Logo" class="img-responsive" style="height: 30px; width: auto;"> </a>
+            <!-- /COMPANY LOGO --> 
+            <!-- TEAM STATUS FOR MOBILE --> 
+                <div class="visible-xs"> <a href="#" class="team-status-toggle switcher btn dropdown-toggle"> <i class="fa fa-users"></i></a> 
+                </div> 
+            <!-- /TEAM STATUS FOR MOBILE --> 
+            <!-- SIDEBAR COLLAPSE --> 
+                <div id="sidebar-collapse" class="sidebar-collapse btn"> <i class="fa fa-bars" data-icon1="fa fa-bars" data-icon2="fa fa-bars" ></i>
+                </div> 
+            <!-- /SIDEBAR COLLAPSE --> 
+            </div> 
+            <!-- NAVBAR LEFT --> 
+            <%--<ul class="nav navbar-nav pull-left hidden-xs" id="navbar-left" >
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown"> <i class="fa fa-cog"></i>
+                        <span class="name">Skins</span> <i class="fa fa-angle-down"></i>
+                    </a>
+                    <ul class="dropdown-menu skins">
+                        <li class="dropdown-title">
+                            <span><i class="fa fa-leaf"></i> Theme Skins</span>
+                        </li>
+                        <li><a href="#" data-skin="default">Subtle (default)</a></li>
+                        <li><a href="#" data-skin="night">Night</a></li>
+                        <li><a href="#" data-skin="earth">Earth</a></li>
+                        <li><a href="#" data-skin="utopia">Utopia</a></li> <li><a href="#" data-skin="nature">Nature</a></li>
+                        <li><a href="#" data-skin="graphite">Graphite</a></li> 
+                    </ul> 
+                </li> 
+            </ul>--%>
+            <!-- /NAVBAR LEFT --> 
+            <!-- BEGIN TOP NAVIGATION MENU -->
+            <ul class="nav navbar-nav pull-right" style="float: right;">
+                <li class="dropdown" id="li-exchange"  style="float: right;">
+						<a id="a_currency" class="dropdown-toggle" data-toggle="dropdown">
+							€⇄$
+						</a>
+						<ul class="dropdown-menu inbox" id="ul_exchange" style="max-height: 800px;overflow-y: auto;">
+						</ul>
+					</li>
+					<!-- BEGIN NOTIFICATION DROPDOWN -->	
+					<li class="dropdown" id="header-notification"  style="float: right;">
+						<a href="#" class="dropdown-toggle" data-toggle="dropdown">
+							<i class="fa fa-calendar"></i>
+							<span class="badge" id="eventbadge">0</span>
+						</a>
+						<ul class="dropdown-menu inbox" id="ul_calendar" style="max-height: 800px;overflow-y: auto;">
+						</ul>
+					</li>
+					<!-- END NOTIFICATION DROPDOWN -->
+                <!-- BEGIN TODO DROPDOWN -->
+                <li class="dropdown" id="header-tasks" style="float: right;">
+                     <a href="#" class="dropdown-toggle" data-toggle="dropdown"> <i class="fa fa-tasks"></i> 
+                     <span class="badge" id="todoBadge"></span> </a> 
+                     <ul class="dropdown-menu tasks" id="ul_task">
+                     </ul> 
+                </li> 
+               
+                <!-- END TODO DROPDOWN --> 
+                <!-- BEGIN USER LOGIN DROPDOWN --> 
+                <li class="dropdown" id="header-user" style="float: right;">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                         <%--<img alt="" src='<%= ResolveUrl("img/gritter/settings.png") %>' id="img_user_profil_photo" style="height:25px;width: 25px;"/> --%>
+                         <i class="fa fa-gears"></i>
+                    <span class="username" id="span_user_profil_name"></span> 
+                    <i class="fa fa-angle-down"></i>
+                    </a>
+                    <ul class="dropdown-menu" style="float: right;">
+                         <li class="dropdown user" id="li_profile">
+                             <a href='<%= ResolveUrl("Views/User/Users.aspx") %>'><i class="fa fa-user"></i> Mon Profil</a>
+                         </li>
+                         <li>
+                             <asp:LinkButton ID="lbtn_logout" runat="server" OnClick="lbtn_logout_OnClick">
+                                 <i class="fa fa-power-off"></i> Déconnexion
+                             </asp:LinkButton>
+                         </li> 
+                    </ul> 
+                </li> 
+                 <%-- <li class="dropdown" style="float: right; display: none;" id="li_language">
+                   <select id="language_sle" class="form-control fa fa-user" style="display: none;">
+                         <option value="">请选择语言</option>
+                        <option value="French">French</option>
+                       <option value="Chinese">中文</option>
+                        <option value="English">English</option>
+                        
+                   </select>
+                </li> --%>
+                <!-- END USER LOGIN DROPDOWN --> 
+            </ul> 
+            <!-- END TOP NAVIGATION MENU --> 
+            </div>
+    </header>
+    <!--/HEADER -->
+    <div class="copyrights">
+        <a href="#">朱鹮软件</a>
+    </div>
+    <section id="page">
+<!-- SIDEBAR --> 
+    <div id="sidebar" class="sidebar">
+        <uc:ucSilderMenu ID="ucSilderMenu" runat="server" />
+    </div> 
+<!-- /SIDEBAR --> 
+        <div class="main-content" id="main-content">
+            <asp:ContentPlaceHolder ID="MainContent" runat="server" />
+        </div>
+        <div class="clear">
+        </div>
+    <div class="footer">
+    </div>
+    <div class="loading-mask" id="loading_mask" style="display: none;">
+        <p id="message_loading_mask" style="margin-left: auto; margin-right: auto; text-align: center;
+                                                                                                                                                                                                                                                                              margin-top: 23%; color: red; font-size: 22pt; background-color: white; padding-top: 10px;
+                                                                                                                                                                                                                                                                              padding-bottom: 10px;">
+            Veuillez patienter...</p>
+        <p id="message_loading_animation" class="message_loading_animation">
+        </p>
+    </div>
+</section>
+    </form>
+</body>
+<script>
+
+
+    $("#language_sle").change(function () {
+        var opt = $("#language_sle").val();
+        document.cookie = "language=" + opt;
+
+        location.reload();
+    });
+    if (document.cookie.indexOf("Chinese") > 0) {
+
+        document.write("<script type='text/javascript' src='../../js/language/Chinese_Cn.js'><\/script>");
+    } else if (document.cookie.indexOf("English") > 0) {
+
+        document.write("<script type='text/javascript' src='../../js/language/English_En.js'><\/script>");
+    }
+    else if (document.cookie.indexOf("French") > 0) {
+
+        document.write("<script type='text/javascript' src='../../js/language/French_Fc.js'><\/script>");
+    }
+    $(document).ready(setLeftMenu);
+
+    function setLeftMenu() {
+        var url = window.location.href.split('?')[0];
+        var paras = url.split('/');
+        var pagename = paras[paras.length - 1].toLowerCase();
+        try {
+            // remove all class
+
+            switch (pagename) {
+                case 'searchattproduct.aspx': // ok
+                    {
+                        $('#li_product').addClass('active');
+                        $('#li_searchprouct_attribute').addClass('current');
+                    }
+                    break;
+                case 'productattribute.aspx': // ok
+                    {
+                        $('#li_product').addClass('active');
+                        $('#li_searchprouct_attribute').addClass('current');
+                    }
+                    break;
+                case 'searchclient.aspx': // ok
+                    {
+                        $('#li_client').addClass('active');
+                        $('#sub_searchclient').addClass('current');
+                    }
+                    break;
+                case 'client.aspx': // ok
+                    {
+                        $('#li_client').addClass('active');
+                        $('#sub_client').addClass('current');
+                    }
+                    break;
+                case 'clientapplication.aspx': // ok
+                    {
+                        $('#li_client').addClass('active');
+                        $('#sub_clientapplication').addClass('current');
+                    }
+                    break;
+                case 'searchproduct.aspx': // ok
+                    {
+                        $('#li_product').addClass('active');
+                        $('#li_searchprouct').addClass('current');
+                    }
+                    break;
+                case 'product.aspx': // ok
+                    {
+                        $('#li_product').addClass('active');
+                        $('#li_product_page').addClass('current');
+                    }
+                    break;
+                case 'productexpress.aspx': // ok
+                    {
+                        $('#li_product').addClass('active');
+                        $('#li_product_page').addClass('current');
+                    }
+                    break;
+                case 'project.aspx': // ok
+                    {
+                        $('#li_project').addClass('active');
+                        $('#sub_project').addClass('current');
+                    }
+                    break;
+                case 'projectcostplanlist.aspx': // ok
+                    {
+                        $('#li_project').addClass('active');
+                        $('#sub_project').addClass('current');
+                    }
+                    break;
+                case 'projectclientorderlist.aspx': // ok
+                    {
+                        $('#li_project').addClass('active');
+                        $('#sub_project').addClass('current');
+                    }
+                    break;
+                case 'searchproject.aspx': // ok
+                    {
+                        $('#li_project').addClass('active');
+                        $('#sub_search_project').addClass('current');
+                    }
+                    break;
+                case 'searchcostplan.aspx': // ok
+                    {
+                        $('#li_costplan').addClass('active');
+                        $('#sub_searchcostplan').addClass('current');
+                    }
+                    break;
+                case 'costplan.aspx':   // ok
+                    {
+                        $('#li_costplan').addClass('active');
+                        $('#sub_costplan').addClass('current');
+                    }
+                    break;
+                case 'costplanclientorderlist.aspx':   // ok
+                    {
+                        $('#li_costplan').addClass('active');
+                        $('#sub_costplan').addClass('current');
+                    }
+                    break;
+                case 'costplanclientinvoicelist.aspx':   // ok
+                    {
+                        $('#li_costplan').addClass('active');
+                        $('#sub_costplan').addClass('current');
+                    }
+                    break;
+                case 'searchsupplier.aspx': // ok
+                    {
+                        $('#li_supplier').addClass('active');
+                        $('#sub_searchsupplier').addClass('current');
+                    }
+                    break;
+                case 'supplier.aspx':  // ok
+                    {
+                        $('#li_supplier').addClass('active');
+                        $('#sub_supplier').addClass('current');
+                    }
+                    break;
+                case 'supplierproductsearch.aspx':  // ok
+                    {
+                        $('#li_supplier').addClass('active');
+                        $('#sub_supplier_product_search').addClass('current');
+                    }
+                    break;
+                case 'supplierproduct.aspx':  // ok
+                    {
+                        $('#li_supplier').addClass('active');
+                        $('#sub_supplier_product_search').addClass('current');
+                    }
+                    break;
+                case 'searchclientorder.aspx': // ok
+                    {
+                        $('#li_clientorder').addClass('active');
+                        $('#sub_searchclientorder').addClass('current');
+                    }
+                    break;
+                case 'clientorder.aspx': // ok
+                    {
+                        $('#li_clientorder').addClass('active');
+                        $('#sub_clientorder').addClass('current');
+                    }
+                    break;
+                case 'deliveryform.aspx': // ok
+                    {
+                        $('#li_deliveryform').addClass('active');
+                        $('#sub_deliveryform').addClass('current');
+                    }
+                    break;
+                case 'searchdeliveryform.aspx': // ok
+                    {
+                        $('#li_deliveryform').addClass('active');
+                        $('#sub_searchdeliveryform').addClass('current');
+                    }
+                    break;
+                case 'clientorderdeliveryformlist.aspx': // ok
+                    {
+                        $('#li_deliveryform').addClass('active');
+                        $('#sub_deliveryform').addClass('current');
+                    }
+                    break;
+                case 'clientinvoice.aspx': // ok
+                    {
+                        $('#li_clientinvoice').addClass('active');
+                        $('#sub_clientinvoice').addClass('current');
+                    }
+                    break;
+                case 'clientinvoicestatment.aspx': // ok
+                    {
+                        $('#li_clientinvoice').addClass('active');
+                        $('#sub_clientinvoicestatment').addClass('current');
+                    }
+                    break;
+                case 'clientinvoicea.aspx': // ok
+                    {
+                        $('#li_clientinvoice').addClass('active');
+                        $('#sub_clientinvoiceA').addClass('current');
+                    }
+                    break;
+                case 'searchclientinvoice.aspx': // ok
+                    {
+                        $('#li_clientinvoice').addClass('active');
+                        $('#sub_searchclientinvoice').addClass('current');
+                    }
+                    break;
+                case 'searchpurchaseintent.aspx': // ok
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_searchpin').addClass('current');
+                    }
+                    break;
+                case 'supplierorderdetails.aspx': // ok
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_soddetail').addClass('current');
+                    }
+                    break;
+                case 'supplierorderpayment.aspx': // ok
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_sodpayment').addClass('current');
+                    }
+                    break;
+                case 'pinsoddetails.aspx': // ok
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_ia_sod_detail').addClass('current');
+                    }
+                    break;
+                case 'purchaseintent.aspx': // ok
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_searchpin').addClass('current');
+                    }
+                    break;
+                case 'supplierorder.aspx':  // ok
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_searchsod').addClass('current');
+                    }
+                    break;
+                case 'searchsupplierorder.aspx':  // ok
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_searchsod').addClass('current');
+                    }
+                    break;
+                case 'supplierinvoice.aspx':    // ok
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_searchsin').addClass('current');
+                    }
+                    break;
+                case 'searchsupplierinvoice.aspx':  //ok
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_searchsin').addClass('current');
+                    }
+                    break;
+                case 'logistics.aspx': // ok
+                    {
+                        $('#li_logistic').addClass('active');
+                        $('#sub_logistic').addClass('current');
+                    }
+                    break;
+                case 'searchlogistics.aspx': // ok
+                    {
+                        $('#li_logistic').addClass('active');
+                        $('#sub_searchlogistic').addClass('current');
+                    }
+                    break;
+                case 'searchconsignee.aspx': // ok
+                    {
+                        $('#li_logistic').addClass('active');
+                        $('#sub_consignee').addClass('current');
+                    }
+                    break;
+                case 'searchcategory.aspx': // ok
+                    {
+                        $('#li_product').addClass('active');
+                        $('#li_searchcategory').addClass('current');
+                    }
+                    break;
+                case 'category.aspx': // ok
+                    {
+                        $('#li_product').addClass('active');
+                        $('#li_searchcategory').addClass('current');
+                    }
+                    break;
+                case 'warehouse.aspx': // ok
+                    {
+                        $('#li_warehouse').addClass('active');
+                        $('#sub_warehouse').addClass('current');
+                    }
+                    break;
+                case 'warehousevoucher.aspx': // ok
+                    {
+                        $('#li_warehouse').addClass('active');
+                        $('#sub_searchvoucher').addClass('current');
+                    }
+                    break;
+                case 'shelves.aspx': // ok
+                    {
+                        $('#li_warehouse').addClass('active');
+                        $('#sub_shelves').addClass('current');
+                    }
+                    break;
+                case 'productinventory.aspx': // ok
+                    {
+                        $('#li_warehouse').addClass('active');
+                        $('#sub_productinventory').addClass('current');
+                    }
+                    break;
+                case 'warehousevoucher.aspx': // ok
+                    {
+                        $('#li_warehouse').addClass('active');
+                        $('#sub_voucher').addClass('current');
+                    }
+                    break;
+                case 'searchvoucher.aspx': // ok
+                    {
+                        $('#li_warehouse').addClass('active');
+                        $('#sub_searchvoucher').addClass('current');
+                    }
+                    break;
+                case 'recommandedproduct.aspx': // ok
+                    {
+                        $('#li_product').addClass('active');
+                        $('#li_recommandedprd').addClass('current');
+                    }
+                    break;
+                case 'siteproject.aspx': // ok
+                    {
+                        $('#li_product').addClass('active');
+                        $('#li_siteproject').addClass('current');
+                    }
+                    break;
+                case 'enterprisesetting.aspx': // ok
+                    {
+                        $('#li_company').addClass('active');
+                        $('#sub_compnay').addClass('current');
+                    }
+                    break;
+                case 'whereismyclient.aspx':
+                    {
+                        $('#li_client').addClass('active');
+                        $('#sub_where_client').addClass('current');
+                    }
+                    break;
+                case 'searchmessage.aspx':
+                    {
+                        $('#li_msg').addClass('active');
+                        $('#sub_searchmsg').addClass('current');
+                    }
+                    break;
+                case 'message.aspx':
+                    {
+                        $('#li_msg').addClass('active');
+                        $('#sub_msg').addClass('current');
+                    }
+                    break;
+                case 'supplierorderstatus.aspx':
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_sodstatus').addClass('current');
+                    }
+                    break;
+                case 'sodcinpayment.aspx':
+                    {
+                        $('#li_supplierorder').addClass('active');
+                        $('#sub_sodcinpayment').addClass('current');
+                    }
+                    break;
+                default:
+            }
+            //            GetToDoListGeneral();
+            //            GetComingEventsForBasePage();
+
+            //setInterval(GetToDoListGeneral, 5000);
+            //setInterval(GetComingEventsForBasePage, 5000);
+            //            GetMessage2Treate();
+
+            //            setInterval("GetMessage2Treate()", 5000);
+        } catch (e) {
+
+        }
+    }
+
+    function shake(element, className, times) {
+        var i = 0,
+            t = false,
+            o = element.attr("class"),
+            c = "",
+            timestimes = times || 2;
+
+        if (t) return;
+
+        t = setInterval(function () {
+            i++;
+            c = i % 2 ? o + ' ' + className : o;
+            element.attr("class", c);
+
+            if (i == 2 * times) {
+                clearInterval(t);
+                element.removeClass(className);
+            }
+        }, 200);
+    };
+
+    //    $(function () {
+    //        shake($('.badge'), "flashRed", 10);
+    //    });
+</script>
+<style>
+    *
+    {
+        margin: 0;
+        padding: 0;
+    }
+    
+    .flashRed
+    {
+        color: #c0c0c0;
+    }
+</style>
+
+    <link rel="stylesheet" type="text/css" href='<%= Page.ResolveClientUrl("~/js/layui/css/layui.css")%>' />
+    <script src='<%= Page.ResolveClientUrl("~/js/layui/layui.js")%>'></script>
+</html>

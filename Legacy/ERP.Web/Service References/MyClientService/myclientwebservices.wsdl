@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wsdl:definitions xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" xmlns:tm="http://microsoft.com/wsdl/mime/textMatching/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:tns="http://microsoft.com/webservices/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:s="http://www.w3.org/2001/XMLSchema" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" targetNamespace="http://microsoft.com/webservices/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/">
+  <wsdl:types>
+    <s:schema elementFormDefault="qualified" targetNamespace="http://microsoft.com/webservices/">
+      <s:element name="HelloWorld">
+        <s:complexType />
+      </s:element>
+      <s:element name="HelloWorldResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="HelloWorldResult" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetMessageSetErrorMessage">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="token" type="s:string" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="GetMessageSetErrorMessageResponse">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="GetMessageSetErrorMessageResult" type="tns:ArrayOfSMS_Message" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:complexType name="ArrayOfSMS_Message">
+        <s:sequence>
+          <s:element minOccurs="0" maxOccurs="unbounded" name="SMS_Message" nillable="true" type="tns:SMS_Message" />
+        </s:sequence>
+      </s:complexType>
+      <s:complexType name="SMS_Message">
+        <s:sequence>
+          <s:element minOccurs="1" maxOccurs="1" name="sms_id" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="grp_id" type="s:int" />
+          <s:element minOccurs="0" maxOccurs="1" name="sms_telnumber" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="sms_subject" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="sms_content" type="s:string" />
+          <s:element minOccurs="1" maxOccurs="1" name="sms_send" type="s:boolean" />
+          <s:element minOccurs="1" maxOccurs="1" name="usr_id" type="s:int" />
+          <s:element minOccurs="1" maxOccurs="1" name="sms_d_creation" type="s:dateTime" />
+          <s:element minOccurs="1" maxOccurs="1" name="sms_d_send" nillable="true" type="s:dateTime" />
+          <s:element minOccurs="0" maxOccurs="1" name="sms_signature" type="s:string" />
+          <s:element minOccurs="0" maxOccurs="1" name="sms_appGuid" type="s:string" />
+        </s:sequence>
+      </s:complexType>
+      <s:element name="AddMessage">
+        <s:complexType>
+          <s:sequence>
+            <s:element minOccurs="0" maxOccurs="1" name="aMessage" type="tns:SMS_Message" />
+          </s:sequence>
+        </s:complexType>
+      </s:element>
+      <s:element name="AddMessageResponse">
+        <s:complexType />
+      </s:element>
+    </s:schema>
+  </wsdl:types>
+  <wsdl:message name="HelloWorldSoapIn">
+    <wsdl:part name="parameters" element="tns:HelloWorld" />
+  </wsdl:message>
+  <wsdl:message name="HelloWorldSoapOut">
+    <wsdl:part name="parameters" element="tns:HelloWorldResponse" />
+  </wsdl:message>
+  <wsdl:message name="GetMessageSetErrorMessageSoapIn">
+    <wsdl:part name="parameters" element="tns:GetMessageSetErrorMessage" />
+  </wsdl:message>
+  <wsdl:message name="GetMessageSetErrorMessageSoapOut">
+    <wsdl:part name="parameters" element="tns:GetMessageSetErrorMessageResponse" />
+  </wsdl:message>
+  <wsdl:message name="AddMessageSoapIn">
+    <wsdl:part name="parameters" element="tns:AddMessage" />
+  </wsdl:message>
+  <wsdl:message name="AddMessageSoapOut">
+    <wsdl:part name="parameters" element="tns:AddMessageResponse" />
+  </wsdl:message>
+  <wsdl:portType name="MyClientWebServicesSoap">
+    <wsdl:operation name="HelloWorld">
+      <wsdl:input message="tns:HelloWorldSoapIn" />
+      <wsdl:output message="tns:HelloWorldSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="GetMessageSetErrorMessage">
+      <wsdl:input message="tns:GetMessageSetErrorMessageSoapIn" />
+      <wsdl:output message="tns:GetMessageSetErrorMessageSoapOut" />
+    </wsdl:operation>
+    <wsdl:operation name="AddMessage">
+      <wsdl:input message="tns:AddMessageSoapIn" />
+      <wsdl:output message="tns:AddMessageSoapOut" />
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="MyClientWebServicesSoap" type="tns:MyClientWebServicesSoap">
+    <soap:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="HelloWorld">
+      <soap:operation soapAction="http://microsoft.com/webservices/HelloWorld" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetMessageSetErrorMessage">
+      <soap:operation soapAction="http://microsoft.com/webservices/GetMessageSetErrorMessage" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AddMessage">
+      <soap:operation soapAction="http://microsoft.com/webservices/AddMessage" style="document" />
+      <wsdl:input>
+        <soap:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:binding name="MyClientWebServicesSoap12" type="tns:MyClientWebServicesSoap">
+    <soap12:binding transport="http://schemas.xmlsoap.org/soap/http" />
+    <wsdl:operation name="HelloWorld">
+      <soap12:operation soapAction="http://microsoft.com/webservices/HelloWorld" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="GetMessageSetErrorMessage">
+      <soap12:operation soapAction="http://microsoft.com/webservices/GetMessageSetErrorMessage" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="AddMessage">
+      <soap12:operation soapAction="http://microsoft.com/webservices/AddMessage" style="document" />
+      <wsdl:input>
+        <soap12:body use="literal" />
+      </wsdl:input>
+      <wsdl:output>
+        <soap12:body use="literal" />
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="MyClientWebServices">
+    <wsdl:port name="MyClientWebServicesSoap" binding="tns:MyClientWebServicesSoap">
+      <soap:address location="http://www.my-clients.com/webservices/myclientwebservices.asmx" />
+    </wsdl:port>
+    <wsdl:port name="MyClientWebServicesSoap12" binding="tns:MyClientWebServicesSoap12">
+      <soap12:address location="http://www.my-clients.com/webservices/myclientwebservices.asmx" />
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

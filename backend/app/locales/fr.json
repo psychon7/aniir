@@ -1,0 +1,358 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Creer",
+    "search": "Rechercher",
+    "actions": "Actions",
+    "yes": "Oui",
+    "no": "Non",
+    "confirm": "Confirmer",
+    "success": "Succes",
+    "error": "Erreur",
+    "warning": "Avertissement",
+    "info": "Information",
+    "required": "Obligatoire",
+    "optional": "Optionnel",
+    "total": "Total",
+    "subtotal": "Sous-total",
+    "date": "Date",
+    "time": "Heure",
+    "from": "De",
+    "to": "A",
+    "status": "Statut",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "pending": "En attente",
+    "completed": "Termine",
+    "cancelled": "Annule",
+    "all": "Tous",
+    "none": "Aucun"
+  },
+  "api": {
+    "success": {
+      "created": "Ressource creee avec succes",
+      "updated": "Ressource mise a jour avec succes",
+      "deleted": "Ressource supprimee avec succes",
+      "fetched": "Donnees recuperees avec succes",
+      "processed": "Traitement effectue avec succes"
+    },
+    "errors": {
+      "notFound": "Ressource non trouvee",
+      "unauthorized": "Non autorise",
+      "forbidden": "Acces interdit",
+      "badRequest": "Requete invalide",
+      "conflict": "Conflit de donnees",
+      "serverError": "Erreur interne du serveur",
+      "validationError": "Erreur de validation",
+      "networkError": "Erreur de connexion",
+      "timeout": "Delai d'attente depasse",
+      "databaseError": "Erreur de base de donnees",
+      "fileUploadError": "Erreur lors du telechargement du fichier",
+      "fileTooLarge": "Le fichier est trop volumineux",
+      "invalidFileType": "Type de fichier non supporte",
+      "duplicateEntry": "Cette entree existe deja",
+      "referenceError": "Cette ressource est referencee ailleurs",
+      "rateLimitExceeded": "Limite de requetes atteinte"
+    }
+  },
+  "auth": {
+    "login": {
+      "success": "Connexion reussie",
+      "failed": "Echec de la connexion",
+      "invalidCredentials": "Identifiants invalides",
+      "accountLocked": "Compte verrouille",
+      "accountDisabled": "Compte desactive",
+      "sessionExpired": "Session expiree, veuillez vous reconnecter",
+      "tooManyAttempts": "Trop de tentatives, veuillez reessayer plus tard"
+    },
+    "logout": {
+      "success": "Deconnexion reussie"
+    },
+    "password": {
+      "resetSuccess": "Mot de passe reinitialise avec succes",
+      "resetFailed": "Echec de la reinitialisation du mot de passe",
+      "changeSuccess": "Mot de passe modifie avec succes",
+      "changeFailed": "Echec du changement de mot de passe",
+      "invalidToken": "Jeton de reinitialisation invalide ou expire",
+      "mismatch": "Les mots de passe ne correspondent pas",
+      "tooWeak": "Le mot de passe est trop faible",
+      "sameAsCurrent": "Le nouveau mot de passe doit etre different de l'actuel"
+    },
+    "token": {
+      "invalid": "Jeton invalide",
+      "expired": "Jeton expire",
+      "refreshed": "Jeton actualise avec succes"
+    }
+  },
+  "clients": {
+    "created": "Client cree avec succes",
+    "updated": "Client mis a jour avec succes",
+    "deleted": "Client supprime avec succes",
+    "notFound": "Client non trouve",
+    "alreadyExists": "Un client avec cette reference existe deja",
+    "cannotDelete": "Impossible de supprimer ce client car il est reference dans d'autres documents",
+    "blocked": "Ce client est bloque",
+    "creditLimitExceeded": "La limite de credit de ce client est depassee"
+  },
+  "products": {
+    "created": "Produit cree avec succes",
+    "updated": "Produit mis a jour avec succes",
+    "deleted": "Produit supprime avec succes",
+    "notFound": "Produit non trouve",
+    "alreadyExists": "Un produit avec cette reference existe deja",
+    "cannotDelete": "Impossible de supprimer ce produit car il est reference dans d'autres documents",
+    "outOfStock": "Produit en rupture de stock",
+    "insufficientStock": "Stock insuffisant",
+    "priceUpdated": "Prix mis a jour avec succes"
+  },
+  "quotes": {
+    "created": "Devis cree avec succes",
+    "updated": "Devis mis a jour avec succes",
+    "deleted": "Devis supprime avec succes",
+    "notFound": "Devis non trouve",
+    "sent": "Devis envoye avec succes",
+    "accepted": "Devis accepte",
+    "rejected": "Devis refuse",
+    "expired": "Ce devis a expire",
+    "converted": "Devis converti en commande avec succes",
+    "cannotConvert": "Impossible de convertir ce devis",
+    "alreadyConverted": "Ce devis a deja ete converti"
+  },
+  "orders": {
+    "created": "Commande creee avec succes",
+    "updated": "Commande mise a jour avec succes",
+    "deleted": "Commande supprimee avec succes",
+    "notFound": "Commande non trouvee",
+    "confirmed": "Commande confirmee",
+    "shipped": "Commande expediee",
+    "delivered": "Commande livree",
+    "cancelled": "Commande annulee",
+    "cannotCancel": "Impossible d'annuler cette commande",
+    "cannotModify": "Impossible de modifier cette commande",
+    "insufficientStock": "Stock insuffisant pour cette commande"
+  },
+  "invoices": {
+    "created": "Facture creee avec succes",
+    "updated": "Facture mise a jour avec succes",
+    "deleted": "Facture supprimee avec succes",
+    "notFound": "Facture non trouvee",
+    "sent": "Facture envoyee avec succes",
+    "paid": "Facture payee",
+    "partiallyPaid": "Facture partiellement payee",
+    "overdue": "Facture en retard",
+    "cancelled": "Facture annulee",
+    "voided": "Facture annulee (void)",
+    "cannotCancel": "Impossible d'annuler cette facture",
+    "cannotModify": "Impossible de modifier cette facture",
+    "paymentRecorded": "Paiement enregistre avec succes",
+    "alreadyPaid": "Cette facture est deja payee"
+  },
+  "deliveries": {
+    "created": "Livraison creee avec succes",
+    "updated": "Livraison mise a jour avec succes",
+    "deleted": "Livraison supprimee avec succes",
+    "notFound": "Livraison non trouvee",
+    "shipped": "Livraison expediee",
+    "inTransit": "Livraison en transit",
+    "delivered": "Livraison effectuee",
+    "returned": "Livraison retournee",
+    "cancelled": "Livraison annulee",
+    "trackingUpdated": "Informations de suivi mises a jour"
+  },
+  "suppliers": {
+    "created": "Fournisseur cree avec succes",
+    "updated": "Fournisseur mis a jour avec succes",
+    "deleted": "Fournisseur supprime avec succes",
+    "notFound": "Fournisseur non trouve",
+    "alreadyExists": "Un fournisseur avec cette reference existe deja",
+    "cannotDelete": "Impossible de supprimer ce fournisseur car il est reference dans d'autres documents"
+  },
+  "payments": {
+    "created": "Paiement enregistre avec succes",
+    "updated": "Paiement mis a jour avec succes",
+    "deleted": "Paiement supprime avec succes",
+    "notFound": "Paiement non trouve",
+    "processed": "Paiement traite avec succes",
+    "failed": "Echec du paiement",
+    "refunded": "Paiement rembourse",
+    "cancelled": "Paiement annule",
+    "amountExceedsBalance": "Le montant depasse le solde restant",
+    "invalidAmount": "Montant invalide"
+  },
+  "warehouse": {
+    "created": "Entrepot cree avec succes",
+    "updated": "Entrepot mis a jour avec succes",
+    "deleted": "Entrepot supprime avec succes",
+    "notFound": "Entrepot non trouve",
+    "stockUpdated": "Stock mis a jour avec succes",
+    "transferCompleted": "Transfert effectue avec succes",
+    "adjustmentRecorded": "Ajustement enregistre",
+    "insufficientStock": "Stock insuffisant pour cette operation",
+    "locationNotFound": "Emplacement non trouve"
+  },
+  "drive": {
+    "fileUploaded": "Fichier telecharge avec succes",
+    "fileDeleted": "Fichier supprime avec succes",
+    "fileRenamed": "Fichier renomme avec succes",
+    "fileMoved": "Fichier deplace avec succes",
+    "fileCopied": "Fichier copie avec succes",
+    "folderCreated": "Dossier cree avec succes",
+    "folderDeleted": "Dossier supprime avec succes",
+    "folderRenamed": "Dossier renomme avec succes",
+    "fileNotFound": "Fichier non trouve",
+    "folderNotFound": "Dossier non trouve",
+    "fileTooLarge": "Le fichier est trop volumineux",
+    "invalidFileType": "Type de fichier non supporte",
+    "storageQuotaExceeded": "Quota de stockage depasse",
+    "accessDenied": "Acces au fichier refuse"
+  },
+  "email": {
+    "sent": "Email envoye avec succes",
+    "failed": "Echec de l'envoi de l'email",
+    "queued": "Email mis en file d'attente",
+    "delivered": "Email livre",
+    "bounced": "Email rejete",
+    "opened": "Email ouvert",
+    "clicked": "Lien clique",
+    "unsubscribed": "Desabonnement effectue",
+    "templates": {
+      "quoteSubject": "Votre devis {{reference}}",
+      "invoiceSubject": "Votre facture {{reference}}",
+      "orderConfirmationSubject": "Confirmation de commande {{reference}}",
+      "deliveryNotificationSubject": "Notification de livraison {{reference}}",
+      "paymentConfirmationSubject": "Confirmation de paiement",
+      "passwordResetSubject": "Reinitialisation de votre mot de passe",
+      "welcomeSubject": "Bienvenue sur notre plateforme"
+    }
+  },
+  "notifications": {
+    "newOrder": "Nouvelle commande recue",
+    "orderStatusChanged": "Statut de commande modifie",
+    "newInvoice": "Nouvelle facture creee",
+    "invoicePaid": "Facture payee",
+    "invoiceOverdue": "Facture en retard",
+    "newPayment": "Nouveau paiement recu",
+    "lowStock": "Alerte stock bas",
+    "outOfStock": "Rupture de stock",
+    "deliveryShipped": "Livraison expediee",
+    "deliveryDelivered": "Livraison effectuee",
+    "newQuote": "Nouveau devis cree",
+    "quoteExpiring": "Devis bientot expire",
+    "newClient": "Nouveau client enregistre"
+  },
+  "reports": {
+    "generated": "Rapport genere avec succes",
+    "exported": "Rapport exporte avec succes",
+    "noData": "Aucune donnee disponible pour ce rapport",
+    "invalidDateRange": "Plage de dates invalide",
+    "processingError": "Erreur lors du traitement du rapport"
+  },
+  "settings": {
+    "updated": "Parametres mis a jour avec succes",
+    "savedSuccessfully": "Enregistrement reussi",
+    "invalidConfiguration": "Configuration invalide",
+    "smtpTestSuccess": "Test SMTP reussi",
+    "smtpTestFailed": "Echec du test SMTP"
+  },
+  "users": {
+    "created": "Utilisateur cree avec succes",
+    "updated": "Utilisateur mis a jour avec succes",
+    "deleted": "Utilisateur supprime avec succes",
+    "notFound": "Utilisateur non trouve",
+    "alreadyExists": "Un utilisateur avec cet email existe deja",
+    "activated": "Compte active avec succes",
+    "deactivated": "Compte desactive",
+    "roleUpdated": "Role mis a jour avec succes",
+    "permissionDenied": "Permission refusee"
+  },
+  "landedCost": {
+    "calculated": "Cout de revient calcule avec succes",
+    "updated": "Cout de revient mis a jour",
+    "invalidData": "Donnees de calcul invalides",
+    "missingExchangeRate": "Taux de change manquant",
+    "breakdown": {
+      "basePrice": "Prix de base",
+      "freight": "Fret",
+      "insurance": "Assurance",
+      "customs": "Douane",
+      "duties": "Droits de douane",
+      "handling": "Manutention",
+      "other": "Autres frais",
+      "total": "Cout total de revient",
+      "unitCost": "Cout unitaire"
+    },
+    "allocation": {
+      "byWeight": "Repartition par poids",
+      "byValue": "Repartition par valeur",
+      "byQuantity": "Repartition par quantite"
+    }
+  },
+  "statements": {
+    "created": "Releve cree avec succes",
+    "updated": "Releve mis a jour avec succes",
+    "deleted": "Releve supprime avec succes",
+    "notFound": "Releve non trouve",
+    "sent": "Releve envoye avec succes",
+    "finalized": "Releve finalise",
+    "cannotModify": "Impossible de modifier un releve finalise"
+  },
+  "validation": {
+    "required": "Ce champ est obligatoire",
+    "email": "Adresse email invalide",
+    "phone": "Numero de telephone invalide",
+    "url": "URL invalide",
+    "minLength": "Minimum {{min}} caracteres requis",
+    "maxLength": "Maximum {{max}} caracteres autorises",
+    "minValue": "La valeur doit etre au moins {{min}}",
+    "maxValue": "La valeur ne peut pas depasser {{max}}",
+    "invalidFormat": "Format invalide",
+    "invalidDate": "Date invalide",
+    "futureDate": "La date doit etre dans le futur",
+    "pastDate": "La date doit etre dans le passe",
+    "positiveNumber": "La valeur doit etre positive",
+    "integer": "La valeur doit etre un nombre entier",
+    "decimal": "La valeur doit etre un nombre decimal",
+    "unique": "Cette valeur existe deja",
+    "vatNumber": "Numero de TVA invalide",
+    "siret": "Numero SIRET invalide"
+  },
+  "scheduler": {
+    "taskScheduled": "Tache planifiee avec succes",
+    "taskExecuted": "Tache executee avec succes",
+    "taskFailed": "Echec de l'execution de la tache",
+    "taskCancelled": "Tache annulee"
+  },
+  "import": {
+    "started": "Importation demarree",
+    "completed": "Importation terminee",
+    "failed": "Echec de l'importation",
+    "partialSuccess": "Importation partiellement reussie",
+    "rowsProcessed": "{{count}} lignes traitees",
+    "rowsSkipped": "{{count}} lignes ignorees",
+    "rowsFailed": "{{count}} lignes en erreur",
+    "invalidFormat": "Format de fichier invalide",
+    "missingColumns": "Colonnes requises manquantes"
+  },
+  "export": {
+    "started": "Exportation demarree",
+    "completed": "Exportation terminee",
+    "failed": "Echec de l'exportation",
+    "noData": "Aucune donnee a exporter",
+    "fileReady": "Fichier pret au telechargement"
+  },
+  "integrations": {
+    "shopify": {
+      "connected": "Connexion Shopify reussie",
+      "disconnected": "Deconnexion Shopify effectuee",
+      "syncStarted": "Synchronisation Shopify demarree",
+      "syncCompleted": "Synchronisation Shopify terminee",
+      "syncFailed": "Echec de la synchronisation Shopify",
+      "orderImported": "Commande Shopify importee",
+      "productSynced": "Produit synchronise avec Shopify"
+    }
+  }
+}

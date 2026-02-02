@@ -1,0 +1,358 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "search": "搜索",
+    "actions": "操作",
+    "yes": "是",
+    "no": "否",
+    "confirm": "确认",
+    "success": "成功",
+    "error": "错误",
+    "warning": "警告",
+    "info": "信息",
+    "required": "必填",
+    "optional": "可选",
+    "total": "总计",
+    "subtotal": "小计",
+    "date": "日期",
+    "time": "时间",
+    "from": "从",
+    "to": "至",
+    "status": "状态",
+    "active": "启用",
+    "inactive": "停用",
+    "pending": "待处理",
+    "completed": "已完成",
+    "cancelled": "已取消",
+    "all": "全部",
+    "none": "无"
+  },
+  "api": {
+    "success": {
+      "created": "资源创建成功",
+      "updated": "资源更新成功",
+      "deleted": "资源删除成功",
+      "fetched": "数据获取成功",
+      "processed": "处理成功"
+    },
+    "errors": {
+      "notFound": "资源未找到",
+      "unauthorized": "未授权",
+      "forbidden": "禁止访问",
+      "badRequest": "请求无效",
+      "conflict": "数据冲突",
+      "serverError": "服务器内部错误",
+      "validationError": "验证错误",
+      "networkError": "网络连接错误",
+      "timeout": "请求超时",
+      "databaseError": "数据库错误",
+      "fileUploadError": "文件上传错误",
+      "fileTooLarge": "文件过大",
+      "invalidFileType": "不支持的文件类型",
+      "duplicateEntry": "该条目已存在",
+      "referenceError": "该资源被其他地方引用",
+      "rateLimitExceeded": "请求次数超限"
+    }
+  },
+  "auth": {
+    "login": {
+      "success": "登录成功",
+      "failed": "登录失败",
+      "invalidCredentials": "凭证无效",
+      "accountLocked": "账户已锁定",
+      "accountDisabled": "账户已禁用",
+      "sessionExpired": "会话已过期，请重新登录",
+      "tooManyAttempts": "尝试次数过多，请稍后重试"
+    },
+    "logout": {
+      "success": "退出登录成功"
+    },
+    "password": {
+      "resetSuccess": "密码重置成功",
+      "resetFailed": "密码重置失败",
+      "changeSuccess": "密码修改成功",
+      "changeFailed": "密码修改失败",
+      "invalidToken": "重置令牌无效或已过期",
+      "mismatch": "密码不匹配",
+      "tooWeak": "密码强度不足",
+      "sameAsCurrent": "新密码不能与当前密码相同"
+    },
+    "token": {
+      "invalid": "令牌无效",
+      "expired": "令牌已过期",
+      "refreshed": "令牌刷新成功"
+    }
+  },
+  "clients": {
+    "created": "客户创建成功",
+    "updated": "客户更新成功",
+    "deleted": "客户删除成功",
+    "notFound": "客户未找到",
+    "alreadyExists": "具有此编号的客户已存在",
+    "cannotDelete": "无法删除此客户，因为它被其他文档引用",
+    "blocked": "该客户已被冻结",
+    "creditLimitExceeded": "该客户的信用额度已超限"
+  },
+  "products": {
+    "created": "产品创建成功",
+    "updated": "产品更新成功",
+    "deleted": "产品删除成功",
+    "notFound": "产品未找到",
+    "alreadyExists": "具有此编号的产品已存在",
+    "cannotDelete": "无法删除此产品，因为它被其他文档引用",
+    "outOfStock": "产品缺货",
+    "insufficientStock": "库存不足",
+    "priceUpdated": "价格更新成功"
+  },
+  "quotes": {
+    "created": "报价单创建成功",
+    "updated": "报价单更新成功",
+    "deleted": "报价单删除成功",
+    "notFound": "报价单未找到",
+    "sent": "报价单发送成功",
+    "accepted": "报价单已接受",
+    "rejected": "报价单已拒绝",
+    "expired": "此报价单已过期",
+    "converted": "报价单转换为订单成功",
+    "cannotConvert": "无法转换此报价单",
+    "alreadyConverted": "此报价单已被转换"
+  },
+  "orders": {
+    "created": "订单创建成功",
+    "updated": "订单更新成功",
+    "deleted": "订单删除成功",
+    "notFound": "订单未找到",
+    "confirmed": "订单已确认",
+    "shipped": "订单已发货",
+    "delivered": "订单已送达",
+    "cancelled": "订单已取消",
+    "cannotCancel": "无法取消此订单",
+    "cannotModify": "无法修改此订单",
+    "insufficientStock": "此订单库存不足"
+  },
+  "invoices": {
+    "created": "发票创建成功",
+    "updated": "发票更新成功",
+    "deleted": "发票删除成功",
+    "notFound": "发票未找到",
+    "sent": "发票发送成功",
+    "paid": "发票已支付",
+    "partiallyPaid": "发票已部分支付",
+    "overdue": "发票已逾期",
+    "cancelled": "发票已取消",
+    "voided": "发票已作废",
+    "cannotCancel": "无法取消此发票",
+    "cannotModify": "无法修改此发票",
+    "paymentRecorded": "付款记录成功",
+    "alreadyPaid": "此发票已支付"
+  },
+  "deliveries": {
+    "created": "配送创建成功",
+    "updated": "配送更新成功",
+    "deleted": "配送删除成功",
+    "notFound": "配送未找到",
+    "shipped": "配送已发出",
+    "inTransit": "配送运输中",
+    "delivered": "配送已完成",
+    "returned": "配送已退回",
+    "cancelled": "配送已取消",
+    "trackingUpdated": "物流跟踪信息已更新"
+  },
+  "suppliers": {
+    "created": "供应商创建成功",
+    "updated": "供应商更新成功",
+    "deleted": "供应商删除成功",
+    "notFound": "供应商未找到",
+    "alreadyExists": "具有此编号的供应商已存在",
+    "cannotDelete": "无法删除此供应商，因为它被其他文档引用"
+  },
+  "payments": {
+    "created": "付款记录成功",
+    "updated": "付款更新成功",
+    "deleted": "付款删除成功",
+    "notFound": "付款未找到",
+    "processed": "付款处理成功",
+    "failed": "付款失败",
+    "refunded": "付款已退款",
+    "cancelled": "付款已取消",
+    "amountExceedsBalance": "金额超过剩余余额",
+    "invalidAmount": "金额无效"
+  },
+  "warehouse": {
+    "created": "仓库创建成功",
+    "updated": "仓库更新成功",
+    "deleted": "仓库删除成功",
+    "notFound": "仓库未找到",
+    "stockUpdated": "库存更新成功",
+    "transferCompleted": "调拨完成",
+    "adjustmentRecorded": "调整已记录",
+    "insufficientStock": "此操作库存不足",
+    "locationNotFound": "库位未找到"
+  },
+  "drive": {
+    "fileUploaded": "文件上传成功",
+    "fileDeleted": "文件删除成功",
+    "fileRenamed": "文件重命名成功",
+    "fileMoved": "文件移动成功",
+    "fileCopied": "文件复制成功",
+    "folderCreated": "文件夹创建成功",
+    "folderDeleted": "文件夹删除成功",
+    "folderRenamed": "文件夹重命名成功",
+    "fileNotFound": "文件未找到",
+    "folderNotFound": "文件夹未找到",
+    "fileTooLarge": "文件过大",
+    "invalidFileType": "不支持的文件类型",
+    "storageQuotaExceeded": "存储配额已超限",
+    "accessDenied": "文件访问被拒绝"
+  },
+  "email": {
+    "sent": "邮件发送成功",
+    "failed": "邮件发送失败",
+    "queued": "邮件已加入队列",
+    "delivered": "邮件已送达",
+    "bounced": "邮件被退回",
+    "opened": "邮件已打开",
+    "clicked": "链接已点击",
+    "unsubscribed": "已取消订阅",
+    "templates": {
+      "quoteSubject": "您的报价单 {{reference}}",
+      "invoiceSubject": "您的发票 {{reference}}",
+      "orderConfirmationSubject": "订单确认 {{reference}}",
+      "deliveryNotificationSubject": "配送通知 {{reference}}",
+      "paymentConfirmationSubject": "付款确认",
+      "passwordResetSubject": "重置您的密码",
+      "welcomeSubject": "欢迎使用我们的平台"
+    }
+  },
+  "notifications": {
+    "newOrder": "收到新订单",
+    "orderStatusChanged": "订单状态已变更",
+    "newInvoice": "新发票已创建",
+    "invoicePaid": "发票已支付",
+    "invoiceOverdue": "发票已逾期",
+    "newPayment": "收到新付款",
+    "lowStock": "库存预警",
+    "outOfStock": "库存不足",
+    "deliveryShipped": "配送已发出",
+    "deliveryDelivered": "配送已完成",
+    "newQuote": "新报价单已创建",
+    "quoteExpiring": "报价单即将到期",
+    "newClient": "新客户已注册"
+  },
+  "reports": {
+    "generated": "报表生成成功",
+    "exported": "报表导出成功",
+    "noData": "此报表无可用数据",
+    "invalidDateRange": "日期范围无效",
+    "processingError": "报表处理错误"
+  },
+  "settings": {
+    "updated": "设置更新成功",
+    "savedSuccessfully": "保存成功",
+    "invalidConfiguration": "配置无效",
+    "smtpTestSuccess": "SMTP测试成功",
+    "smtpTestFailed": "SMTP测试失败"
+  },
+  "users": {
+    "created": "用户创建成功",
+    "updated": "用户更新成功",
+    "deleted": "用户删除成功",
+    "notFound": "用户未找到",
+    "alreadyExists": "使用此邮箱的用户已存在",
+    "activated": "账户激活成功",
+    "deactivated": "账户已停用",
+    "roleUpdated": "角色更新成功",
+    "permissionDenied": "权限被拒绝"
+  },
+  "landedCost": {
+    "calculated": "到岸成本计算成功",
+    "updated": "到岸成本已更新",
+    "invalidData": "计算数据无效",
+    "missingExchangeRate": "缺少汇率",
+    "breakdown": {
+      "basePrice": "基础价格",
+      "freight": "运费",
+      "insurance": "保险费",
+      "customs": "清关费",
+      "duties": "关税",
+      "handling": "装卸费",
+      "other": "其他费用",
+      "total": "到岸总成本",
+      "unitCost": "单位成本"
+    },
+    "allocation": {
+      "byWeight": "按重量分摊",
+      "byValue": "按价值分摊",
+      "byQuantity": "按数量分摊"
+    }
+  },
+  "statements": {
+    "created": "对账单创建成功",
+    "updated": "对账单更新成功",
+    "deleted": "对账单删除成功",
+    "notFound": "对账单未找到",
+    "sent": "对账单发送成功",
+    "finalized": "对账单已定稿",
+    "cannotModify": "无法修改已定稿的对账单"
+  },
+  "validation": {
+    "required": "此字段为必填项",
+    "email": "邮箱地址无效",
+    "phone": "电话号码无效",
+    "url": "URL无效",
+    "minLength": "最少需要 {{min}} 个字符",
+    "maxLength": "最多允许 {{max}} 个字符",
+    "minValue": "值必须至少为 {{min}}",
+    "maxValue": "值不能超过 {{max}}",
+    "invalidFormat": "格式无效",
+    "invalidDate": "日期无效",
+    "futureDate": "日期必须是将来的日期",
+    "pastDate": "日期必须是过去的日期",
+    "positiveNumber": "值必须为正数",
+    "integer": "值必须为整数",
+    "decimal": "值必须为小数",
+    "unique": "此值已存在",
+    "vatNumber": "增值税号无效",
+    "siret": "SIRET编号无效"
+  },
+  "scheduler": {
+    "taskScheduled": "任务计划成功",
+    "taskExecuted": "任务执行成功",
+    "taskFailed": "任务执行失败",
+    "taskCancelled": "任务已取消"
+  },
+  "import": {
+    "started": "导入已开始",
+    "completed": "导入完成",
+    "failed": "导入失败",
+    "partialSuccess": "导入部分成功",
+    "rowsProcessed": "已处理 {{count}} 行",
+    "rowsSkipped": "已跳过 {{count}} 行",
+    "rowsFailed": "{{count}} 行出错",
+    "invalidFormat": "文件格式无效",
+    "missingColumns": "缺少必需的列"
+  },
+  "export": {
+    "started": "导出已开始",
+    "completed": "导出完成",
+    "failed": "导出失败",
+    "noData": "无数据可导出",
+    "fileReady": "文件已准备好下载"
+  },
+  "integrations": {
+    "shopify": {
+      "connected": "Shopify连接成功",
+      "disconnected": "Shopify已断开连接",
+      "syncStarted": "Shopify同步已开始",
+      "syncCompleted": "Shopify同步完成",
+      "syncFailed": "Shopify同步失败",
+      "orderImported": "Shopify订单已导入",
+      "productSynced": "产品已与Shopify同步"
+    }
+  }
+}

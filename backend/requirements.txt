@@ -1,0 +1,12 @@
+# Existing dependencies...
+fastapi>=0.104.0
+uvicorn>=0.24.0
+sqlalchemy>=2.0.0
+pyodbc>=5.0.0
+pydantic>=2.0.0
+python-jose>=3.3.0
+passlib>=1.7.4
+python-multipart>=0.0.6
+
+# PDF Generation
+reportlab>=4.0.0

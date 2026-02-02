@@ -1,0 +1,356 @@
+﻿<%@ Master Language="C#" AutoEventWireup="true" CodeBehind="Site.master.cs" Inherits="ERP.SiteNC202310.SiteMaster" %>
+
+<%@ Import Namespace="System.Web.Configuration" %>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head id="Head1" runat="server">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="shortcut icon" href="" type="image/x-icon">
+    <script src='<%= Page.ResolveClientUrl("~/static/js/jquery.js")%>' type="text/javascript"></script>
+    <script src='<%= Page.ResolveClientUrl("~/js/jquery-2.1.0.js")%>' type="text/javascript"></script>
+    <script src='<%= Page.ResolveClientUrl("~/js/bootstrap.min.js")%>' type="text/javascript"></script>
+    <script src='<%= Page.ResolveClientUrl("~/layui/layui.js")%>' type="text/javascript"></script>
+    <script src='<%= Page.ResolveClientUrl("~/static/js/plugins.js")%>' type="text/javascript"></script>
+    <script type="text/javascript">
+        function getServicePath() {
+            window.webservicePath ="<%= ResolveUrl("Service/SiteWebService.asmx") %>";
+        }
+    </script>
+    <script src='<%= Page.ResolveClientUrl("js/BaseJS.js?") +WebConfigurationManager.AppSettings["jsVersion"] %>'
+        type="text/javascript"></script>
+    <style type="text/css">
+        body .ui-autocomplete
+        {
+            /* font-family to all */
+            background-color: rgba(255,255,255,0.5);
+        }
+        .ui-menu-item .ui-menu-item-wrapper:hover
+        {
+            border: none !important;
+            background-color: grey;
+        }
+    </style>
+    <asp:ContentPlaceHolder ID="HeadContent" runat="server" />
+</head>
+<body>
+    <form id="Form1" runat="server">
+    <div class="page">
+        <div class="header" style="padding: 0px">
+            <header class="header header-transparent header-center header-sticky d-none d-lg-block"
+                style="padding: 0px">
+			<div class="header-bottom menu-right">
+				<div class="container-fluid pl-30 pr-30">
+					<div class="row align-items-center">
+						<div class="col-xl-1 col-12 text-center mt-20 mb-20">
+							<div class="logo">
+								<a href='<%= Page.ResolveClientUrl("Default.aspx") %>'>
+									<img src="static/image/logo/logo.png" alt="">
+								</a>
+							</div>
+						</div>
+						<div class="col-xl-7 col-12">
+							<nav class="main-menu">
+								<ul>
+									<li>
+										<a href='<%= Page.ResolveClientUrl("Default.aspx")%>'>ACCUEIL 
+										</a>
+									</li>
+									<li>
+										<a href='<%= Page.ResolveClientUrl("~/ProductList.aspx?catid=1")%>'>PRODUITS <i class="las la-angle-down"></i>
+										</a>
+										<ul class="mega-menu four-column" id="pro_ul">
+											
+										</ul>
+									</li>
+									<li>
+										<a href='<%= Page.ResolveClientUrl("Download.aspx")%>'>TÉLÉCHARGER
+										</a>
+									</li>
+									<li>
+										<a href='<%= Page.ResolveClientUrl("AboutUs.aspx")%>'>À PROPOS</a>
+									</li>
+									<li>
+										<a href='<%= Page.ResolveClientUrl("Contact.aspx")%>'>NOUS CONTACTER</a>
+									</li>
+                                    <li>
+										<a href='<%= Page.ResolveClientUrl("Realisation.aspx")%>'>RÉALISATION</a>
+									</li>
+								</ul>
+							</nav>
+						</div>
+						<div class="col-xl-4 col-12 d-flex justify-content-xl-end justify-content-center">
+							<div class="header-search-area" style="padding-top: 16px;">
+								<div class="header-search-form">
+									<div  class="header-search-form-div">
+										<button type="button" onclick="searchPrd()">
+											<i class="lni lni-search-alt"></i>
+										</button>
+                                        <%--<select id="SupId" class="form-control" style="display: none;"></select>--%>
+                                        <%--<input class='form-control' id='SupList' name='SupList' onkeyup="return InitSup(this)"/>--%>
+                                        <input type="text" id="ip_prd_name" name="ip_prd_name" placeholder="Rechercher de produit..." onkeyup="return InitSearchPrd(this, event)"/>
+                                  </div>
+								</div>
+
+							
+							</div>
+							<ul class="us-menu" style="margin-top:10px;">
+								<li>
+									<a href="Wishlist.aspx">
+										<span class="lni lni-heart"></span>
+									</a>
+								</li>
+							</ul>
+							<div class="header-cart" style="margin-top:5px;">
+								<a href='<%= Page.ResolveClientUrl("~/Cart.aspx")%>' redurl='<%= Page.ResolveClientUrl("~/LoginRegister.aspx")%>'>
+									<i class="lni lni-cart"></i>
+									<span class="count" id="caerQty"></span>
+								</a>
+								<div class="header-cart-dropdown">
+									<ul class="cart-items" id="caerList" style="max-height: 600px; overflow: auto;">
+										
+									</ul>
+									
+									<div class="cart-btn" id="div_shop_btns" style="display: none;">
+										<a href='<%= Page.ResolveClientUrl("~/Cart.aspx")%>'>CONSULTEZ LE PANIER</a>
+										<a href='<%= Page.ResolveClientUrl("~/OrderList.aspx")%>'>LISTE DE COMMANDE</a>
+									</div>
+									<div class="cart-btn" id="div_shop_hide_btns">
+										<a href='<%= Page.ResolveClientUrl("~/LoginRegister.aspx")%>'>CONNEXION</a>
+									</div>
+								</div>
+							</div>
+							<ul class="us-menu" style="margin-top:10px;">
+								<li>
+									<a href="#">
+										<i class="lni lni-user"></i>
+									</a>
+									<ul class="dropdown right">
+										<li id="li_myaccount" style="display: none;">
+											<a href="">Mon compte</a>
+										</li>
+										<li id="li_wishtlist_gl" style="display: none;">
+											<a href='<%= Page.ResolveClientUrl("~/Wishlist.aspx")%>'>Wishlist</a>
+										</li>
+										<li id="li_orderlist" style="display: none;">
+											<a href='<%= Page.ResolveClientUrl("~/OrderList.aspx")%>'>Mes commandes</a>
+										</li>
+										<li id="li_signin">
+											<a href="javascript:void(0)" redurl='<%= Page.ResolveClientUrl("~/LoginRegister.aspx")%>' onclick="connectionclick(this)">Connexion/Enregistrement</a>
+										</li>
+										<li id="li_signout" style="display: none;">
+											<%--<a href="javascript:void(0)" onclick="">Déconnexion</a>--%>
+                                            <asp:LinkButton ID="lbtn_logout" runat="server" OnClick="lbtn_logout_OnClick">Déconnexion</asp:LinkButton>
+										</li>
+									</ul>
+								</li>
+							</ul>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-12 d-flex d-lg-none">
+							<div class="mobile-menu"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</header>
+            <header class="header-mobile d-block d-lg-none">
+			<div class="header-bottom menu-right">
+				<div class="container">
+					<div class="row">
+						<div class="col-12">
+							<div class="header-mobile-navigation d-block d-lg-none">
+								<div class="row align-items-center">
+									<div class="col-6 col-md-6">
+										<div class="header-logo">
+											<a href='<%= Page.ResolveClientUrl("Default.aspx")%>'>
+												<img src='<%= Page.ResolveClientUrl("~/static/image/logo/logo.png") %>' class="img-fluid" alt="">
+											</a>
+										</div>
+									</div>
+									<div class="col-6 col-md-6">
+										<div class="mobile-navigation text-right">
+											<div class="header-icon-wrapper">
+												<ul class="icon-list justify-content-end">
+													<li>
+														<div class="header-cart-icon">
+															<a href="Cart.aspx">
+																<i class="lni lni-cart"></i>
+																<span id ="cartQty">1</span>
+															</a>
+														</div>
+													</li>
+													<li>
+														<a href="javascript:void(0)" class="mobile-menu-icon" id="mobile-menu-trigger">
+															<i class="lni lni-menu"></i>
+														</a>
+													</li>
+												</ul>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-12 d-flex d-lg-none">
+							<div class="mobile-menu"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</header>
+            <div class="offcanvas-mobile-menu" id="offcanvas-mobile-menu">
+                <a href="javascript:void(0)" class="offcanvas-menu-close" id="offcanvas-menu-close-trigger">
+                    <i class="lni lni-close"></i></a>
+                <div class="offcanvas-wrapper">
+                    <div class="offcanvas-inner-content">
+                        <div class="offcanvas-mobile-search-area">
+                            <form action="#">
+                            <input type="search" id="ip_prd_name2" placeholder="Rechercher de produit">
+                            <button type="button" onclick="searchPrdtwo()">
+                                <i class="lni lni-search-alt"></i>
+                            </button>
+                            </form>
+                        </div>
+                        <nav class="offcanvas-navigation">
+						<ul>
+									<li>
+										<a href='<%= Page.ResolveClientUrl("Default.aspx")%>'>ACCUEIL 
+										</a>
+									</li>
+									<li>
+										<a href='<%= Page.ResolveClientUrl("~/ProductList.aspx?catid=1")%>'>PRODUITS <i class="las la-angle-down"></i>
+										</a>
+										<ul class="mega-menu four-column" id="pro_ul_two">
+											
+										</ul>
+									</li>
+									<li>
+										<a href='<%= Page.ResolveClientUrl("Download.aspx")%>'>TÉLÉCHARGER
+										</a>
+									</li>
+									<li>
+										<a href='<%= Page.ResolveClientUrl("AboutUs.aspx")%>'>A PROPOS</a>
+									</li>
+									<li>
+										<a href='<%= Page.ResolveClientUrl("Contact.aspx")%>'>NOUS CONTACTER</a>
+									</li>
+                                    <li>
+										<a href='<%= Page.ResolveClientUrl("Realisation.aspx")%>'>RÉALISATION</a>
+									</li>
+								</ul>
+						</nav>
+                    </div>
+                    <div class="offcanvas-widget-area">
+                        <div class="off-canvas-contact-widget">
+                            <div class="header-contact-info">
+                                <ul class="header-contact-info-list">
+                                    <li><i class="ion-android-phone-portrait"></i><a href="tel://12452456012/">(1245) 2456
+                                        012 </a></li>
+                                    <li><i class="ion-android-mail"></i><a href="mailto:info@yourdomain.com">info@yourdomain.com</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="off-canvas-widget-social">
+                            <a href="#" title="Facebook"><i class="lab la-facebook-f"></i></a><a href="#" title="Twitter">
+                                <i class="lab la-twitter"></i></a><a href="#" title="LinkedIn"><i class="lni lni-youtube">
+                                </i></a><a href="#" title="Youtube"><i class="fa fa-youtube-play"></i></a><a href="#"
+                                    title="Vimeo"><i class="fa fa-vimeo-square"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <%--<section class="breadcrumb breadcrumb_bg" style="background-image: url(static/image/breadcrumb-bg.png);">
+			<div class="container h-100">
+				<div class="row h-100 align-items-center">
+					<div class="col-12">
+						<div class="breadcrumb_iner">
+							<div class="breadcrumb_iner_item text-center">
+								<h2>About us</h2>
+								<div class="custom-breadcrumb">
+									<ol class="breadcrumb d-inline-block bg-transparent list-inline py-0">
+										<li class="list-inline-item breadcrumb-item">
+											<a href="#">Home</a>
+										</li>
+										<li class="list-inline-item breadcrumb-item active">About us </li>
+									</ol>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>--%>
+    </div>
+    <div class="main">
+        <asp:ContentPlaceHolder ID="MainContent" runat="server" />
+    </div>
+    <div class="clear">
+    </div>
+    <div class="footer">
+        <footer class="footer-section bg-gray">
+			<div class="footer-top pt-100">
+				<div class="container">
+					<div class="row">
+						<div class="footer-widget col-lg-9 col-md-9 col-sm-9 col-12 mb-40 mb-xs-35">
+							<div class="footer-logo">
+								<a href='<%= Page.ResolveClientUrl("Default.aspx") %>'>
+									<img src='<%= Page.ResolveClientUrl("~/static/image/logo/logo.png") %>' alt="">
+								</a>
+							</div>
+							<p>Duis autem vel eum iriure dolor in hendrerit in vulputate velit esse molestie consequat,vel illum dolore eu feugiat nulla facilisis.</p>
+							<div class="f-social-title">
+								<h3>Suivez-nous sur Social:</h3>
+							</div>
+							<div class="footer-social">
+								<a href="#">
+									<i class="lab la-facebook-f"></i>
+								</a>
+								<a href="#">
+									<i class="lab la-twitter"></i>
+								</a>
+								<a href="#">
+									<i class="lni lni-instagram-filled"></i>
+								</a>
+								<a href="#">
+									<i class="lni lni-youtube"></i>
+								</a>
+								<a href="#">
+									<i class="lni lni-pinterest"></i>
+								</a>
+							</div>
+						</div>
+						<div class="footer-widget col-lg-3 col-md-3 col-sm-3 col-12 mb-40 mb-xs-35">
+							<h4 class="title">
+								<span class="text">Horaires d’ouverture</span>
+							</h4>
+							<p class="mb-15">Lun – Vendredi : 9:00 – 18:00</p>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="footer-bottom">
+				<div class="container">
+					<div class="row no-gutters">
+						<div class="col-12 ft-border pt-25 pb-25">
+							<div class="row justify-content-between align-items-center">
+								<div class="col-lg-6 col-md-6 col-sm-12">
+									<div class="copyright text-left">
+										<p>Copyright &copy;<%= DateTime.Now.Year %> <a href='<%= Page.ResolveClientUrl("Default.aspx") %>'>AX TECH</a>. Tous droits réservés</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</footer>
+    </div>
+    </form>
+</body>
+</html>

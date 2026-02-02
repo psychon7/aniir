@@ -1,0 +1,55 @@
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output
+dist
+build
+
+# Development files
+.git
+.gitignore
+*.md
+LICENSE
+
+# IDE and editor files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files (build-time args should be used instead)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Test files
+coverage
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__
+__mocks__
+
+# Docker files (don't include in context)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+docs
+DOCUMENTATION
+
+# Storybook
+.storybook
+storybook-static

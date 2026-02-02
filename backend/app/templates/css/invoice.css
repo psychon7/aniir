@@ -1,0 +1,29 @@
+/* Additional styles that can be loaded externally */
+/* This file is optional - main styles are in the template */
+
+@page {
+    size: A4;
+    margin: 1.5cm;
+    
+    @bottom-center {
+        content: "Page " counter(page) " of " counter(pages);
+        font-size: 8pt;
+        color: #9ca3af;
+    }
+}
+
+/* Print-specific adjustments */
+@media print {
+    body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .items-table thead {
+        display: table-header-group;
+    }
+    
+    .items-table tbody tr {
+        page-break-inside: avoid;
+    }
+}

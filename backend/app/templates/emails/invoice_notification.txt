@@ -1,0 +1,149 @@
+================================================================================
+                         {{ company_name|default('ECOLED') }}
+                           INVOICE NOTIFICATION
+================================================================================
+
+Dear {{ client_name }},
+
+{% if custom_message %}
+{{ custom_message }}
+{% else %}
+A new invoice has been generated for your account. Please find the details
+below and ensure payment is made by the due date.
+{% endif %}
+
+--------------------------------------------------------------------------------
+                             INVOICE DETAILS
+--------------------------------------------------------------------------------
+
+Invoice Number:       {{ invoice_number }}
+Invoice Date:         {{ invoice_date }}
+Due Date:             {{ due_date }}
+{% if order_reference %}
+Order Reference:      {{ order_reference }}
+{% endif %}
+{% if po_number %}
+PO Number:            {{ po_number }}
+{% endif %}
+
+--------------------------------------------------------------------------------
+                             AMOUNT SUMMARY
+--------------------------------------------------------------------------------
+
+Subtotal (excl. VAT): {{ currency_symbol|default('EUR') }} {{ total_ht|default(total_amount) }}
+{% if total_vat %}
+VAT ({{ vat_rate|default('20') }}%):        {{ currency_symbol|default('EUR') }} {{ total_vat }}
+{% endif %}
+{% if discount_amount %}
+Discount:             -{{ currency_symbol|default('EUR') }} {{ discount_amount }}
+{% endif %}
+                      --------------------------
+TOTAL AMOUNT DUE:     {{ currency_symbol|default('EUR') }} {{ total_ttc|default(total_amount) }}
+
+================================================================================
+                          *** PAYMENT DUE DATE ***
+================================================================================
+
+This invoice is due on {{ due_date }}.
+Please ensure payment is made by this date to avoid any late payment fees.
+{% if days_until_due %}
+{{ days_until_due }} days remaining until the due date.
+{% endif %}
+
+--------------------------------------------------------------------------------
+                           VIEW YOUR INVOICE
+--------------------------------------------------------------------------------
+
+{% if invoice_url %}
+To view your invoice online, please visit:
+{{ invoice_url }}
+{% endif %}
+
+{% if download_url %}
+To download your invoice as PDF:
+{{ download_url }}
+{% endif %}
+
+--------------------------------------------------------------------------------
+                          PAYMENT INSTRUCTIONS
+--------------------------------------------------------------------------------
+
+{% if payment_terms %}
+Payment Terms: {{ payment_terms }}
+{% endif %}
+
+{% if payment_methods %}
+Accepted Payment Methods: {{ payment_methods }}
+{% endif %}
+
+{% if show_bank_details %}
+BANK TRANSFER DETAILS:
+
+    Bank Name:        {{ bank_name|default('Your Bank') }}
+    Account Holder:   {{ account_holder|default(company_name) }}
+    IBAN:             {{ iban }}
+    BIC/SWIFT:        {{ bic }}
+    Reference:        {{ invoice_number }}
+
+{% endif %}
+{% if payment_link %}
+PAY ONLINE:
+{{ payment_link }}
+
+{% endif %}
+IMPORTANT: Please include the invoice number {{ invoice_number }} as the
+payment reference to ensure proper allocation of your payment.
+
+{% if billing_company or billing_address %}
+--------------------------------------------------------------------------------
+                            BILLING ADDRESS
+--------------------------------------------------------------------------------
+
+{% if billing_company %}{{ billing_company }}
+{% endif %}{% if billing_contact %}{{ billing_contact }}
+{% endif %}{% if billing_address %}{{ billing_address }}
+{% endif %}{% if billing_postal_code or billing_city %}{{ billing_postal_code }} {{ billing_city }}
+{% endif %}{% if billing_country %}{{ billing_country }}{% endif %}
+
+{% endif %}
+--------------------------------------------------------------------------------
+                         QUESTIONS OR CONCERNS?
+--------------------------------------------------------------------------------
+
+If you have any questions regarding this invoice, please contact us:
+
+    Email: {{ company_email|default('accounting@ecoled.com') }}
+    Phone: {{ company_phone|default('+33 1 23 45 67 89') }}
+
+--------------------------------------------------------------------------------
+
+Thank you for your business!
+
+Best regards,
+{{ company_name|default('ECOLED') }}
+
+================================================================================
+                            COMPANY INFORMATION
+================================================================================
+
+{{ company_name|default('ECOLED') }}
+{{ company_address|default('123 Business Street') }}
+{{ company_postal_code|default('75001') }} {{ company_city|default('Paris') }}, {{ company_country|default('France') }}
+{% if company_vat_number %}
+VAT Number: {{ company_vat_number }}
+{% endif %}
+{% if company_siret %}
+SIRET: {{ company_siret }}
+{% endif %}
+
+--------------------------------------------------------------------------------
+                               LEGAL NOTICE
+--------------------------------------------------------------------------------
+
+This is an automated message from {{ company_name|default('ECOLED') }} ERP System.
+Please do not reply directly to this email.
+For inquiries, contact us at {{ company_email|default('accounting@ecoled.com') }}
+
+(c) {{ current_year|default('2025') }} {{ company_name|default('ECOLED') }}. All rights reserved.
+
+================================================================================

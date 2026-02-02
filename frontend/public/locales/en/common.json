@@ -1,0 +1,112 @@
+{
+  "app": {
+    "name": "ERP System",
+    "tagline": "Enterprise Resource Planning"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "remove": "Remove",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "print": "Print",
+    "download": "Download",
+    "upload": "Upload",
+    "refresh": "Refresh",
+    "reset": "Reset",
+    "submit": "Submit",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "view": "View",
+    "details": "Details",
+    "duplicate": "Duplicate",
+    "archive": "Archive",
+    "restore": "Restore"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "draft": "Draft",
+    "confirmed": "Confirmed",
+    "cancelled": "Cancelled",
+    "completed": "Completed"
+  },
+  "messages": {
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "saved": "Saved successfully",
+    "deleted": "Deleted successfully",
+    "error": "An error occurred",
+    "noData": "No data available",
+    "noResults": "No results found",
+    "confirmDelete": "Are you sure you want to delete this item?",
+    "confirmCancel": "Are you sure you want to cancel? Unsaved changes will be lost.",
+    "required": "This field is required",
+    "invalidEmail": "Please enter a valid email address",
+    "invalidPhone": "Please enter a valid phone number"
+  },
+  "pagination": {
+    "page": "Page",
+    "of": "of",
+    "items": "items",
+    "showing": "Showing",
+    "to": "to",
+    "perPage": "per page",
+    "first": "First",
+    "last": "Last",
+    "next": "Next",
+    "previous": "Previous"
+  },
+  "table": {
+    "actions": "Actions",
+    "noData": "No data to display",
+    "loading": "Loading data...",
+    "selected": "{{count}} selected",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all"
+  },
+  "form": {
+    "optional": "(optional)",
+    "required": "*",
+    "selectOption": "Select an option",
+    "searchPlaceholder": "Search...",
+    "noOptions": "No options available"
+  },
+  "date": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "tomorrow": "Tomorrow",
+    "thisWeek": "This week",
+    "lastWeek": "Last week",
+    "thisMonth": "This month",
+    "lastMonth": "Last month",
+    "thisYear": "This year",
+    "lastYear": "Last year",
+    "from": "From",
+    "to": "To"
+  },
+  "currency": {
+    "eur": "Euro",
+    "usd": "US Dollar",
+    "gbp": "British Pound"
+  },
+  "units": {
+    "pieces": "pcs",
+    "kilograms": "kg",
+    "meters": "m",
+    "liters": "L",
+    "boxes": "boxes"
+  }
+}

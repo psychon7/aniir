@@ -1,0 +1,791 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>
+    </ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{35CBEBCD-2A74-4497-AB91-57FDD8503D17}</ProjectGuid>
+    <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{fae04ec0-301f-11d3-bf4b-00c04f79efbc}</ProjectTypeGuids>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>ERP.SiteNC202310</RootNamespace>
+    <AssemblyName>ERP.SiteNC202310</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkProfile />
+    <UseIISExpress>false</UseIISExpress>
+    <Use64BitIISExpress />
+    <IISExpressSSLPort />
+    <IISExpressAnonymousAuthentication />
+    <IISExpressWindowsAuthentication />
+    <IISExpressUseClassicPipelineMode />
+    <UseGlobalApplicationHostFile />
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <UpgradeBackupLocation>
+    </UpgradeBackupLocation>
+    <OldToolsVersion>Current</OldToolsVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Gma.QrCodeNet.Encoding.Net35, Version=0.4.0.0, Culture=neutral, PublicKeyToken=e8a75d24b142be49, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\Packages\QrCode.Net 0.4 Pre-Release\QrCode.Net 0.4 Pre-Release\Gma.QrCodeNet.Encoding.Net35\Gma.QrCodeNet.Encoding.Net35.dll</HintPath>
+    </Reference>
+    <Reference Include="HtmlAgilityPack">
+      <HintPath>..\Packages\HtmlAgilityPack.dll</HintPath>
+    </Reference>
+    <Reference Include="itextsharp, Version=5.2.0.0, Culture=neutral, PublicKeyToken=8354ae6d2174ddca, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\Packages\itextsharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Data.Entity" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Web.Services" />
+    <Reference Include="System.EnterpriseServices" />
+    <Reference Include="System.Web.DynamicData" />
+    <Reference Include="System.Web.Entity" />
+    <Reference Include="System.Web.ApplicationServices" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AboutUs.aspx" />
+    <Content Include="Account\ChangePassword.aspx" />
+    <Content Include="Account\ChangePasswordSuccess.aspx" />
+    <Content Include="Account\Login.aspx" />
+    <Content Include="Account\Register.aspx" />
+    <Content Include="Cart.aspx" />
+    <Content Include="Contact.aspx" />
+    <Content Include="css\about.min.css" />
+    <Content Include="css\amazeui.css" />
+    <Content Include="css\bootstrap.css" />
+    <Content Include="css\common.min.css" />
+    <Content Include="css\contact.min.css" />
+    <Content Include="css\example.min.css" />
+    <Content Include="css\index.min.css" />
+    <Content Include="css\join.min.css" />
+    <Content Include="css\loading.css" />
+    <Content Include="css\news.min.css" />
+    <Content Include="css\other.min.css" />
+    <Content Include="css\product.min.css" />
+    <Content Include="css\solution.min.css" />
+    <Content Include="Download.aspx" />
+    <Content Include="HtmlTmp\ClientContact.html" />
+    <Content Include="HtmlTmp\intra_contact_email.html" />
+    <Content Include="HtmlTmp\sms_contact_tmp.txt" />
+    <Content Include="HtmlTmp\sms_diagnostic_tmp.txt" />
+    <Content Include="img\1.jpg" />
+    <Content Include="img\1o.jpg" />
+    <Content Include="img\1oo.jpg" />
+    <Content Include="img\2.jpg" />
+    <Content Include="img\2o.jpg" />
+    <Content Include="img\2oo.jpg" />
+    <Content Include="img\3.jpg" />
+    <Content Include="img\3o.jpg" />
+    <Content Include="img\3oo.jpg" />
+    <Content Include="img\favicon.ico" />
+    <Content Include="img\innovation_and_you.png" />
+    <Content Include="img\innovation_and_you0.png" />
+    <Content Include="img\innovation_and_you1.png" />
+    <Content Include="img\logo.png" />
+    <Content Include="img\logo180-50.png" />
+    <Content Include="img\_1.jpg" />
+    <Content Include="img\_2.jpg" />
+    <Content Include="img\__2.jpg" />
+    <Content Include="js\amazeui.js" />
+    <Content Include="js\BaseJS.js" />
+    <Content Include="js\bootbox.min.js" />
+    <Content Include="js\bootstrap.min.js" />
+    <Content Include="js\common.js" />
+    <Content Include="js\jquery-2.1.0.js" />
+    <Content Include="js\LoginRegister\LoginRegister.js" />
+    <Content Include="js\Site\HomePage.js" />
+    <Content Include="js\Site\ProductJS.js" />
+    <Content Include="js\Site\ProductListJS.js" />
+    <Content Include="js\Web\Cart.js" />
+    <Content Include="js\Web\Contact.js" />
+    <Content Include="js\Web\Download.js" />
+    <Content Include="js\Web\Index.js" />
+    <Content Include="js\Web\OrderList.js" />
+    <Content Include="js\Web\ProductList.js" />
+    <Content Include="js\Web\ProductDetail.js" />
+    <Content Include="js\Web\Realisation.js" />
+    <Content Include="js\Web\Realisation_Details.js" />
+    <Content Include="js\Web\Wishlist.js" />
+    <Content Include="layui\css\layui.css" />
+    <Content Include="layui\css\modules\code.css" />
+    <Content Include="layui\css\modules\laydate\default\laydate.css" />
+    <Content Include="layui\css\modules\layer\default\icon-ext.png" />
+    <Content Include="layui\css\modules\layer\default\icon.png" />
+    <Content Include="layui\css\modules\layer\default\layer.css" />
+    <Content Include="layui\css\modules\layer\default\loading-0.gif" />
+    <Content Include="layui\css\modules\layer\default\loading-1.gif" />
+    <Content Include="layui\css\modules\layer\default\loading-2.gif" />
+    <Content Include="layui\font\iconfont.svg" />
+    <Content Include="layui\layui.js" />
+    <Content Include="LoginRegister.aspx" />
+    <Content Include="OrderList.aspx" />
+    <Content Include="ProductDetail.aspx" />
+    <Content Include="ProductList.aspx" />
+    <Content Include="Realisation.aspx" />
+    <Content Include="Realisation_Details.aspx" />
+    <Content Include="Service\SiteWebService.asmx" />
+    <Content Include="static\css\brush.css" />
+    <Content Include="static\css\css2.css" />
+    <Content Include="static\css\icons.css" />
+    <Content Include="static\css\plugins.css" />
+    <Content Include="static\css\pre.css" />
+    <Content Include="static\css\style.css" />
+    <Content Include="static\css\theme.css" />
+    <Content Include="static\css\vendors.css" />
+    <Content Include="static\file\l-product-1.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\file\l-product-2.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\file\l-product-3.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\file\l-product-4.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\file\l-product-5.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\font\la-brands-400.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\font\la-regular-400.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\font\la-solid-900.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\font\LineIcons.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\1.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\404.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\activity_bg.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\animating-ele-1.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\banner-02-3.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\banner-bg4.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\bg-2.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\bg-mob.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\bg-page-section.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\bg_menutop.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\bottom-frame.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\breadcrumb-bg.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\coming-soon.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\counter-frame.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\cross2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\css.gif">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\default.gif">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\folder-closed.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\folder.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\footer-background.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\hero-02.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\hero-04-1.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\hero-04-2.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\hero-04-3.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\hero-04-4.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\hero-1.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\html.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\img.gif">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\js.gif">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\json.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\less.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\logo\logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\mon-spr.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\mp3.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\mp4.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\overlay_live_preview.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\paybg.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\payft.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\payitem.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\payvipgo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\php.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\psd.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\rar.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\service.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\sql.gif">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\status_bg.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\status_bg2.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\treeview-default-line.gif">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\treeview-default.gif">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\txt.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\user.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\image\vippricebg.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="static\js\5.js" />
+    <Content Include="static\js\brush.js" />
+    <Content Include="static\js\catebg.js" />
+    <Content Include="static\js\com.js" />
+    <Content Include="static\js\console-ban.min.js" />
+    <Content Include="static\js\jquery.js" />
+    <Content Include="static\js\main.js" />
+    <Content Include="static\js\plugins.js" />
+    <Content Include="static\js\previewjs.js" />
+    <Content Include="static\js\svg.js" />
+    <Content Include="static\js\vendors.js" />
+    <Content Include="static\picture\1.png" />
+    <Content Include="static\picture\10.png" />
+    <Content Include="static\picture\11.png" />
+    <Content Include="static\picture\12.png" />
+    <Content Include="static\picture\13.png" />
+    <Content Include="static\picture\14.png" />
+    <Content Include="static\picture\2.png" />
+    <Content Include="static\picture\3.png" />
+    <Content Include="static\picture\4.png" />
+    <Content Include="static\picture\5.png" />
+    <Content Include="static\picture\6.png" />
+    <Content Include="static\picture\7.png" />
+    <Content Include="static\picture\8.png" />
+    <Content Include="static\picture\9.png" />
+    <Content Include="static\picture\about-us.jpg" />
+    <Content Include="static\picture\author.png" />
+    <Content Include="static\picture\b1.jpg" />
+    <Content Include="static\picture\b2.jpg" />
+    <Content Include="static\picture\banner-01-1.jpg" />
+    <Content Include="static\picture\banner-01-2.jpg" />
+    <Content Include="static\picture\banner-01-3.jpg" />
+    <Content Include="static\picture\banner-01-4.jpg" />
+    <Content Include="static\picture\banner-02-1.jpg" />
+    <Content Include="static\picture\banner-02-2.jpg" />
+    <Content Include="static\picture\banner-03-1.png" />
+    <Content Include="static\picture\banner-03-2.png" />
+    <Content Include="static\picture\banner-03-3.jpg" />
+    <Content Include="static\picture\banner-2.jpg" />
+    <Content Include="static\picture\banner-blog.jpg" />
+    <Content Include="static\picture\blog-1.jpg" />
+    <Content Include="static\picture\blog-2.jpg" />
+    <Content Include="static\picture\blog-3.jpg" />
+    <Content Include="static\picture\blog-4.jpg" />
+    <Content Include="static\picture\blog-5.jpg" />
+    <Content Include="static\picture\blog-6.jpg" />
+    <Content Include="static\picture\blog-7.jpg" />
+    <Content Include="static\picture\blog-8.jpg" />
+    <Content Include="static\picture\blog-sidebar-1.png" />
+    <Content Include="static\picture\blog-sidebar-2.png" />
+    <Content Include="static\picture\blog-sidebar-3.png" />
+    <Content Include="static\picture\blog-sidebar-4.png" />
+    <Content Include="static\picture\brand-logo-1.png" />
+    <Content Include="static\picture\brand-logo-2.png" />
+    <Content Include="static\picture\brand-logo-3.png" />
+    <Content Include="static\picture\brand-logo-4.png" />
+    <Content Include="static\picture\brand-logo-5.png" />
+    <Content Include="static\picture\brand-logo-6.png" />
+    <Content Include="static\picture\cart-1.jpg" />
+    <Content Include="static\picture\cart-2.jpg" />
+    <Content Include="static\picture\cart-3.jpg" />
+    <Content Include="static\picture\client-1.png" />
+    <Content Include="static\picture\client-11.png" />
+    <Content Include="static\picture\client-2.png" />
+    <Content Include="static\picture\client-3.png" />
+    <Content Include="static\picture\comments1.png" />
+    <Content Include="static\picture\comments2.png" />
+    <Content Include="static\picture\countdown.png" />
+    <Content Include="static\picture\de-de.png" />
+    <Content Include="static\picture\des-1.png" />
+    <Content Include="static\picture\des-2.png" />
+    <Content Include="static\picture\des-3.png" />
+    <Content Include="static\picture\easy-return.png" />
+    <Content Include="static\picture\en-gb.png" />
+    <Content Include="static\picture\filter.png" />
+    <Content Include="static\picture\free-shipping.png" />
+    <Content Include="static\picture\hero-01-1.png" />
+    <Content Include="static\picture\hero-01-2.png" />
+    <Content Include="static\picture\hero-01-3.png" />
+    <Content Include="static\picture\hero-03-1.png" />
+    <Content Include="static\picture\hero-03-2.png" />
+    <Content Include="static\picture\hero-03-bg.png" />
+    <Content Include="static\picture\l-product-1.jpg" />
+    <Content Include="static\picture\l-product-2.jpg" />
+    <Content Include="static\picture\l-product-3.jpg" />
+    <Content Include="static\picture\l-product-4.jpg" />
+    <Content Include="static\picture\l-product-5.jpg" />
+    <Content Include="static\picture\logo-dark.png" />
+    <Content Include="static\picture\lower-price.png" />
+    <Content Include="static\picture\p-1.png" />
+    <Content Include="static\picture\p-10.png" />
+    <Content Include="static\picture\p-11.png" />
+    <Content Include="static\picture\p-12.png" />
+    <Content Include="static\picture\p-13.png" />
+    <Content Include="static\picture\p-2.png" />
+    <Content Include="static\picture\p-3.png" />
+    <Content Include="static\picture\p-4.png" />
+    <Content Include="static\picture\p-5.png" />
+    <Content Include="static\picture\p-6.png" />
+    <Content Include="static\picture\p-7.png" />
+    <Content Include="static\picture\p-8.png" />
+    <Content Include="static\picture\p-9.png" />
+    <Content Include="static\picture\payment.png" />
+    <Content Include="static\picture\s-product-1.jpg" />
+    <Content Include="static\picture\s-product-2.jpg" />
+    <Content Include="static\picture\s-product-3.jpg" />
+    <Content Include="static\picture\s-product-4.jpg" />
+    <Content Include="static\picture\s-product-5.jpg" />
+    <Content Include="static\picture\team-1.png" />
+    <Content Include="static\picture\team-2.png" />
+    <Content Include="static\picture\team-3.png" />
+    <Content Include="static\picture\team-4.png" />
+    <Content Include="static\picture\video-img.png" />
+    <Content Include="Styles\Site.css" />
+    <Content Include="Default.aspx" />
+    <Content Include="Global.asax" />
+    <Content Include="Scripts\jquery-1.4.1-vsdoc.js" />
+    <Content Include="Scripts\jquery-1.4.1.js" />
+    <Content Include="Scripts\jquery-1.4.1.min.js" />
+    <Content Include="TechSheet.aspx" />
+    <Content Include="Web.config">
+      <SubType>Designer</SubType>
+    </Content>
+    <Content Include="Web.Debug.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </Content>
+    <Content Include="Web.Release.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </Content>
+    <Content Include="Wishlist.aspx" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AboutUs.aspx.cs">
+      <DependentUpon>AboutUs.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="AboutUs.aspx.designer.cs">
+      <DependentUpon>AboutUs.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Account\ChangePassword.aspx.cs">
+      <DependentUpon>ChangePassword.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Account\ChangePassword.aspx.designer.cs">
+      <DependentUpon>ChangePassword.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Account\ChangePasswordSuccess.aspx.cs">
+      <DependentUpon>ChangePasswordSuccess.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Account\ChangePasswordSuccess.aspx.designer.cs">
+      <DependentUpon>ChangePasswordSuccess.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Account\Login.aspx.cs">
+      <DependentUpon>Login.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Account\Login.aspx.designer.cs">
+      <DependentUpon>Login.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Account\Register.aspx.cs">
+      <DependentUpon>Register.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Account\Register.aspx.designer.cs">
+      <DependentUpon>Register.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="BasePage\BasePage.cs">
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Cart.aspx.cs">
+      <DependentUpon>Cart.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Cart.aspx.designer.cs">
+      <DependentUpon>Cart.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Contact.aspx.cs">
+      <DependentUpon>Contact.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Contact.aspx.designer.cs">
+      <DependentUpon>Contact.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Default.aspx.cs">
+      <DependentUpon>Default.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Default.aspx.designer.cs">
+      <DependentUpon>Default.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Download.aspx.cs">
+      <DependentUpon>Download.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Download.aspx.designer.cs">
+      <DependentUpon>Download.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Global.asax.cs">
+      <DependentUpon>Global.asax</DependentUpon>
+    </Compile>
+    <Compile Include="LoginRegister.aspx.cs">
+      <DependentUpon>LoginRegister.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="LoginRegister.aspx.designer.cs">
+      <DependentUpon>LoginRegister.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="OrderList.aspx.cs">
+      <DependentUpon>OrderList.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="OrderList.aspx.designer.cs">
+      <DependentUpon>OrderList.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="ProductDetail.aspx.cs">
+      <DependentUpon>ProductDetail.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="ProductDetail.aspx.designer.cs">
+      <DependentUpon>ProductDetail.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="ProductList.aspx.cs">
+      <DependentUpon>ProductList.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="ProductList.aspx.designer.cs">
+      <DependentUpon>ProductList.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Realisation.aspx.cs">
+      <DependentUpon>Realisation.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Realisation.aspx.designer.cs">
+      <DependentUpon>Realisation.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Realisation_Details.aspx.cs">
+      <DependentUpon>Realisation_Details.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Realisation_Details.aspx.designer.cs">
+      <DependentUpon>Realisation_Details.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Service\ShowOutSiteImage.ashx.cs">
+      <DependentUpon>ShowOutSiteImage.ashx</DependentUpon>
+    </Compile>
+    <Compile Include="Service\SiteWebService.asmx.cs">
+      <DependentUpon>SiteWebService.asmx</DependentUpon>
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Shared\IPInfo.cs" />
+    <Compile Include="Shared\UrlDecode.cs" />
+    <Compile Include="Site.Master.cs">
+      <DependentUpon>Site.Master</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Site.Master.designer.cs">
+      <DependentUpon>Site.Master</DependentUpon>
+    </Compile>
+    <Compile Include="TechSheet.aspx.cs">
+      <DependentUpon>TechSheet.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="TechSheet.aspx.designer.cs">
+      <DependentUpon>TechSheet.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Wishlist.aspx.cs">
+      <DependentUpon>Wishlist.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Wishlist.aspx.designer.cs">
+      <DependentUpon>Wishlist.aspx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="App_Data\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Account\Web.config" />
+    <Content Include="Site.Master" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="fonts\Deng.ttf" />
+    <None Include="fonts\fontawesome-webfont.eot" />
+    <None Include="fonts\fontawesome-webfont.ttf" />
+    <None Include="fonts\fontawesome-webfont.woff" />
+    <None Include="fonts\fontawesome-webfont.woff2" />
+    <None Include="fonts\FontAwesome.otf" />
+    <None Include="fonts\SimSun.ttf" />
+    <None Include="fonts\ZTGJKT.ttf" />
+    <None Include="layui\font\iconfont.eot" />
+    <None Include="layui\font\iconfont.ttf" />
+    <None Include="layui\font\iconfont.woff" />
+    <None Include="layui\font\iconfont.woff2" />
+    <Content Include="Service\ShowOutSiteImage.ashx" />
+    <None Include="static\font\iconfont.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\iconfont.woff">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\iconfont.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\iJWKBXyIfDnIV7nBrXw.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\iJWKBXyIfDnIV7nDrXyi0A.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\iJWKBXyIfDnIV7nFrXyi0A.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\iJWKBXyIfDnIV7nMrXyi0A.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\iJWKBXyIfDnIV7nPrXyi0A.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\JTUSjIg1_i6t8kCHKm459W1hyzbi.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\JTUSjIg1_i6t8kCHKm459Wdhyzbi.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\JTUSjIg1_i6t8kCHKm459Wlhyw.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\JTUSjIg1_i6t8kCHKm459WRhyzbi.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\JTUSjIg1_i6t8kCHKm459WZhyzbi.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-brands-400.eot">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-brands-400.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-brands-400.woff">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-brands-400.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-regular-400.eot">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-regular-400.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-regular-400.woff">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-regular-400.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-solid-900.eot">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-solid-900.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-solid-900.woff">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\la-solid-900.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\LineIcons.eot">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\LineIcons.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\LineIcons.woff">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="static\font\LineIcons.woff2">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ERP.DataServices\ERP.DataServices.csproj">
+      <Project>{1A98322F-8624-4451-908A-324C72A43113}</Project>
+      <Name>ERP.DataServices</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ERP.Entities\ERP.Entities.csproj">
+      <Project>{95D99810-CA16-4F58-9CAC-CBD1136354DC}</Project>
+      <Name>ERP.Entities</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ERP.RefSite\ERP.RefSite.csproj">
+      <Project>{494A9A4E-B6B8-46C6-A187-DA79B2798CC4}</Project>
+      <Name>ERP.RefSite</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ERP.Repositories\ERP.Repositories.csproj">
+      <Project>{9F51457D-F56E-4A07-9E41-95C11BA180E6}</Project>
+      <Name>ERP.Repositories</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ERP.SharedServices\ERP.SharedServices.csproj">
+      <Project>{DF98E8B9-36C7-4F3B-974B-0B756021F3BF}</Project>
+      <Name>ERP.SharedServices</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ERP.Web\ERP.Web.csproj">
+      <Project>{DAAEEEDA-D09E-4798-A0ED-CF6B209F479D}</Project>
+      <Name>ERP.Web</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v9.0\WebApplications\Microsoft.WebApplication.targets" />
+  <ProjectExtensions>
+    <VisualStudio>
+      <FlavorProperties GUID="{349c5851-65df-11da-9384-00065b846f21}">
+        <WebProjectProperties>
+          <UseIIS>False</UseIIS>
+          <AutoAssignPort>True</AutoAssignPort>
+          <DevelopmentServerPort>56386</DevelopmentServerPort>
+          <DevelopmentServerVPath>/</DevelopmentServerVPath>
+          <IISUrl>
+          </IISUrl>
+          <NTLMAuthentication>False</NTLMAuthentication>
+          <UseCustomServer>False</UseCustomServer>
+          <CustomServerUrl>
+          </CustomServerUrl>
+          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
+        </WebProjectProperties>
+      </FlavorProperties>
+    </VisualStudio>
+  </ProjectExtensions>
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

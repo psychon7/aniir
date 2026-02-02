@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Invoice {{ invoice_number }} - {{ company_name|default('ECOLED') }}</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style type="text/css">
+        /* Reset styles */
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        table { border-collapse: collapse !important; }
+        body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+
+        /* Base styles */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f4f5f7;
+        }
+
+        /* Container */
+        .email-wrapper {
+            width: 100%;
+            background-color: #f4f5f7;
+            padding: 40px 0;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Header */
+        .email-header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .company-logo {
+            max-width: 180px;
+            height: auto;
+            margin-bottom: 15px;
+        }
+
+        .email-header h1 {
+            margin: 0;
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .email-header .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 16px;
+            margin-top: 8px;
+        }
+
+        /* Body */
+        .email-body {
+            padding: 40px 30px;
+        }
+
+        /* Greeting */
+        .greeting {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+
+        .greeting strong {
+            color: #1e40af;
+        }
+
+        /* Introduction text */
+        .intro-text {
+            color: #4b5563;
+            margin-bottom: 30px;
+            line-height: 1.7;
+        }
+
+        /* Section */
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e40af;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* Invoice Details Box */
+        .invoice-details-box {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .details-table td {
+            padding: 12px 0;
+            vertical-align: top;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .details-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .details-table .label {
+            color: #6b7280;
+            font-size: 14px;
+            width: 45%;
+        }
+
+        .details-table .value {
+            color: #1f2937;
+            font-weight: 600;
+            text-align: right;
+        }
+
+        /* Amount Summary Box */
+        .amount-box {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+
+        .amount-row {
+            display: table;
+            width: 100%;
+            padding: 10px 0;
+        }
+
+        .amount-label {
+            display: table-cell;
+            color: #4b5563;
+            font-size: 15px;
+        }
+
+        .amount-value {
+            display: table-cell;
+            text-align: right;
+            font-weight: 500;
+            color: #1f2937;
+        }
+
+        .amount-row.total {
+            border-top: 2px solid #1e40af;
+            margin-top: 15px;
+            padding-top: 20px;
+        }
+
+        .amount-row.total .amount-label {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1e40af;
+        }
+
+        .amount-row.total .amount-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e40af;
+        }
+
+        /* Due Date Notice */
+        .due-notice {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            margin: 25px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .due-notice .notice-icon {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+
+        .due-notice .notice-title {
+            font-weight: 700;
+            color: #92400e;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .due-notice .notice-text {
+            color: #78350f;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* CTA Button */
+        .cta-container {
+            text-align: center;
+            margin: 35px 0;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            padding: 16px 40px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 14px rgba(30, 64, 175, 0.25);
+            transition: all 0.3s ease;
+        }
+
+        .cta-button:hover {
+            background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+            box-shadow: 0 6px 20px rgba(30, 64, 175, 0.35);
+        }
+
+        .cta-secondary {
+            display: inline-block;
+            color: #1e40af !important;
+            text-decoration: none;
+            padding: 12px 25px;
+            border: 2px solid #1e40af;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        /* Payment Instructions */
+        .payment-section {
+            background-color: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+
+        .payment-section .section-title {
+            color: #0369a1;
+            border-bottom-color: #bae6fd;
+        }
+
+        .bank-details {
+            background-color: #ffffff;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .bank-details table {
+            width: 100%;
+        }
+
+        .bank-details td {
+            padding: 8px 0;
+            font-size: 14px;
+        }
+
+        .bank-details .label {
+            color: #6b7280;
+            width: 40%;
+        }
+
+        .bank-details .value {
+            color: #1f2937;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Billing Address */
+        .address-block {
+            font-size: 14px;
+            line-height: 1.8;
+            color: #4b5563;
+        }
+
+        .address-block strong {
+            color: #1f2937;
+        }
+
+        /* Contact Box */
+        .contact-box {
+            background-color: #f9fafb;
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .contact-box .title {
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .contact-box a {
+            color: #1e40af;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .contact-box a:hover {
+            text-decoration: underline;
+        }
+
+        .contact-divider {
+            color: #d1d5db;
+            margin: 0 15px;
+        }
+
+        /* Signature */
+        .signature {
+            margin-top: 35px;
+            padding-top: 25px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .signature p {
+            margin: 0 0 5px 0;
+            color: #4b5563;
+        }
+
+        .signature .company-name {
+            font-weight: 700;
+            color: #1e40af;
+            font-size: 18px;
+        }
+
+        /* Footer */
+        .email-footer {
+            background-color: #1f2937;
+            padding: 35px 30px;
+            text-align: center;
+        }
+
+        .footer-company {
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .footer-address {
+            color: #9ca3af;
+            font-size: 13px;
+            line-height: 1.7;
+            margin-bottom: 15px;
+        }
+
+        .footer-legal {
+            color: #6b7280;
+            font-size: 12px;
+            line-height: 1.6;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #374151;
+        }
+
+        .footer-legal a {
+            color: #9ca3af;
+            text-decoration: none;
+        }
+
+        .social-links {
+            margin: 20px 0;
+        }
+
+        .social-links a {
+            display: inline-block;
+            margin: 0 8px;
+            color: #9ca3af;
+            text-decoration: none;
+        }
+
+        /* Responsive Design */
+        @media only screen and (max-width: 600px) {
+            .email-wrapper {
+                padding: 20px 10px;
+            }
+
+            .email-container {
+                border-radius: 0;
+            }
+
+            .email-header {
+                padding: 30px 20px;
+            }
+
+            .email-header h1 {
+                font-size: 24px;
+            }
+
+            .email-body {
+                padding: 30px 20px;
+            }
+
+            .invoice-details-box,
+            .amount-box,
+            .payment-section {
+                padding: 20px 15px;
+            }
+
+            .details-table .label,
+            .details-table .value {
+                display: block;
+                width: 100%;
+                text-align: left;
+            }
+
+            .details-table .label {
+                margin-bottom: 4px;
+            }
+
+            .details-table .value {
+                margin-bottom: 15px;
+            }
+
+            .amount-row {
+                display: block;
+            }
+
+            .amount-label,
+            .amount-value {
+                display: block;
+                text-align: left;
+            }
+
+            .amount-value {
+                font-size: 18px;
+                margin-top: 5px;
+            }
+
+            .amount-row.total .amount-value {
+                font-size: 22px;
+            }
+
+            .cta-button {
+                display: block;
+                padding: 16px 20px;
+            }
+
+            .cta-secondary {
+                display: block;
+                margin-left: 0;
+                margin-top: 15px;
+            }
+
+            .contact-divider {
+                display: block;
+                margin: 10px 0;
+            }
+
+            .email-footer {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+                <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="email-container" style="max-width: 600px; width: 100%;">
+
+                        <!-- Header -->
+                        <tr>
+                            <td class="email-header">
+                                {% if company_logo_url %}
+                                <img src="{{ company_logo_url }}" alt="{{ company_name|default('ECOLED') }}" class="company-logo">
+                                {% endif %}
+                                <h1>Invoice Notification</h1>
+                                <div class="subtitle">{{ invoice_number }}</div>
+                            </td>
+                        </tr>
+
+                        <!-- Body -->
+                        <tr>
+                            <td class="email-body">
+
+                                <!-- Greeting -->
+                                <div class="greeting">
+                                    Dear <strong>{{ client_name }}</strong>,
+                                </div>
+
+                                <!-- Introduction -->
+                                <p class="intro-text">
+                                    {% if custom_message %}
+                                    {{ custom_message }}
+                                    {% else %}
+                                    A new invoice has been generated for your account. Please find the details below and ensure payment is made by the due date.
+                                    {% endif %}
+                                </p>
+
+                                <!-- Invoice Details Section -->
+                                <div class="section">
+                                    <div class="section-title">Invoice Details</div>
+                                    <div class="invoice-details-box">
+                                        <table class="details-table" role="presentation">
+                                            <tr>
+                                                <td class="label">Invoice Number:</td>
+                                                <td class="value">{{ invoice_number }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="label">Invoice Date:</td>
+                                                <td class="value">{{ invoice_date }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="label">Due Date:</td>
+                                                <td class="value" style="color: #dc2626; font-weight: 700;">{{ due_date }}</td>
+                                            </tr>
+                                            {% if order_reference %}
+                                            <tr>
+                                                <td class="label">Order Reference:</td>
+                                                <td class="value">{{ order_reference }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if po_number %}
+                                            <tr>
+                                                <td class="label">PO Number:</td>
+                                                <td class="value">{{ po_number }}</td>
+                                            </tr>
+                                            {% endif %}
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- Amount Summary -->
+                                <div class="section">
+                                    <div class="section-title">Amount Summary</div>
+                                    <div class="amount-box">
+                                        <div class="amount-row">
+                                            <span class="amount-label">Subtotal (excl. VAT)</span>
+                                            <span class="amount-value">{{ currency_symbol|default('EUR') }} {{ total_ht|default(total_amount)|number_format(2, '.', ',') }}</span>
+                                        </div>
+                                        {% if total_vat %}
+                                        <div class="amount-row">
+                                            <span class="amount-label">VAT ({{ vat_rate|default('20') }}%)</span>
+                                            <span class="amount-value">{{ currency_symbol|default('EUR') }} {{ total_vat|number_format(2, '.', ',') }}</span>
+                                        </div>
+                                        {% endif %}
+                                        {% if discount_amount %}
+                                        <div class="amount-row">
+                                            <span class="amount-label">Discount</span>
+                                            <span class="amount-value" style="color: #059669;">-{{ currency_symbol|default('EUR') }} {{ discount_amount|number_format(2, '.', ',') }}</span>
+                                        </div>
+                                        {% endif %}
+                                        <div class="amount-row total">
+                                            <span class="amount-label">Total Amount Due</span>
+                                            <span class="amount-value">{{ currency_symbol|default('EUR') }} {{ total_ttc|default(total_amount)|number_format(2, '.', ',') }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Due Date Notice -->
+                                <div class="due-notice">
+                                    <div class="notice-title">
+                                        <span class="notice-icon">&#9200;</span> Payment Due Date
+                                    </div>
+                                    <div class="notice-text">
+                                        This invoice is due on <strong>{{ due_date }}</strong>.
+                                        Please ensure payment is made by this date to avoid any late payment fees.
+                                        {% if days_until_due %}
+                                        <br><strong>{{ days_until_due }} days remaining</strong> until the due date.
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- CTA Buttons -->
+                                <div class="cta-container">
+                                    {% if invoice_url %}
+                                    <a href="{{ invoice_url }}" class="cta-button">View Invoice Online</a>
+                                    {% endif %}
+                                    {% if download_url %}
+                                    <a href="{{ download_url }}" class="cta-secondary">Download PDF</a>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Payment Instructions -->
+                                <div class="payment-section">
+                                    <div class="section-title">Payment Instructions</div>
+
+                                    {% if payment_terms %}
+                                    <p style="margin-bottom: 15px; color: #4b5563;">
+                                        <strong>Payment Terms:</strong> {{ payment_terms }}
+                                    </p>
+                                    {% endif %}
+
+                                    {% if payment_methods %}
+                                    <p style="margin-bottom: 15px; color: #4b5563;">
+                                        <strong>Accepted Payment Methods:</strong> {{ payment_methods }}
+                                    </p>
+                                    {% endif %}
+
+                                    {% if show_bank_details %}
+                                    <div class="bank-details">
+                                        <table role="presentation">
+                                            <tr>
+                                                <td class="label">Bank Name:</td>
+                                                <td class="value">{{ bank_name|default('Your Bank') }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="label">Account Holder:</td>
+                                                <td class="value">{{ account_holder|default(company_name) }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="label">IBAN:</td>
+                                                <td class="value">{{ iban }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="label">BIC/SWIFT:</td>
+                                                <td class="value">{{ bic }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="label">Reference:</td>
+                                                <td class="value">{{ invoice_number }}</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if payment_link %}
+                                    <div style="text-align: center; margin-top: 20px;">
+                                        <a href="{{ payment_link }}" class="cta-button" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">Pay Now Online</a>
+                                    </div>
+                                    {% endif %}
+
+                                    <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+                                        <strong>Important:</strong> Please include the invoice number <strong>{{ invoice_number }}</strong> as the payment reference to ensure proper allocation of your payment.
+                                    </p>
+                                </div>
+
+                                <!-- Billing Address -->
+                                {% if billing_company or billing_address %}
+                                <div class="section">
+                                    <div class="section-title">Billing Address</div>
+                                    <div class="address-block">
+                                        {% if billing_company %}<strong>{{ billing_company }}</strong><br>{% endif %}
+                                        {% if billing_contact %}{{ billing_contact }}<br>{% endif %}
+                                        {% if billing_address %}{{ billing_address }}<br>{% endif %}
+                                        {% if billing_postal_code or billing_city %}{{ billing_postal_code }} {{ billing_city }}<br>{% endif %}
+                                        {% if billing_country %}{{ billing_country }}{% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <!-- Contact Information -->
+                                <div class="contact-box">
+                                    <div class="title">Questions about this invoice?</div>
+                                    <p>
+                                        Contact us at
+                                        <a href="mailto:{{ company_email|default('accounting@ecoled.com') }}">{{ company_email|default('accounting@ecoled.com') }}</a>
+                                        <span class="contact-divider">|</span>
+                                        <a href="tel:{{ company_phone|default('+33 1 23 45 67 89') }}">{{ company_phone|default('+33 1 23 45 67 89') }}</a>
+                                    </p>
+                                </div>
+
+                                <!-- Signature -->
+                                <div class="signature">
+                                    <p>Thank you for your business!</p>
+                                    <p>Best regards,</p>
+                                    <p class="company-name">{{ company_name|default('ECOLED') }}</p>
+                                </div>
+
+                            </td>
+                        </tr>
+
+                        <!-- Footer -->
+                        <tr>
+                            <td class="email-footer">
+                                <div class="footer-company">{{ company_name|default('ECOLED') }}</div>
+                                <div class="footer-address">
+                                    {{ company_address|default('123 Business Street') }}<br>
+                                    {{ company_postal_code|default('75001') }} {{ company_city|default('Paris') }}, {{ company_country|default('France') }}
+                                </div>
+                                {% if company_vat_number or company_siret %}
+                                <div class="footer-address">
+                                    {% if company_vat_number %}VAT: {{ company_vat_number }}{% endif %}
+                                    {% if company_vat_number and company_siret %} | {% endif %}
+                                    {% if company_siret %}SIRET: {{ company_siret }}{% endif %}
+                                </div>
+                                {% endif %}
+                                <div class="footer-legal">
+                                    This is an automated message from {{ company_name|default('ECOLED') }} ERP System.<br>
+                                    Please do not reply directly to this email.<br>
+                                    For inquiries, contact us at <a href="mailto:{{ company_email|default('accounting@ecoled.com') }}">{{ company_email|default('accounting@ecoled.com') }}</a>
+                                </div>
+                                <div class="footer-legal" style="margin-top: 15px;">
+                                    &copy; {{ current_year|default('2025') }} {{ company_name|default('ECOLED') }}. All rights reserved.
+                                </div>
+                            </td>
+                        </tr>
+
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>

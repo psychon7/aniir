@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Statement - {{ client.company_name }}</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #333;
+            background-color: #fff;
+        }
+
+        /* Page container for PDF */
+        .statement-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px;
+        }
+
+        /* Header section */
+        .statement-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 20px;
+        }
+
+        .company-info {
+            max-width: 50%;
+        }
+
+        .company-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e40af;
+            margin-bottom: 8px;
+        }
+
+        .company-details {
+            font-size: 11px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .company-details p {
+            margin-bottom: 2px;
+        }
+
+        .statement-title-section {
+            text-align: right;
+        }
+
+        .statement-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1e40af;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .statement-subtitle {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+
+        .statement-dates {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .statement-dates p {
+            margin-bottom: 3px;
+        }
+
+        /* Client addresses section */
+        .addresses-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .address-block {
+            width: 48%;
+        }
+
+        .address-label {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #6b7280;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .address-content {
+            background-color: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            min-height: 100px;
+        }
+
+        .address-content .name {
+            font-weight: bold;
+            font-size: 13px;
+            color: #111;
+            margin-bottom: 5px;
+        }
+
+        .address-content p {
+            margin-bottom: 2px;
+            color: #4b5563;
+        }
+
+        /* Period summary section */
+        .period-summary {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+        }
+
+        .summary-block {
+            text-align: center;
+            flex: 1;
+            padding: 10px;
+        }
+
+        .summary-block:not(:last-child) {
+            border-right: 1px solid #e5e7eb;
+        }
+
+        .summary-label {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #6b7280;
+            margin-bottom: 5px;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1e40af;
+        }
+
+        .summary-value.positive {
+            color: #059669;
+        }
+
+        .summary-value.negative {
+            color: #dc2626;
+        }
+
+        /* Transactions table */
+        .transactions-section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #1e40af;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .transactions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .transactions-table th {
+            background-color: #1e40af;
+            color: white;
+            padding: 12px 10px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .transactions-table th:last-child,
+        .transactions-table td:last-child {
+            text-align: right;
+        }
+
+        .transactions-table th.text-center,
+        .transactions-table td.text-center {
+            text-align: center;
+        }
+
+        .transactions-table th.text-right,
+        .transactions-table td.text-right {
+            text-align: right;
+        }
+
+        .transactions-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: middle;
+        }
+
+        .transactions-table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+
+        .transactions-table tbody tr:last-child td {
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .transaction-type {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .type-invoice {
+            background-color: #dbeafe;
+            color: #1d4ed8;
+        }
+
+        .type-payment {
+            background-color: #d1fae5;
+            color: #059669;
+        }
+
+        .debit-amount {
+            color: #dc2626;
+        }
+
+        .credit-amount {
+            color: #059669;
+        }
+
+        .balance-positive {
+            color: #dc2626;
+        }
+
+        .balance-negative {
+            color: #059669;
+        }
+
+        /* Opening balance row */
+        .opening-balance-row {
+            background-color: #f9fafb;
+            font-style: italic;
+        }
+
+        .opening-balance-row td {
+            border-bottom: 2px solid #1e40af;
+        }
+
+        /* Totals section */
+        .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 30px;
+        }
+
+        .totals-table {
+            width: 350px;
+        }
+
+        .totals-table tr td {
+            padding: 8px 0;
+        }
+
+        .totals-table tr td:first-child {
+            color: #6b7280;
+            font-size: 11px;
+        }
+
+        .totals-table tr td:last-child {
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .totals-table tr.subtotal td {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 12px;
+        }
+
+        .totals-table tr.total td {
+            border-top: 2px solid #1e40af;
+            padding-top: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #1e40af;
+        }
+
+        .totals-table tr.closing-balance td {
+            border-top: 2px solid #1e40af;
+            padding-top: 12px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .totals-table tr.closing-balance td:last-child.positive {
+            color: #dc2626;
+        }
+
+        .totals-table tr.closing-balance td:last-child.negative {
+            color: #059669;
+        }
+
+        /* Notes section */
+        .notes-section {
+            margin-bottom: 30px;
+        }
+
+        .notes-section h4 {
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #6b7280;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .notes-content {
+            padding: 15px;
+            background-color: #f0f9ff;
+            border-left: 3px solid #0ea5e9;
+            border-radius: 0 6px 6px 0;
+            font-size: 11px;
+            color: #0c4a6e;
+        }
+
+        /* Payment reminder section */
+        .payment-reminder {
+            margin-bottom: 30px;
+            padding: 15px 20px;
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .payment-reminder.overdue {
+            background-color: #fee2e2;
+            border-left-color: #dc2626;
+        }
+
+        .payment-reminder h4 {
+            font-size: 12px;
+            font-weight: bold;
+            color: #92400e;
+            margin-bottom: 5px;
+        }
+
+        .payment-reminder.overdue h4 {
+            color: #991b1b;
+        }
+
+        .payment-reminder p {
+            font-size: 11px;
+            color: #78350f;
+        }
+
+        .payment-reminder.overdue p {
+            color: #7f1d1d;
+        }
+
+        /* Footer */
+        .statement-footer {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 20px;
+            text-align: center;
+            font-size: 10px;
+            color: #6b7280;
+        }
+
+        .statement-footer p {
+            margin-bottom: 3px;
+        }
+
+        .statement-footer .legal-info {
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        .generated-at {
+            margin-top: 15px;
+            font-size: 9px;
+            color: #9ca3af;
+        }
+
+        /* Aging Summary Section */
+        .aging-section {
+            margin-bottom: 30px;
+            page-break-inside: avoid;
+        }
+
+        .aging-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .aging-block {
+            flex: 1;
+            min-width: 120px;
+            padding: 15px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+        }
+
+        .aging-block.current {
+            background-color: #ecfdf5;
+            border-color: #a7f3d0;
+        }
+
+        .aging-block.days-30 {
+            background-color: #fef3c7;
+            border-color: #fcd34d;
+        }
+
+        .aging-block.days-60 {
+            background-color: #fed7aa;
+            border-color: #fdba74;
+        }
+
+        .aging-block.days-90 {
+            background-color: #fee2e2;
+            border-color: #fca5a5;
+        }
+
+        .aging-block.total {
+            background-color: #1e40af;
+            border-color: #1e40af;
+        }
+
+        .aging-block.total .aging-label,
+        .aging-block.total .aging-value {
+            color: white;
+        }
+
+        .aging-label {
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #6b7280;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .aging-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #111;
+        }
+
+        .aging-value.overdue {
+            color: #dc2626;
+        }
+
+        .aging-value.total-value {
+            font-size: 18px;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+
+            .statement-container {
+                padding: 20px;
+            }
+
+            .transactions-table th {
+                background-color: #1e40af !important;
+                color: white !important;
+            }
+
+            .transaction-type {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .aging-block {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .aging-block.current {
+                background-color: #ecfdf5 !important;
+            }
+
+            .aging-block.days-30 {
+                background-color: #fef3c7 !important;
+            }
+
+            .aging-block.days-60 {
+                background-color: #fed7aa !important;
+            }
+
+            .aging-block.days-90 {
+                background-color: #fee2e2 !important;
+            }
+
+            .aging-block.total {
+                background-color: #1e40af !important;
+            }
+
+            .aging-section {
+                page-break-inside: avoid;
+            }
+        }
+
+        /* Utility classes */
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .text-muted { color: #6b7280; }
+        .font-bold { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="statement-container">
+        <!-- Header Section -->
+        <div class="statement-header">
+            <div class="company-info">
+                {% if company %}
+                <div class="company-name">{{ company.soc_society_name }}</div>
+                <div class="company-details">
+                    {% if company.soc_address1 %}
+                    <p>{{ company.soc_address1 }}</p>
+                    {% endif %}
+                    {% if company.soc_address2 %}
+                    <p>{{ company.soc_address2 }}</p>
+                    {% endif %}
+                    {% if company.soc_postcode or company.soc_city %}
+                    <p>{{ company.soc_postcode }}{% if company.soc_postcode and company.soc_city %}, {% endif %}{{ company.soc_city }}</p>
+                    {% endif %}
+                    {% if company.soc_county %}
+                    <p>{{ company.soc_county }}</p>
+                    {% endif %}
+                    {% if company.soc_tel %}
+                    <p>Tel: {{ company.soc_tel }}</p>
+                    {% endif %}
+                    {% if company.soc_email %}
+                    <p>Email: {{ company.soc_email }}</p>
+                    {% endif %}
+                    {% if company.soc_site %}
+                    <p>Web: {{ company.soc_site }}</p>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="company-name">Your Company Name</div>
+                <div class="company-details">
+                    <p>Company Address Line 1</p>
+                    <p>City, Postal Code</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="statement-title-section">
+                <div class="statement-title">Statement</div>
+                <div class="statement-subtitle">Account Summary</div>
+                <div class="statement-dates">
+                    <p><strong>Statement Period:</strong></p>
+                    <p>{{ statement_period.from_date }} to {{ statement_period.to_date }}</p>
+                    {% if generated_at %}
+                    <p style="margin-top: 8px;"><strong>Generated:</strong> {{ generated_at }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Client Address Section -->
+        <div class="addresses-section">
+            <div class="address-block">
+                <div class="address-label">Statement For</div>
+                <div class="address-content">
+                    {% if client %}
+                    <div class="name">{{ client.company_name }}</div>
+                    {% if client.reference %}
+                    <p>Account: {{ client.reference }}</p>
+                    {% endif %}
+                    {% if client.address %}
+                    <p>{{ client.address }}</p>
+                    {% endif %}
+                    {% if client.postal_code or client.city %}
+                    <p>{{ client.postal_code }}{% if client.postal_code and client.city %}, {% endif %}{{ client.city }}</p>
+                    {% endif %}
+                    {% if client.email %}
+                    <p>{{ client.email }}</p>
+                    {% endif %}
+                    {% else %}
+                    <div class="name">Client Name</div>
+                    <p>Client Address</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="address-block">
+                <div class="address-label">Account Summary</div>
+                <div class="address-content">
+                    <p><strong>Opening Balance:</strong> {{ currency_symbol }}{{ "%.2f"|format(opening_balance) }}</p>
+                    <p><strong>Total Invoices:</strong> {{ currency_symbol }}{{ "%.2f"|format(totals.total_debits) }}</p>
+                    <p><strong>Total Payments:</strong> {{ currency_symbol }}{{ "%.2f"|format(totals.total_credits) }}</p>
+                    <p style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb;">
+                        <strong>Closing Balance:</strong>
+                        <span style="color: {% if closing_balance > 0 %}#dc2626{% else %}#059669{% endif %}; font-weight: bold;">
+                            {{ currency_symbol }}{{ "%.2f"|format(closing_balance) }}
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Period Summary -->
+        <div class="period-summary">
+            <div class="summary-block">
+                <div class="summary-label">Opening Balance</div>
+                <div class="summary-value {% if opening_balance > 0 %}negative{% elif opening_balance < 0 %}positive{% endif %}">
+                    {{ currency_symbol }}{{ "%.2f"|format(opening_balance) }}
+                </div>
+            </div>
+            <div class="summary-block">
+                <div class="summary-label">Total Debits</div>
+                <div class="summary-value">
+                    {{ currency_symbol }}{{ "%.2f"|format(totals.total_debits) }}
+                </div>
+            </div>
+            <div class="summary-block">
+                <div class="summary-label">Total Credits</div>
+                <div class="summary-value positive">
+                    {{ currency_symbol }}{{ "%.2f"|format(totals.total_credits) }}
+                </div>
+            </div>
+            <div class="summary-block">
+                <div class="summary-label">Closing Balance</div>
+                <div class="summary-value {% if closing_balance > 0 %}negative{% elif closing_balance < 0 %}positive{% endif %}">
+                    {{ currency_symbol }}{{ "%.2f"|format(closing_balance) }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Reminder (if balance due) -->
+        {% if closing_balance > 0 %}
+        <div class="payment-reminder {% if is_overdue %}overdue{% endif %}">
+            <h4>{% if is_overdue %}Overdue Balance{% else %}Balance Due{% endif %}</h4>
+            <p>
+                {% if is_overdue %}
+                Your account has an overdue balance of <strong>{{ currency_symbol }}{{ "%.2f"|format(closing_balance) }}</strong>. Please remit payment as soon as possible to avoid any service interruptions.
+                {% else %}
+                Please remit <strong>{{ currency_symbol }}{{ "%.2f"|format(closing_balance) }}</strong> by the due date shown on the most recent invoice.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+
+        <!-- Transactions Table -->
+        <div class="transactions-section">
+            <div class="section-title">Transaction Details</div>
+            <table class="transactions-table">
+                <thead>
+                    <tr>
+                        <th style="width: 12%;">Date</th>
+                        <th style="width: 10%;">Type</th>
+                        <th style="width: 15%;">Reference</th>
+                        <th style="width: 28%;">Description</th>
+                        <th class="text-right" style="width: 12%;">Debit</th>
+                        <th class="text-right" style="width: 12%;">Credit</th>
+                        <th class="text-right" style="width: 11%;">Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Opening Balance Row -->
+                    <tr class="opening-balance-row">
+                        <td>{{ statement_period.from_date }}</td>
+                        <td></td>
+                        <td></td>
+                        <td><em>Opening Balance</em></td>
+                        <td class="text-right">-</td>
+                        <td class="text-right">-</td>
+                        <td class="text-right {% if opening_balance > 0 %}balance-positive{% elif opening_balance < 0 %}balance-negative{% endif %}">
+                            {{ currency_symbol }}{{ "%.2f"|format(opening_balance) }}
+                        </td>
+                    </tr>
+
+                    {% if transactions %}
+                    {% for tx in transactions %}
+                    <tr>
+                        <td>{{ tx.date }}</td>
+                        <td>
+                            <span class="transaction-type {% if tx.type == 'INVOICE' %}type-invoice{% else %}type-payment{% endif %}">
+                                {{ tx.type }}
+                            </span>
+                        </td>
+                        <td>{{ tx.reference }}</td>
+                        <td>
+                            {{ tx.description }}
+                            {% if tx.due_date %}
+                            <br><span class="text-muted" style="font-size: 10px;">Due: {{ tx.due_date }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            {% if tx.debit > 0 %}
+                            <span class="debit-amount">{{ currency_symbol }}{{ "%.2f"|format(tx.debit) }}</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            {% if tx.credit > 0 %}
+                            <span class="credit-amount">{{ currency_symbol }}{{ "%.2f"|format(tx.credit) }}</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="text-right {% if tx.balance > 0 %}balance-positive{% elif tx.balance < 0 %}balance-negative{% endif %}">
+                            {{ currency_symbol }}{{ "%.2f"|format(tx.balance) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted" style="padding: 20px;">
+                            No transactions for this period
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Totals Section -->
+        <div class="totals-section">
+            <table class="totals-table">
+                <tr>
+                    <td>Opening Balance</td>
+                    <td>{{ currency_symbol }}{{ "%.2f"|format(opening_balance) }}</td>
+                </tr>
+                <tr>
+                    <td>Total Invoices (Debits)</td>
+                    <td>{{ currency_symbol }}{{ "%.2f"|format(totals.total_debits) }}</td>
+                </tr>
+                <tr>
+                    <td>Total Payments (Credits)</td>
+                    <td>-{{ currency_symbol }}{{ "%.2f"|format(totals.total_credits) }}</td>
+                </tr>
+                <tr class="subtotal">
+                    <td>Net Change</td>
+                    <td>{{ currency_symbol }}{{ "%.2f"|format(totals.net_change) }}</td>
+                </tr>
+                <tr class="closing-balance">
+                    <td>Closing Balance</td>
+                    <td class="{% if closing_balance > 0 %}positive{% elif closing_balance < 0 %}negative{% endif %}">
+                        {{ currency_symbol }}{{ "%.2f"|format(closing_balance) }}
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Aging Summary Section -->
+        {% if aging_summary %}
+        <div class="aging-section">
+            <div class="section-title">Aging Summary</div>
+            <div class="aging-grid">
+                <div class="aging-block current">
+                    <div class="aging-label">Current (0-30 days)</div>
+                    <div class="aging-value">{{ currency_symbol }}{{ "%.2f"|format(aging_summary.current|default(0)) }}</div>
+                </div>
+                <div class="aging-block days-30">
+                    <div class="aging-label">31-60 Days</div>
+                    <div class="aging-value">{{ currency_symbol }}{{ "%.2f"|format(aging_summary.days_31_60|default(0)) }}</div>
+                </div>
+                <div class="aging-block days-60">
+                    <div class="aging-label">61-90 Days</div>
+                    <div class="aging-value">{{ currency_symbol }}{{ "%.2f"|format(aging_summary.days_61_90|default(0)) }}</div>
+                </div>
+                <div class="aging-block days-90">
+                    <div class="aging-label">Over 90 Days</div>
+                    <div class="aging-value overdue">{{ currency_symbol }}{{ "%.2f"|format(aging_summary.over_90|default(0)) }}</div>
+                </div>
+                <div class="aging-block total">
+                    <div class="aging-label">Total Outstanding</div>
+                    <div class="aging-value total-value">{{ currency_symbol }}{{ "%.2f"|format((aging_summary.current|default(0)) + (aging_summary.days_31_60|default(0)) + (aging_summary.days_61_90|default(0)) + (aging_summary.over_90|default(0))) }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Payment Information -->
+        {% if company and closing_balance > 0 %}
+        <div class="notes-section">
+            <h4>Payment Information</h4>
+            <div class="notes-content">
+                {% if company.soc_rib_name %}
+                <p><strong>Bank:</strong> {{ company.soc_rib_name }}</p>
+                {% endif %}
+                {% if company.soc_rib_code_iban %}
+                <p><strong>IBAN:</strong> {{ company.soc_rib_code_iban }}</p>
+                {% endif %}
+                {% if company.soc_rib_code_bic %}
+                <p><strong>BIC/SWIFT:</strong> {{ company.soc_rib_code_bic }}</p>
+                {% endif %}
+                <p style="margin-top: 10px;"><strong>Reference:</strong> Please quote your account reference <strong>{{ client.reference }}</strong> with all payments.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Notes Section -->
+        {% if notes %}
+        <div class="notes-section">
+            <h4>Notes</h4>
+            <div class="notes-content" style="background-color: #fefce8; border-left-color: #eab308; color: #713f12;">
+                {{ notes }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Footer -->
+        <div class="statement-footer">
+            {% if company %}
+            <p>{{ company.soc_society_name }}</p>
+            {% if company.soc_siret %}
+            <p>SIRET: {{ company.soc_siret }}</p>
+            {% endif %}
+            {% if company.soc_tva_intra %}
+            <p>VAT Number: {{ company.soc_tva_intra }}</p>
+            {% endif %}
+            {% if company.soc_rcs %}
+            <p>RCS: {{ company.soc_rcs }}</p>
+            {% endif %}
+            {% if company.soc_capital %}
+            <div class="legal-info">
+                Capital: {{ company.soc_capital }}
+            </div>
+            {% endif %}
+            {% endif %}
+            <p style="margin-top: 15px;">This statement was generated automatically. Please contact us if you have any questions.</p>
+            {% if generated_at %}
+            <p class="generated-at">Generated: {{ generated_at }}</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

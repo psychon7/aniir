@@ -1,0 +1,45 @@
+{% extends "base_email.html" %}
+
+{% block title %}Invoice {{ invoice_reference }} - {{ company_name }}{% endblock %}
+
+{% block header %}
+<h1>Invoice</h1>
+{% endblock %}
+
+{% block content %}
+<p class="greeting">Dear {{ client_name }},</p>
+
+<p>Please find attached your invoice for your recent transaction. Below are the details:</p>
+
+<div class="info-box">
+    <ul class="details-list">
+        <li>
+            <span class="details-label">Invoice Number:</span><br>
+            <span class="details-value">{{ invoice_reference }}</span>
+        </li>
+        <li>
+            <span class="details-label">Amount Due:</span><br>
+            <span class="amount-highlight">{{ currency }} {{ "%.2f"|format(invoice_amount) }}</span>
+        </li>
+        <li>
+            <span class="details-label">Due Date:</span><br>
+            <span class="details-value">{{ due_date }}</span>
+        </li>
+    </ul>
+</div>
+
+<p>Please ensure payment is made by the due date to avoid any late fees or service interruptions.</p>
+
+{% if payment_link %}
+<p style="text-align: center;">
+    <a href="{{ payment_link }}" class="button">Pay Now</a>
+</p>
+{% endif %}
+
+<p>If you have any questions regarding this invoice, please don't hesitate to contact us.</p>
+
+<p>Thank you for your business!</p>
+
+<p>Best regards,<br>
+<strong>{{ company_name }}</strong></p>
+{% endblock %}

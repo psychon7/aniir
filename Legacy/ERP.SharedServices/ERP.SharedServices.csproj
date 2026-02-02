@@ -1,0 +1,116 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{DF98E8B9-36C7-4F3B-974B-0B756021F3BF}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>ERP.SharedServices</RootNamespace>
+    <AssemblyName>ERP.SharedServices</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="itextsharp">
+      <HintPath>..\Packages\itextsharp.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.Entity" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="BarCode\Code128.cs" />
+    <Compile Include="LogWriter.cs" />
+    <Compile Include="NetMails.cs" />
+    <Compile Include="PDF\GPdfTechSheet_V3.cs" />
+    <Compile Include="PDF\PdfCpl_HK02.cs" />
+    <Compile Include="PDF\PdfCod_HK02.cs" />
+    <Compile Include="PDF\PDFGeneratorSupplierOrder.cs" />
+    <Compile Include="PDF\PdfSod_HK02.cs" />
+    <Compile Include="PDF\PdfCin_HK02.cs" />
+    <Compile Include="PDF\PDFGeneratorSupplierOrder_hk.cs" />
+    <Compile Include="PDF\PDFGeneratorClientInvoice_hk.cs" />
+    <Compile Include="PDF\PdfGCinMa.cs" />
+    <Compile Include="PDF\PDFGeneratorDeliveryForm_VS001.cs" />
+    <Compile Include="PDF\PDFGeneratorClientInvoice_VS001.cs" />
+    <Compile Include="PDF\PDFGeneratorTechSheet_V2.cs" />
+    <Compile Include="PDF\PDFGeneratorClientInvoiceStatment.cs" />
+    <Compile Include="PDF\PDFGeneratorTechSheet_Old.cs" />
+    <Compile Include="PDF\PDFGeneratorCostPlan.cs" />
+    <Compile Include="PDF\PDFGeneratorLogistics.cs" />
+    <Compile Include="PDF\PDFGenerator.cs" />
+    <Compile Include="PDF\PDFGeneratorClientInvoice.cs" />
+    <Compile Include="PDF\PDFGeneratorClientOrder.cs" />
+    <Compile Include="PDF\PDFGeneratorDeliveryForm.cs" />
+    <Compile Include="PDF\PDFGeneratorPurchaseIntent.cs" />
+    <Compile Include="PDF\PDFGeneratorSupplierInvoice.cs" />
+    <Compile Include="PDF\PDFGeneratorSupplierOrder_Old.cs" />
+    <Compile Include="PDF\PDFGeneratorTechSheet.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="WebMails.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ERP.DataServices\ERP.DataServices.csproj">
+      <Project>{1A98322F-8624-4451-908A-324C72A43113}</Project>
+      <Name>ERP.DataServices</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ERP.Entities\ERP.Entities.csproj">
+      <Project>{95D99810-CA16-4F58-9CAC-CBD1136354DC}</Project>
+      <Name>ERP.Entities</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ERP.Repositories\ERP.Repositories.csproj">
+      <Project>{9F51457D-F56E-4A07-9E41-95C11BA180E6}</Project>
+      <Name>ERP.Repositories</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="img\background.jpg" />
+    <Content Include="img\empty.png" />
+    <Content Include="img\logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

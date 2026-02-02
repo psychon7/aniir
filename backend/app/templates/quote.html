@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quote {{ reference }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #333;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #8B5CF6;
+        }
+        
+        .logo {
+            max-width: 180px;
+            max-height: 80px;
+        }
+        
+        .company-info {
+            text-align: right;
+        }
+        
+        .company-name {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #6D28D9;
+            margin-bottom: 5px;
+        }
+        
+        .company-details {
+            font-size: 9pt;
+            color: #666;
+        }
+        
+        .document-title {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .document-title h1 {
+            font-size: 24pt;
+            color: #6D28D9;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .document-title .reference {
+            font-size: 14pt;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        
+        .info-box {
+            width: 48%;
+            padding: 15px;
+            background: #F8FAFC;
+            border-radius: 8px;
+        }
+        
+        .info-box h3 {
+            font-size: 10pt;
+            color: #8B5CF6;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+        
+        .info-box p {
+            margin: 3px 0;
+        }
+        
+        .dates-section {
+            display: flex;
+            justify-content: flex-end;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .date-item {
+            text-align: right;
+        }
+        
+        .date-item .label {
+            font-size: 9pt;
+            color: #666;
+        }
+        
+        .date-item .value {
+            font-size: 11pt;
+            font-weight: bold;
+        }
+        
+        .validity-badge {
+            display: inline-block;
+            background: #FEF3C7;
+            color: #92400E;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 9pt;
+            font-weight: 600;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        thead {
+            background: #6D28D9;
+            color: white;
+        }
+        
+        th {
+            padding: 12px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 9pt;
+            text-transform: uppercase;
+        }
+        
+        th.right, td.right {
+            text-align: right;
+        }
+        
+        th.center, td.center {
+            text-align: center;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid #E2E8F0;
+        }
+        
+        tbody tr:nth-child(even) {
+            background: #F8FAFC;
+        }
+        
+        td {
+            padding: 10px;
+            font-size: 9pt;
+        }
+        
+        .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .totals-table {
+            width: 300px;
+        }
+        
+        .totals-table tr {
+            border: none;
+        }
+        
+        .totals-table td {
+            padding: 8px 10px;
+        }
+        
+        .totals-table .label {
+            text-align: right;
+            color: #666;
+        }
+        
+        .totals-table .value {
+            text-align: right;
+            font-weight: 600;
+        }
+        
+        .totals-table .total-row {
+            background: #6D28D9;
+            color: white;
+        }
+        
+        .totals-table .total-row td {
+            font-size: 12pt;
+            padding: 12px 10px;
+        }
+        
+        .notes-section {
+            margin-top: 30px;
+            padding: 15px;
+            background: #F3E8FF;
+            border-radius: 8px;
+            border-left: 4px solid #8B5CF6;
+        }
+        
+        .notes-section h4 {
+            font-size: 10pt;
+            color: #6D28D9;
+            margin-bottom: 8px;
+        }
+        
+        .notes-section p {
+            font-size: 9pt;
+            color: #5B21B6;
+        }
+        
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 8pt;
+            color: #999;
+            padding: 10px;
+            border-top: 1px solid #E2E8F0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo-section">
+            {% if society.logo_url %}
+            <img src="{{ society.logo_url }}" alt="Logo" class="logo">
+            {% else %}
+            <div class="company-name">{{ society.name }}</div>
+            {% endif %}
+        </div>
+        <div class="company-info">
+            <div class="company-name">{{ society.name }}</div>
+            <div class="company-details">
+                {{ society.address }}<br>
+                {{ society.postal_code }} {{ society.city }}<br>
+                {% if society.phone %}Tel: {{ society.phone }}<br>{% endif %}
+                {% if society.email %}{{ society.email }}{% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="document-title">
+        <h1>Quotation</h1>
+        <div class="reference">{{ reference }}</div>
+    </div>
+    
+    <div class="dates-section">
+        <div class="date-item">
+            <div class="label">Quote Date</div>
+            <div class="value">{{ date|date }}</div>
+        </div>
+        <div class="date-item">
+            <div class="label">Valid Until</div>
+            <div class="value">
+                {{ validity_date|date }}
+                <span class="validity-badge">30 days</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="info-section">
+        <div class="info-box">
+            <h3>Prepared For</h3>
+            <p><strong>{{ client.name }}</strong></p>
+            {% if client.address %}<p>{{ client.address }}</p>{% endif %}
+            <p>{{ client.postal_code }} {{ client.city }}</p>
+        </div>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 40%">Description</th>
+                <th class="center" style="width: 10%">Qty</th>
+                <th class="right" style="width: 15%">Unit Price</th>
+                <th class="center" style="width: 10%">Discount</th>
+                <th class="center" style="width: 10%">VAT</th>
+                <th class="right" style="width: 15%">Total HT</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in lines %}
+            <tr>
+                <td>{{ line.description }}</td>
+                <td class="center">{{ line.quantity|number(0) }}</td>
+                <td class="right">{{ line.unit_price|currency(currency_symbol) }}</td>
+                <td class="center">{% if line.discount_percent > 0 %}{{ line.discount_percent|number(1) }}%{% else %}-{% endif %}</td>
+                <td class="center">{{ line.vat_rate|number(1) }}%</td>
+                <td class="right">{{ line.total_ht|currency(currency_symbol) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <div class="totals-section">
+        <table class="totals-table">
+            <tr>
+                <td class="label">Subtotal (HT)</td>
+                <td class="value">{{ total_ht|currency(currency_symbol) }}</td>
+            </tr>
+            <tr>
+                <td class="label">VAT</td>
+                <td class="value">{{ total_vat|currency(currency_symbol) }}</td>
+            </tr>
+            <tr class="total-row">
+                <td class="label">Total (TTC)</td>
+                <td class="value">{{ total_ttc|currency(currency_symbol) }}</td>
+            </tr>
+        </table>
+    </div>
+    
+    {% if notes %}
+    <div class="notes-section">
+        <h4>Notes & Terms</h4>
+        <p>{{ notes }}</p>
+    </div>
+    {% endif %}
+    
+    <div class="footer">
+        Generated on {{ generated_at|date('%d/%m/%Y %H:%M') }} | {{ society.name }} | This quote is valid for 30 days from the date of issue.
+    </div>
+</body>
+</html>

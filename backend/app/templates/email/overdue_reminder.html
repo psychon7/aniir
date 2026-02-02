@@ -1,0 +1,55 @@
+{% extends "base_email.html" %}
+
+{% block title %}Payment Reminder - Invoice {{ invoice_reference }}{% endblock %}
+
+{% block header %}
+<h1>Payment Reminder</h1>
+{% endblock %}
+
+{% block content %}
+<p class="greeting">Dear {{ client_name }},</p>
+
+<p>This is a friendly reminder that the following invoice is now <strong>{{ days_overdue }} days past due</strong>.</p>
+
+<div class="info-box info-box-warning">
+    <ul class="details-list">
+        <li>
+            <span class="details-label">Invoice Number:</span><br>
+            <span class="details-value">{{ invoice_reference }}</span>
+        </li>
+        <li>
+            <span class="details-label">Original Amount:</span><br>
+            <span class="details-value">{{ currency }} {{ "%.2f"|format(invoice_amount) }}</span>
+        </li>
+        <li>
+            <span class="details-label">Balance Due:</span><br>
+            <span class="amount-highlight" style="color: #d97706;">{{ currency }} {{ "%.2f"|format(balance_due) }}</span>
+        </li>
+        <li>
+            <span class="details-label">Original Due Date:</span><br>
+            <span class="details-value">{{ due_date }}</span>
+        </li>
+        <li>
+            <span class="details-label">Days Overdue:</span><br>
+            <span class="details-value" style="color: #dc2626; font-weight: bold;">{{ days_overdue }} days</span>
+        </li>
+    </ul>
+</div>
+
+<p>Please arrange payment at your earliest convenience to avoid any late fees or service interruptions.</p>
+
+{% if payment_link %}
+<p style="text-align: center;">
+    <a href="{{ payment_link }}" class="button">Pay Now</a>
+</p>
+{% endif %}
+
+<p><strong>If you have already made this payment, please disregard this notice.</strong> It may take 1-2 business days for payments to be reflected in our system.</p>
+
+<p>If you are experiencing any difficulties with payment or have questions about this invoice, please contact us immediately so we can work together to resolve the matter.</p>
+
+<p>Thank you for your attention to this matter.</p>
+
+<p>Best regards,<br>
+<strong>{{ company_name }}</strong></p>
+{% endblock %}

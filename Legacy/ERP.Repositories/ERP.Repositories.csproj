@@ -1,0 +1,160 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{9F51457D-F56E-4A07-9E41-95C11BA180E6}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>ERP.Repositories</RootNamespace>
+    <AssemblyName>ERP.Repositories</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Accessibility">
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="Microsoft.Office.Interop.Excel, Version=15.0.0.0, Culture=neutral, PublicKeyToken=71e9bce111e9429c, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+      <HintPath>..\Packages\Microsoft.Office.Interop.Excel.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data.Entity" />
+    <Reference Include="System.Data.Linq" />
+    <Reference Include="System.Net" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="DataBase\BaseSqlServerRepository.cs" />
+    <Compile Include="DataBase\ERP_DB.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>ERP_DB.edmx</DependentUpon>
+    </Compile>
+    <Compile Include="Extensions\Dynamic.cs" />
+    <Compile Include="Extensions\Extensions.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Shared\AccountingExt.cs" />
+    <Compile Include="Shared\CookieTicket.cs" />
+    <Compile Include="SqlServer\AlbumRepository.cs" />
+    <Compile Include="SqlServer\BankAccountRepository.cs" />
+    <Compile Include="SqlServer\BrandRepository.cs" />
+    <Compile Include="SqlServer\CalendarRepository.cs" />
+    <Compile Include="SqlServer\ClientRepository.cs" />
+    <Compile Include="SqlServer\CommonRepository.cs" />
+    <Compile Include="SqlServer\ContactClientRepository.cs" />
+    <Compile Include="SqlServer\ClientOrderRepository.cs" />
+    <Compile Include="SqlServer\ClientOrderLineRepository.cs" />
+    <Compile Include="SqlServer\ClientInvoiceLineRepository.cs" />
+    <Compile Include="SqlServer\ClientInvoiceRepository.cs" />
+    <Compile Include="SqlServer\CategoryRepository.cs" />
+    <Compile Include="SqlServer\ConsigneeRepository.cs" />
+    <Compile Include="SqlServer\ECOLECWebRepository.cs" />
+    <Compile Include="SqlServer\EcoLedWebRepository.cs" />
+    <Compile Include="SqlServer\SiteProjectRepository.cs" />
+    <Compile Include="SqlServer\Translators\ConsigneeTranslator.cs" />
+    <Compile Include="SqlServer\UserHRepository.cs" />
+    <Compile Include="SqlServer\LogisticsRepository.cs" />
+    <Compile Include="SqlServer\MessageRepository.cs" />
+    <Compile Include="SqlServer\PurchaseBaseLineRepository.cs" />
+    <Compile Include="SqlServer\PurchaseBaseRepository.cs" />
+    <Compile Include="SqlServer\SiteCommonRepository.cs" />
+    <Compile Include="SqlServer\SocietyRepository.cs" />
+    <Compile Include="SqlServer\DeliveryFormLineRepository.cs" />
+    <Compile Include="SqlServer\DeliveryFormRepository.cs" />
+    <Compile Include="SqlServer\CostPlanLineRepository.cs" />
+    <Compile Include="SqlServer\SupplierContactRepository.cs" />
+    <Compile Include="SqlServer\SupplierProductRepository.cs" />
+    <Compile Include="SqlServer\SupplierRepository.cs" />
+    <Compile Include="SqlServer\CostPlanRepository.cs" />
+    <Compile Include="SqlServer\ProductInstanceRepository.cs" />
+    <Compile Include="SqlServer\ProductRepository.cs" />
+    <Compile Include="SqlServer\ProductTypeMatrixRepository.cs" />
+    <Compile Include="SqlServer\ProductTypeRepository.cs" />
+    <Compile Include="SqlServer\ProjectRepository.cs" />
+    <Compile Include="SqlServer\Translators\CalendarTranslator.cs" />
+    <Compile Include="SqlServer\Translators\ClientTranslator.cs" />
+    <Compile Include="SqlServer\Translators\ContactClientTranslator.cs" />
+    <Compile Include="SqlServer\Translators\ClientOrderTranslator.cs" />
+    <Compile Include="SqlServer\Translators\ClientOrderLineTranslator.cs" />
+    <Compile Include="SqlServer\Translators\ClientInvoiceLineTranslator.cs" />
+    <Compile Include="SqlServer\Translators\ClientInvoiceTranslator.cs" />
+    <Compile Include="SqlServer\Translators\BankAccountTranslator.cs" />
+    <Compile Include="SqlServer\Translators\CategoryTranslator.cs" />
+    <Compile Include="SqlServer\Translators\LogisticsTranslator.cs" />
+    <Compile Include="SqlServer\Translators\PurchaseBaseLineTranslator.cs" />
+    <Compile Include="SqlServer\Translators\PurchaseBaseTranslator.cs" />
+    <Compile Include="SqlServer\Translators\ShippingReceivingTranslator.cs" />
+    <Compile Include="SqlServer\Translators\SocietyTranslator.cs" />
+    <Compile Include="SqlServer\Translators\DeliveryFormLineTranslator.cs" />
+    <Compile Include="SqlServer\Translators\DeliveryFormTranslator.cs" />
+    <Compile Include="SqlServer\Translators\SupplierProductTranslator.cs" />
+    <Compile Include="SqlServer\Translators\CostPlanLineTranslator.cs" />
+    <Compile Include="SqlServer\Translators\CostPlanTranslator.cs" />
+    <Compile Include="SqlServer\Translators\SupplierContactTranslator.cs" />
+    <Compile Include="SqlServer\Translators\SupplierTranslator.cs" />
+    <Compile Include="SqlServer\Translators\ProjectTranslator.cs" />
+    <Compile Include="SqlServer\Translators\UserTranslator.cs" />
+    <Compile Include="SqlServer\UserRepository.cs" />
+    <Compile Include="SqlServer\WarehouseRepository.cs" />
+    <Compile Include="StringCipher.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EntityDeploy Include="DataBase\ERP_DB.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>ERP_DB.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.Config" />
+    <None Include="ERP.Repositories.DataBase.ERP_DBEntities.datasource" />
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\ERP.Entities\ERP.Entities.csproj">
+      <Project>{95D99810-CA16-4F58-9CAC-CBD1136354DC}</Project>
+      <Name>ERP.Entities</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>

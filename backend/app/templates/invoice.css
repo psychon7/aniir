@@ -1,0 +1,1244 @@
+/* ==========================================================================
+   INVOICE PDF STYLES - WeasyPrint Compatible
+   ==========================================================================
+
+   This stylesheet is optimized for WeasyPrint PDF generation.
+   It includes:
+   - Print-specific page setup with proper margins
+   - Professional invoice layout
+   - Responsive tables with alternating rows
+   - Page break handling for multi-page invoices
+   - Header/footer positioning
+   - Status watermarks
+   - RTL support for international invoices
+   ========================================================================== */
+
+/* ==========================================================================
+   1. PAGE SETUP & PRINT CONFIGURATION
+   ========================================================================== */
+
+@page {
+    size: A4;
+    margin: 15mm 15mm 20mm 15mm;
+
+    /* Page numbering in footer */
+    @bottom-center {
+        content: "Page " counter(page) " of " counter(pages);
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-size: 8pt;
+        color: #9ca3af;
+    }
+}
+
+@page :first {
+    margin-top: 15mm;
+
+    @bottom-center {
+        content: "Page " counter(page) " of " counter(pages);
+    }
+}
+
+/* Named page for continuation pages */
+@page continuation {
+    margin-top: 10mm;
+}
+
+/* ==========================================================================
+   2. BASE STYLES & TYPOGRAPHY
+   ========================================================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 9pt;
+    line-height: 1.4;
+    color: #1f2937;
+    background: #ffffff;
+}
+
+/* Typography Scale */
+h1 {
+    font-size: 16pt;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 2mm;
+}
+
+h2 {
+    font-size: 20pt;
+    font-weight: 700;
+    color: #1e40af;
+    margin-bottom: 2mm;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+h3 {
+    font-size: 9pt;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 2mm;
+    padding-bottom: 1mm;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+p {
+    margin-bottom: 1mm;
+}
+
+strong {
+    font-weight: 600;
+}
+
+small {
+    font-size: 7pt;
+    color: #6b7280;
+}
+
+/* ==========================================================================
+   3. LAYOUT CONTAINERS
+   ========================================================================== */
+
+.invoice-container {
+    width: 100%;
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 0;
+    position: relative;
+}
+
+/* ==========================================================================
+   4. WATERMARKS
+   ========================================================================== */
+
+.watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    font-size: 60pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 5px;
+    opacity: 0.08;
+    pointer-events: none;
+    z-index: 1000;
+    white-space: nowrap;
+}
+
+.watermark-draft {
+    color: #6b7280;
+}
+
+.watermark-paid {
+    color: #059669;
+}
+
+.watermark-cancelled {
+    color: #dc2626;
+}
+
+/* ==========================================================================
+   5. HEADER SECTION
+   ========================================================================== */
+
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8mm;
+    padding-bottom: 5mm;
+    border-bottom: 2px solid #1e40af;
+}
+
+.company-section {
+    display: flex;
+    align-items: flex-start;
+    gap: 5mm;
+    flex: 1;
+}
+
+.company-logo {
+    flex-shrink: 0;
+}
+
+.company-logo img {
+    max-width: 45mm;
+    max-height: 18mm;
+    object-fit: contain;
+}
+
+.logo-placeholder {
+    width: 18mm;
+    height: 18mm;
+    background: #1e40af;
+    border-radius: 2mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.logo-placeholder span {
+    color: #ffffff;
+    font-size: 14pt;
+    font-weight: 700;
+}
+
+.company-info {
+    flex: 1;
+}
+
+.company-name {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #1e40af;
+    margin-bottom: 2mm;
+}
+
+.company-details {
+    font-size: 8pt;
+    color: #4b5563;
+    line-height: 1.5;
+}
+
+.company-details p {
+    margin-bottom: 0.5mm;
+}
+
+.company-legal {
+    margin-top: 2mm;
+    font-size: 7pt;
+    color: #6b7280;
+}
+
+.company-legal p {
+    margin-bottom: 0.5mm;
+}
+
+/* Invoice Title Section */
+.invoice-title-section {
+    text-align: right;
+    min-width: 55mm;
+}
+
+.invoice-type {
+    font-size: 20pt;
+    font-weight: 700;
+    color: #1e40af;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 2mm;
+}
+
+.invoice-type.proforma {
+    color: #7c3aed;
+}
+
+.invoice-type.credit-note {
+    color: #dc2626;
+}
+
+.invoice-type.draft {
+    color: #6b7280;
+}
+
+.invoice-reference {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 3mm;
+}
+
+.invoice-meta {
+    font-size: 8pt;
+    color: #4b5563;
+}
+
+.meta-item {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1mm;
+    gap: 2mm;
+}
+
+.meta-label {
+    color: #6b7280;
+}
+
+.meta-value {
+    font-weight: 600;
+    color: #374151;
+    min-width: 22mm;
+    text-align: right;
+}
+
+.meta-value.overdue {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+/* Status Badge */
+.status-badge {
+    display: inline-block;
+    padding: 1mm 3mm;
+    font-size: 7pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 1mm;
+    margin-top: 2mm;
+}
+
+.status-draft {
+    background-color: #f3f4f6;
+    color: #4b5563;
+}
+
+.status-sent {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.status-paid {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-partial {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.status-overdue {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.status-cancelled {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    text-decoration: line-through;
+}
+
+/* ==========================================================================
+   6. CLIENT & BILLING INFORMATION
+   ========================================================================== */
+
+.parties-section {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6mm;
+    gap: 4mm;
+}
+
+.party-box {
+    flex: 1;
+    padding: 3mm;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 2mm;
+    max-width: 60mm;
+}
+
+.party-box.billing {
+    background-color: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.party-box.shipping {
+    background-color: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.party-box.summary {
+    background-color: #fafafa;
+    border-color: #d1d5db;
+}
+
+.party-label {
+    font-size: 7pt;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+    margin-bottom: 2mm;
+}
+
+.party-name {
+    font-size: 10pt;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 1mm;
+}
+
+.party-legal-name {
+    font-size: 8pt;
+    color: #4b5563;
+    font-style: italic;
+    margin-bottom: 1mm;
+}
+
+.party-address {
+    font-size: 8pt;
+    color: #4b5563;
+    line-height: 1.5;
+}
+
+.party-address p {
+    margin-bottom: 0.5mm;
+}
+
+.party-contact {
+    margin-top: 2mm;
+    font-size: 7pt;
+    color: #6b7280;
+}
+
+.party-contact p {
+    margin-bottom: 0.5mm;
+}
+
+/* Summary Box */
+.summary-content {
+    font-size: 8pt;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 1mm 0;
+    border-bottom: 1px dashed #e5e7eb;
+}
+
+.summary-row:last-child {
+    border-bottom: none;
+}
+
+.summary-label {
+    color: #6b7280;
+}
+
+.summary-value {
+    font-weight: 600;
+    color: #374151;
+}
+
+.summary-row.total-due {
+    margin-top: 1mm;
+    padding-top: 2mm;
+    border-top: 1px solid #d1d5db;
+    border-bottom: none;
+}
+
+.summary-row.total-due .summary-label {
+    font-weight: 600;
+    color: #374151;
+}
+
+.summary-row.total-due .summary-value {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #1e40af;
+}
+
+/* ==========================================================================
+   7. LINE ITEMS TABLE
+   ========================================================================== */
+
+.items-section {
+    margin-bottom: 6mm;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8pt;
+}
+
+.items-table thead {
+    background-color: #1e40af;
+    color: #ffffff;
+}
+
+.items-table th {
+    padding: 2.5mm 2mm;
+    text-align: left;
+    font-weight: 600;
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border: none;
+}
+
+.items-table th:first-child {
+    border-radius: 1mm 0 0 0;
+}
+
+.items-table th:last-child {
+    border-radius: 0 1mm 0 0;
+}
+
+.items-table tbody tr {
+    border-bottom: 1px solid #e5e7eb;
+    page-break-inside: avoid;
+}
+
+.items-table tbody tr:nth-child(even) {
+    background-color: #f9fafb;
+}
+
+.items-table tbody tr:last-child {
+    border-bottom: 2px solid #1e40af;
+}
+
+.items-table td {
+    padding: 2.5mm 2mm;
+    vertical-align: top;
+}
+
+/* Column Widths */
+.items-table .col-index {
+    width: 5%;
+    text-align: center;
+}
+
+.items-table .col-ref {
+    width: 12%;
+}
+
+.items-table .col-description {
+    width: 30%;
+}
+
+.items-table .col-qty {
+    width: 8%;
+    text-align: center;
+}
+
+.items-table .col-unit {
+    width: 7%;
+    text-align: center;
+}
+
+.items-table .col-price {
+    width: 12%;
+    text-align: right;
+}
+
+.items-table .col-discount {
+    width: 8%;
+    text-align: center;
+}
+
+.items-table .col-vat {
+    width: 8%;
+    text-align: center;
+}
+
+.items-table .col-total {
+    width: 12%;
+    text-align: right;
+    font-weight: 600;
+}
+
+/* Item Details */
+.item-reference {
+    font-weight: 600;
+    color: #1e40af;
+    font-size: 8pt;
+}
+
+.item-name {
+    font-weight: 500;
+    color: #111827;
+    margin-bottom: 0.5mm;
+}
+
+.item-description {
+    font-size: 7pt;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.discount-value {
+    color: #dc2626;
+    font-weight: 500;
+}
+
+/* ==========================================================================
+   8. TOTALS SECTION
+   ========================================================================== */
+
+.totals-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-bottom: 6mm;
+}
+
+.totals-section {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.totals-box {
+    width: 75mm;
+}
+
+.totals-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.totals-table tr {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.totals-table td {
+    padding: 2mm;
+    font-size: 9pt;
+}
+
+.totals-table .label {
+    text-align: left;
+    color: #4b5563;
+}
+
+.totals-table .value {
+    text-align: right;
+    font-weight: 500;
+    color: #111827;
+}
+
+.totals-table .subtotal-row {
+    background-color: #f9fafb;
+}
+
+.totals-table .discount-row .value {
+    color: #dc2626;
+}
+
+.totals-table .vat-row {
+    font-size: 8pt;
+}
+
+.totals-table .total-row {
+    background-color: #1e40af;
+    border-bottom: none;
+}
+
+.totals-table .total-row td {
+    padding: 3mm 2mm;
+}
+
+.totals-table .total-row .label {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 10pt;
+}
+
+.totals-table .total-row .value {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 12pt;
+}
+
+.totals-table .paid-row {
+    background-color: #f0fdf4;
+}
+
+.totals-table .paid-row .value {
+    color: #059669;
+}
+
+.totals-table .remaining-row {
+    background-color: #fef2f2;
+}
+
+.totals-table .remaining-row .label,
+.totals-table .remaining-row .value {
+    font-weight: 600;
+    color: #dc2626;
+}
+
+/* Amount in Words */
+.amount-words {
+    margin-top: 2mm;
+    padding: 2mm 3mm;
+    background-color: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 1mm;
+    font-size: 7pt;
+    color: #92400e;
+}
+
+/* ==========================================================================
+   9. VAT BREAKDOWN
+   ========================================================================== */
+
+.vat-breakdown {
+    margin-bottom: 4mm;
+    align-self: flex-start;
+    width: 100%;
+}
+
+.vat-breakdown h3 {
+    font-size: 8pt;
+    margin-bottom: 2mm;
+}
+
+.vat-table {
+    width: auto;
+    min-width: 100mm;
+    border-collapse: collapse;
+    font-size: 8pt;
+}
+
+.vat-table th {
+    background-color: #f3f4f6;
+    padding: 2mm;
+    text-align: left;
+    font-weight: 600;
+    border: 1px solid #e5e7eb;
+}
+
+.vat-table td {
+    padding: 2mm;
+    border: 1px solid #e5e7eb;
+}
+
+.vat-table .text-right {
+    text-align: right;
+}
+
+/* ==========================================================================
+   10. PAYMENT INFORMATION
+   ========================================================================== */
+
+.payment-section {
+    display: flex;
+    gap: 4mm;
+    margin-bottom: 6mm;
+}
+
+.payment-box {
+    flex: 1;
+    padding: 3mm;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 1mm;
+}
+
+.payment-box h3 {
+    font-size: 8pt;
+    color: #374151;
+    margin-bottom: 2mm;
+    padding-bottom: 1mm;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.payment-box.terms {
+    background-color: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.payment-box.terms h3 {
+    color: #166534;
+}
+
+.payment-details {
+    font-size: 8pt;
+    color: #4b5563;
+}
+
+.payment-details p {
+    margin-bottom: 1mm;
+}
+
+.payment-details strong {
+    color: #111827;
+}
+
+.payment-box.bank-details {
+    background-color: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.payment-box.bank-details h3 {
+    color: #1e40af;
+}
+
+.due-date-box {
+    background-color: #fef2f2;
+    border-color: #fecaca;
+    text-align: center;
+}
+
+.due-date-box h3 {
+    color: #991b1b;
+}
+
+.due-date-box .due-date {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #dc2626;
+    margin-bottom: 1mm;
+}
+
+.due-date-box .due-date.overdue {
+    color: #991b1b;
+}
+
+.due-date-box .due-amount {
+    font-size: 12pt;
+    font-weight: 700;
+    color: #374151;
+}
+
+/* ==========================================================================
+   11. NOTES & TERMS SECTIONS
+   ========================================================================== */
+
+.notes-section {
+    margin-bottom: 5mm;
+}
+
+.notes-box {
+    padding: 3mm;
+    background-color: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-left: 3px solid #f59e0b;
+    border-radius: 1mm;
+}
+
+.notes-box h3 {
+    font-size: 8pt;
+    color: #92400e;
+    margin-bottom: 2mm;
+    border-bottom: none;
+}
+
+.notes-content {
+    font-size: 8pt;
+    color: #78350f;
+    line-height: 1.5;
+}
+
+.terms-section {
+    margin-bottom: 5mm;
+}
+
+.terms-section h3 {
+    font-size: 8pt;
+    color: #374151;
+    margin-bottom: 2mm;
+}
+
+.terms-content {
+    font-size: 7pt;
+    color: #6b7280;
+    line-height: 1.4;
+    column-count: 2;
+    column-gap: 5mm;
+}
+
+/* ==========================================================================
+   12. FOOTER
+   ========================================================================== */
+
+.invoice-footer {
+    margin-top: 8mm;
+    padding-top: 3mm;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+    font-size: 7pt;
+    color: #6b7280;
+    line-height: 1.5;
+}
+
+.footer-legal {
+    margin-bottom: 1mm;
+}
+
+.footer-legal p {
+    margin-bottom: 0.5mm;
+}
+
+.footer-contact {
+    color: #9ca3af;
+    margin-bottom: 1mm;
+}
+
+.footer-generated {
+    margin-top: 2mm;
+    font-size: 6pt;
+    color: #9ca3af;
+}
+
+/* ==========================================================================
+   13. PAGE BREAK HANDLING
+   ========================================================================== */
+
+.page-break {
+    page-break-after: always;
+}
+
+.page-break-before {
+    page-break-before: always;
+}
+
+.avoid-break {
+    page-break-inside: avoid;
+}
+
+.keep-together {
+    page-break-inside: avoid;
+}
+
+/* Ensure table rows don't break awkwardly */
+.items-table tbody tr {
+    page-break-inside: avoid;
+}
+
+/* Keep totals together */
+.totals-wrapper {
+    page-break-inside: avoid;
+}
+
+/* Keep payment info together */
+.payment-section {
+    page-break-inside: avoid;
+}
+
+/* Keep notes together */
+.notes-section {
+    page-break-inside: avoid;
+}
+
+/* Repeat table header on each page */
+.items-table thead {
+    display: table-header-group;
+}
+
+.items-table tfoot {
+    display: table-footer-group;
+}
+
+/* ==========================================================================
+   14. UTILITY CLASSES
+   ========================================================================== */
+
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.font-medium { font-weight: 500; }
+.font-normal { font-weight: 400; }
+
+.text-xs { font-size: 6pt; }
+.text-sm { font-size: 7pt; }
+.text-base { font-size: 8pt; }
+.text-lg { font-size: 10pt; }
+.text-xl { font-size: 12pt; }
+.text-2xl { font-size: 14pt; }
+
+.text-gray-400 { color: #9ca3af; }
+.text-gray-500 { color: #6b7280; }
+.text-gray-600 { color: #4b5563; }
+.text-gray-700 { color: #374151; }
+.text-gray-800 { color: #1f2937; }
+.text-gray-900 { color: #111827; }
+
+.text-blue-600 { color: #2563eb; }
+.text-blue-700 { color: #1d4ed8; }
+.text-green-600 { color: #059669; }
+.text-red-600 { color: #dc2626; }
+
+.bg-gray-50 { background-color: #f9fafb; }
+.bg-gray-100 { background-color: #f3f4f6; }
+.bg-blue-50 { background-color: #eff6ff; }
+.bg-green-50 { background-color: #f0fdf4; }
+.bg-red-50 { background-color: #fef2f2; }
+.bg-yellow-50 { background-color: #fffbeb; }
+
+.mt-1 { margin-top: 1mm; }
+.mt-2 { margin-top: 2mm; }
+.mt-3 { margin-top: 3mm; }
+.mt-4 { margin-top: 4mm; }
+.mt-5 { margin-top: 5mm; }
+
+.mb-1 { margin-bottom: 1mm; }
+.mb-2 { margin-bottom: 2mm; }
+.mb-3 { margin-bottom: 3mm; }
+.mb-4 { margin-bottom: 4mm; }
+.mb-5 { margin-bottom: 5mm; }
+
+.hidden { display: none; }
+
+/* ==========================================================================
+   15. RTL SUPPORT (Arabic, Hebrew)
+   ========================================================================== */
+
+.rtl {
+    direction: rtl;
+    text-align: right;
+}
+
+.rtl .invoice-header {
+    flex-direction: row-reverse;
+}
+
+.rtl .company-section {
+    flex-direction: row-reverse;
+}
+
+.rtl .invoice-title-section {
+    text-align: left;
+}
+
+.rtl .meta-item {
+    justify-content: flex-start;
+    flex-direction: row-reverse;
+}
+
+.rtl .parties-section {
+    flex-direction: row-reverse;
+}
+
+.rtl .items-table th,
+.rtl .items-table td {
+    text-align: right;
+}
+
+.rtl .items-table .col-index,
+.rtl .items-table .col-qty,
+.rtl .items-table .col-unit,
+.rtl .items-table .col-discount,
+.rtl .items-table .col-vat {
+    text-align: center;
+}
+
+.rtl .items-table .col-price,
+.rtl .items-table .col-total {
+    text-align: left;
+}
+
+.rtl .totals-wrapper {
+    align-items: flex-start;
+}
+
+.rtl .totals-section {
+    justify-content: flex-start;
+}
+
+.rtl .totals-table .label {
+    text-align: right;
+}
+
+.rtl .totals-table .value {
+    text-align: left;
+}
+
+.rtl .payment-section {
+    flex-direction: row-reverse;
+}
+
+/* ==========================================================================
+   16. PRINT MEDIA QUERY
+   ========================================================================== */
+
+@media print {
+    body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        color-adjust: exact;
+    }
+
+    .items-table thead {
+        display: table-header-group;
+    }
+
+    .items-table tbody tr {
+        page-break-inside: avoid;
+    }
+
+    .watermark {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Ensure backgrounds print correctly */
+    .items-table thead,
+    .totals-table .total-row,
+    .status-badge {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+
+/* ==========================================================================
+   17. BUSINESS UNIT THEMES
+   ========================================================================== */
+
+/* Default / LED Theme */
+.theme-led .invoice-type,
+.theme-led .company-name,
+.theme-led .item-reference {
+    color: #1e40af;
+}
+
+.theme-led .items-table thead,
+.theme-led .totals-table .total-row {
+    background-color: #1e40af;
+}
+
+.theme-led .invoice-header {
+    border-bottom-color: #1e40af;
+}
+
+.theme-led .items-table tbody tr:last-child {
+    border-bottom-color: #1e40af;
+}
+
+/* DOMOTICS Theme - Purple */
+.theme-domotics .invoice-type,
+.theme-domotics .company-name,
+.theme-domotics .item-reference {
+    color: #7c3aed;
+}
+
+.theme-domotics .items-table thead,
+.theme-domotics .totals-table .total-row {
+    background-color: #7c3aed;
+}
+
+.theme-domotics .invoice-header {
+    border-bottom-color: #7c3aed;
+}
+
+.theme-domotics .items-table tbody tr:last-child {
+    border-bottom-color: #7c3aed;
+}
+
+/* HVAC Theme - Cyan */
+.theme-hvac .invoice-type,
+.theme-hvac .company-name,
+.theme-hvac .item-reference {
+    color: #0891b2;
+}
+
+.theme-hvac .items-table thead,
+.theme-hvac .totals-table .total-row {
+    background-color: #0891b2;
+}
+
+.theme-hvac .invoice-header {
+    border-bottom-color: #0891b2;
+}
+
+.theme-hvac .items-table tbody tr:last-child {
+    border-bottom-color: #0891b2;
+}
+
+/* WAVE CONCEPT Theme - Orange */
+.theme-wave .invoice-type,
+.theme-wave .company-name,
+.theme-wave .item-reference {
+    color: #ea580c;
+}
+
+.theme-wave .items-table thead,
+.theme-wave .totals-table .total-row {
+    background-color: #ea580c;
+}
+
+.theme-wave .invoice-header {
+    border-bottom-color: #ea580c;
+}
+
+.theme-wave .items-table tbody tr:last-child {
+    border-bottom-color: #ea580c;
+}
+
+/* ACCESSORIES Theme - Green */
+.theme-accessories .invoice-type,
+.theme-accessories .company-name,
+.theme-accessories .item-reference {
+    color: #059669;
+}
+
+.theme-accessories .items-table thead,
+.theme-accessories .totals-table .total-row {
+    background-color: #059669;
+}
+
+.theme-accessories .invoice-header {
+    border-bottom-color: #059669;
+}
+
+.theme-accessories .items-table tbody tr:last-child {
+    border-bottom-color: #059669;
+}
+
+/* ==========================================================================
+   18. CREDIT NOTE SPECIFIC STYLES
+   ========================================================================== */
+
+.credit-note .invoice-type {
+    color: #dc2626;
+}
+
+.credit-note .company-name {
+    color: #dc2626;
+}
+
+.credit-note .items-table thead {
+    background-color: #dc2626;
+}
+
+.credit-note .totals-table .total-row {
+    background-color: #dc2626;
+}
+
+.credit-note .invoice-header {
+    border-bottom-color: #dc2626;
+}
+
+.credit-note .items-table tbody tr:last-child {
+    border-bottom-color: #dc2626;
+}
+
+.credit-note .item-reference {
+    color: #dc2626;
+}
+
+/* ==========================================================================
+   19. PROFORMA INVOICE STYLES
+   ========================================================================== */
+
+.proforma .invoice-type {
+    color: #7c3aed;
+}
+
+.proforma .items-table thead {
+    background-color: #7c3aed;
+}
+
+.proforma .totals-table .total-row {
+    background-color: #7c3aed;
+}
+
+.proforma .invoice-header {
+    border-bottom-color: #7c3aed;
+}
+
+.proforma .items-table tbody tr:last-child {
+    border-bottom-color: #7c3aed;
+}

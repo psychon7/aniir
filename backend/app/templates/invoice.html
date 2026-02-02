@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="{{ lang|default('en') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice {{ invoice.reference }}</title>
+    <link rel="stylesheet" href="invoice.css">
+</head>
+<body class="{{ 'rtl' if is_rtl else '' }} {{ document_class|default('') }}">
+    <div class="invoice-container">
+        <!-- Watermark for draft/paid/cancelled status -->
+        {% if invoice.status_code == 'DRAFT' %}
+        <div class="watermark watermark-draft">DRAFT</div>
+        {% elif invoice.status_code == 'PAID' %}
+        <div class="watermark watermark-paid">PAID</div>
+        {% elif invoice.status_code == 'CANCELLED' %}
+        <div class="watermark watermark-cancelled">CANCELLED</div>
+        {% endif %}
+
+        <!-- ============================================
+             HEADER SECTION
+             ============================================ -->
+        <header class="invoice-header">
+            <div class="company-section">
+                <!-- Company Logo -->
+                <div class="company-logo">
+                    {% if society.logo_url %}
+                    <img src="{{ society.logo_url }}" alt="{{ society.name }}">
+                    {% else %}
+                    <div class="logo-placeholder">
+                        <span>{{ society.name[:2]|upper }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Company Information -->
+                <div class="company-info">
+                    <h1 class="company-name">{{ society.name }}</h1>
+                    <div class="company-details">
+                        {% if society.address %}
+                        <p>{{ society.address }}</p>
+                        {% endif %}
+                        <p>{{ society.postal_code }} {{ society.city }}</p>
+                        {% if society.country %}
+                        <p>{{ society.country.name if society.country.name else society.country }}</p>
+                        {% endif %}
+                        {% if society.phone %}
+                        <p>Tel: {{ society.phone }}</p>
+                        {% endif %}
+                        {% if society.email %}
+                        <p>{{ society.email }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="company-legal">
+                        {% if society.vat_number %}
+                        <p>VAT: {{ society.vat_number }}</p>
+                        {% endif %}
+                        {% if society.siret %}
+                        <p>SIRET: {{ society.siret }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Invoice Title and Reference -->
+            <div class="invoice-title-section">
+                <h2 class="invoice-type {{ invoice.type_class|default('') }}">
+                    {{ invoice.type_label|default('INVOICE') }}
+                </h2>
+                <div class="invoice-reference">{{ invoice.reference }}</div>
+
+                <!-- Invoice Meta Information -->
+                <div class="invoice-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">Invoice Date:</span>
+                        <span class="meta-value">{{ invoice.date|format_date('%d/%m/%Y') }}</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Due Date:</span>
+                        <span class="meta-value {{ 'overdue' if invoice.is_overdue else '' }}">
+                            {{ invoice.due_date|format_date('%d/%m/%Y') }}
+                        </span>
+                    </div>
+                    {% if invoice.order_reference %}
+                    <div class="meta-item">
+                        <span class="meta-label">Order Ref:</span>
+                        <span class="meta-value">{{ invoice.order_reference }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Status Badge -->
+                {% if invoice.status %}
+                <div class="status-badge status-{{ invoice.status_code|lower }}">
+                    {{ invoice.status }}
+                </div>
+                {% endif %}
+            </div>
+        </header>
+
+        <!-- ============================================
+             CLIENT INFORMATION SECTION
+             ============================================ -->
+        <section class="parties-section">
+            <!-- Bill To -->
+            <div class="party-box billing">
+                <div class="party-label">Bill To</div>
+                <div class="party-name">{{ client.name }}</div>
+                {% if client.legal_name and client.legal_name != client.name %}
+                <div class="party-legal-name">{{ client.legal_name }}</div>
+                {% endif %}
+                <div class="party-address">
+                    {% if client.address %}
+                    <p>{{ client.address }}</p>
+                    {% endif %}
+                    <p>{{ client.postal_code }} {{ client.city }}</p>
+                    {% if client.country %}
+                    <p>{{ client.country.name if client.country.name else client.country }}</p>
+                    {% endif %}
+                </div>
+                <div class="party-contact">
+                    {% if client.reference %}
+                    <p>Client Ref: {{ client.reference }}</p>
+                    {% endif %}
+                    {% if client.vat_number %}
+                    <p>VAT: {{ client.vat_number }}</p>
+                    {% endif %}
+                    {% if client.siret %}
+                    <p>SIRET: {{ client.siret }}</p>
+                    {% endif %}
+                    {% if client.email %}
+                    <p>{{ client.email }}</p>
+                    {% endif %}
+                    {% if client.phone %}
+                    <p>Tel: {{ client.phone }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Ship To (if different from billing) -->
+            {% if shipping_address and shipping_address != client %}
+            <div class="party-box shipping">
+                <div class="party-label">Ship To</div>
+                <div class="party-name">{{ shipping_address.name }}</div>
+                <div class="party-address">
+                    {% if shipping_address.address %}
+                    <p>{{ shipping_address.address }}</p>
+                    {% endif %}
+                    <p>{{ shipping_address.postal_code }} {{ shipping_address.city }}</p>
+                    {% if shipping_address.country %}
+                    <p>{{ shipping_address.country }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Invoice Summary Box -->
+            <div class="party-box summary">
+                <div class="party-label">Invoice Summary</div>
+                <div class="summary-content">
+                    <div class="summary-row">
+                        <span class="summary-label">Invoice Number</span>
+                        <span class="summary-value">{{ invoice.reference }}</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Invoice Date</span>
+                        <span class="summary-value">{{ invoice.date|format_date('%d/%m/%Y') }}</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Due Date</span>
+                        <span class="summary-value">{{ invoice.due_date|format_date('%d/%m/%Y') }}</span>
+                    </div>
+                    {% if payment_term %}
+                    <div class="summary-row">
+                        <span class="summary-label">Payment Terms</span>
+                        <span class="summary-value">{{ payment_term.designation }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="summary-row total-due">
+                        <span class="summary-label">Amount Due</span>
+                        <span class="summary-value">{{ totals.total_ttc|format_currency(currency.symbol) }}</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================
+             LINE ITEMS TABLE
+             ============================================ -->
+        <section class="items-section">
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th class="col-index">#</th>
+                        <th class="col-ref">Reference</th>
+                        <th class="col-description">Description</th>
+                        <th class="col-qty">Qty</th>
+                        <th class="col-unit">Unit</th>
+                        <th class="col-price">Unit Price</th>
+                        {% if has_discounts %}
+                        <th class="col-discount">Disc.</th>
+                        {% endif %}
+                        <th class="col-vat">VAT</th>
+                        <th class="col-total">Total HT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in lines %}
+                    <tr class="line-item">
+                        <td class="col-index">{{ loop.index }}</td>
+                        <td class="col-ref">
+                            <span class="item-reference">{{ line.product_reference|default('-') }}</span>
+                        </td>
+                        <td class="col-description">
+                            <div class="item-name">{{ line.product_name|default(line.description) }}</div>
+                            {% if line.description and line.product_name and line.description != line.product_name %}
+                            <div class="item-description">{{ line.description }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="col-qty">{{ line.quantity|format_number(2) }}</td>
+                        <td class="col-unit">{{ line.unit|default('pcs') }}</td>
+                        <td class="col-price">{{ line.unit_price|format_currency(currency.symbol) }}</td>
+                        {% if has_discounts %}
+                        <td class="col-discount">
+                            {% if line.discount_percent and line.discount_percent > 0 %}
+                            <span class="discount-value">-{{ line.discount_percent|format_number(1) }}%</span>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td class="col-vat">
+                            {% if line.vat_rate %}
+                            {{ line.vat_rate.vat_vat_rate|format_number(1) if line.vat_rate.vat_vat_rate else line.vat_rate|format_number(1) }}%
+                            {% else %}
+                            0%
+                            {% endif %}
+                        </td>
+                        <td class="col-total">{{ line.line_total|format_currency(currency.symbol) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+
+        <!-- ============================================
+             TOTALS AND VAT BREAKDOWN SECTION
+             ============================================ -->
+        <section class="totals-wrapper avoid-break">
+            <!-- VAT Breakdown (if multiple VAT rates) -->
+            {% if vat_breakdown and vat_breakdown|length > 0 %}
+            <div class="vat-breakdown">
+                <h3>VAT Breakdown</h3>
+                <table class="vat-table">
+                    <thead>
+                        <tr>
+                            <th>VAT Rate</th>
+                            <th class="text-right">Base Amount (HT)</th>
+                            <th class="text-right">VAT Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vat in vat_breakdown %}
+                        <tr>
+                            <td>{{ vat.rate|format_number(1) }}% {% if vat.designation %}({{ vat.designation }}){% endif %}</td>
+                            <td class="text-right">{{ vat.base_amount|format_currency(currency.symbol) }}</td>
+                            <td class="text-right">{{ vat.vat_amount|format_currency(currency.symbol) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Totals Box -->
+            <div class="totals-section">
+                <div class="totals-box">
+                    <table class="totals-table">
+                        <tr class="subtotal-row">
+                            <td class="label">Subtotal (HT)</td>
+                            <td class="value">{{ totals.total_ht|format_currency(currency.symbol) }}</td>
+                        </tr>
+                        {% if totals.discount_amount and totals.discount_amount > 0 %}
+                        <tr class="discount-row">
+                            <td class="label">Discount</td>
+                            <td class="value">-{{ totals.discount_amount|format_currency(currency.symbol) }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr class="vat-row">
+                            <td class="label">Total VAT</td>
+                            <td class="value">{{ totals.total_vat|format_currency(currency.symbol) }}</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td class="label">Total (TTC)</td>
+                            <td class="value">{{ totals.total_ttc|format_currency(currency.symbol) }}</td>
+                        </tr>
+                        {% if totals.paid_amount and totals.paid_amount > 0 %}
+                        <tr class="paid-row">
+                            <td class="label">Amount Paid</td>
+                            <td class="value">-{{ totals.paid_amount|format_currency(currency.symbol) }}</td>
+                        </tr>
+                        <tr class="remaining-row">
+                            <td class="label">Amount Due</td>
+                            <td class="value">{{ totals.remaining_amount|format_currency(currency.symbol) }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+
+                    <!-- Amount in Words (optional) -->
+                    {% if amount_in_words %}
+                    <div class="amount-words">
+                        <strong>Amount in words:</strong> {{ amount_in_words }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================
+             PAYMENT INFORMATION SECTION
+             ============================================ -->
+        <section class="payment-section avoid-break">
+            <!-- Payment Terms -->
+            {% if payment_term %}
+            <div class="payment-box terms">
+                <h3>Payment Terms</h3>
+                <div class="payment-details">
+                    <p><strong>{{ payment_term.designation }}</strong></p>
+                    {% if payment_term.term_summary %}
+                    <p>{{ payment_term.term_summary }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Bank Details -->
+            {% if bank_details %}
+            <div class="payment-box bank-details">
+                <h3>Bank Details</h3>
+                <div class="payment-details">
+                    {% if bank_details.bank_name %}
+                    <p><strong>Bank:</strong> {{ bank_details.bank_name }}</p>
+                    {% endif %}
+                    {% if bank_details.account_holder %}
+                    <p><strong>Account Holder:</strong> {{ bank_details.account_holder }}</p>
+                    {% endif %}
+                    {% if bank_details.iban %}
+                    <p><strong>IBAN:</strong> {{ bank_details.iban }}</p>
+                    {% endif %}
+                    {% if bank_details.bic %}
+                    <p><strong>BIC/SWIFT:</strong> {{ bank_details.bic }}</p>
+                    {% endif %}
+                    {% if bank_details.account_number %}
+                    <p><strong>Account Number:</strong> {{ bank_details.account_number }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Due Date Reminder -->
+            <div class="payment-box due-date-box">
+                <h3>Payment Due</h3>
+                <div class="payment-details">
+                    <p class="due-date {{ 'overdue' if invoice.is_overdue else '' }}">
+                        {{ invoice.due_date|format_date('%d %B %Y') }}
+                    </p>
+                    <p class="due-amount">
+                        {{ totals.remaining_amount|default(totals.total_ttc)|format_currency(currency.symbol) }}
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================
+             NOTES SECTION
+             ============================================ -->
+        {% if invoice.notes %}
+        <section class="notes-section avoid-break">
+            <div class="notes-box">
+                <h3>Notes</h3>
+                <div class="notes-content">
+                    {{ invoice.notes|safe }}
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- ============================================
+             TERMS AND CONDITIONS
+             ============================================ -->
+        {% if terms_and_conditions %}
+        <section class="terms-section avoid-break">
+            <h3>Terms and Conditions</h3>
+            <div class="terms-content">
+                {{ terms_and_conditions|safe }}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- ============================================
+             FOOTER
+             ============================================ -->
+        <footer class="invoice-footer">
+            <div class="footer-legal">
+                <p>{{ society.name }}</p>
+                <p>{{ society.address }}, {{ society.postal_code }} {{ society.city }}{% if society.country %}, {{ society.country.name if society.country.name else society.country }}{% endif %}</p>
+                <p>
+                    {% if society.vat_number %}VAT: {{ society.vat_number }}{% endif %}
+                    {% if society.vat_number and society.siret %} | {% endif %}
+                    {% if society.siret %}SIRET: {{ society.siret }}{% endif %}
+                </p>
+            </div>
+            <div class="footer-contact">
+                {% if society.phone %}Tel: {{ society.phone }}{% endif %}
+                {% if society.phone and society.email %} | {% endif %}
+                {% if society.email %}{{ society.email }}{% endif %}
+            </div>
+            <div class="footer-generated">
+                Document generated on {{ generated_at|format_date('%d/%m/%Y at %H:%M') }}
+            </div>
+        </footer>
+    </div>
+</body>
+</html>

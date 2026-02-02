@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Facture ${invoiceNumber}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; font-size: 12px; color:#111827; padding: 40px; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .header { display:flex; justify-content:space-between; gap: 24px; padding-bottom: 16px; border-bottom: 2px solid #111827; }
+    .issuer { width: 55%; }
+    .issuer .name { font-size: 20px; font-weight: 800; }
+    .issuer .meta { margin-top: 6px; color:#374151; line-height: 1.4; font-size: 11px; }
+    .logo { max-height: 56px; margin-bottom: 10px; }
+    .doc { width: 45%; text-align:right; }
+    .doc .type { font-size: 18px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+    .doc .row { margin-top: 6px; color:#374151; }
+    .grid { display:flex; justify-content:space-between; gap: 24px; margin-top: 24px; }
+    .box { width: 50%; border: 1px solid #E5E7EB; border-radius: 8px; padding: 14px; }
+    .box h3 { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color:#6B7280; margin-bottom: 10px; }
+    .box .line { margin-bottom: 4px; color:#374151; }
+    .box .main { font-size: 13px; font-weight: 700; color:#111827; }
+    table { width:100%; border-collapse: collapse; margin-top: 22px; }
+    th { text-align:left; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color:#6B7280; padding: 10px 12px; border-bottom: 1px solid #E5E7EB; }
+    td { padding: 10px 12px; border-bottom: 1px solid #F3F4F6; color:#374151; vertical-align: top; }
+    td.num, th.num { text-align:right; }
+    .totals { margin-top: 16px; display:flex; justify-content:flex-end; }
+    .totals table { width: 360px; margin-top:0; }
+    .totals td { border-bottom:none; padding: 6px 10px; }
+    .totals .label { color:#6B7280; }
+    .totals .grand { font-size: 16px; font-weight: 900; color:#111827; border-top: 2px solid #111827; padding-top: 10px; }
+    .payment { margin-top: 20px; background:#F9FAFB; border:1px solid #E5E7EB; border-radius: 8px; padding: 14px; color:#374151; line-height: 1.5; }
+    .footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid #E5E7EB; font-size: 10px; color:#6B7280; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="issuer">
+        ${issuerLogoUrl ? `<img class="logo" src="${issuerLogoUrl}" alt="Logo" />` : ""}
+        <div class="name">${issuerName}</div>
+        <div class="meta">
+          <div>${issuerAddressLine}</div>
+          ${issuerSiret ? `<div>SIRET: ${issuerSiret}</div>` : ""}
+          ${issuerVat ? `<div>TVA: ${issuerVat}</div>` : ""}
+          ${issuerIban ? `<div>IBAN: ${formattedIban}</div>` : ""}
+          ${issuerBic ? `<div>BIC: ${issuerBic}</div>` : ""}
+        </div>
+      </div>
+
+      <div class="doc">
+        <div class="type">Facture</div>
+        <div class="row"><strong>N°</strong> : ${invoiceNumber}</div>
+        <div class="row"><strong>Date</strong> : ${issueDateFr}</div>
+        <div class="row"><strong>Échéance</strong> : ${dueDateFr}</div>
+        <div class="row"><strong>Période</strong> : ${periodLabelFr}</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="box">
+        <h3>Émetteur</h3>
+        <div class="line main">${issuerName}</div>
+        <div class="line">${issuerAddressLine}</div>
+      </div>
+
+      <div class="box">
+        <h3>Client</h3>
+        <div class="line main">${clientDisplayName}</div>
+        ${clientAddressLine ? `<div class="line">${clientAddressLine}</div>` : ""}
+        ${clientSiret ? `<div class="line">SIRET: ${clientSiret}</div>` : ""}
+        ${clientVat ? `<div class="line">TVA: ${clientVat}</div>` : ""}
+        ${clientEmail ? `<div class="line">${clientEmail}</div>` : ""}
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Désignation</th>
+          <th class="num">Qté</th>
+          <th class="num">PU (€)</th>
+          <th class="num">Total (€)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Loyer — ${propertyLabel}</td>
+          <td class="num">1</td>
+          <td class="num">${rentDue.toFixed(2)}</td>
+          <td class="num">${rentDue.toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td>Charges — ${propertyLabel}</td>
+          <td class="num">1</td>
+          <td class="num">${chargesDue.toFixed(2)}</td>
+          <td class="num">${chargesDue.toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="totals">
+      <table>
+        <tr>
+          <td class="label">Sous-total</td>
+          <td class="num">${subTotal.toFixed(2)} €</td>
+        </tr>
+        <tr>
+          <td class="label">TVA</td>
+          <td class="num">${vatAmount.toFixed(2)} €</td>
+        </tr>
+        <tr>
+          <td class="grand">Total à payer</td>
+          <td class="num grand">${total.toFixed(2)} €</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="payment">
+      <strong>Modalités de paiement</strong><br/>
+      Merci de régler avant le <strong>${dueDateFr}</strong>.<br/>
+      ${issuerIban ? `Virement bancaire — IBAN: <strong>${formattedIban}</strong>${issuerBic ? ` — BIC: <strong>${issuerBic}</strong>` : ""}` : ""}
+    </div>
+
+    <div class="footer">
+      ${legalMentions || "Mentions légales: pénalités de retard applicables selon conditions du bail/contrat."}
+    </div>
+  </div>
+</body>
+</html>
