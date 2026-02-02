@@ -1,7 +1,8 @@
 import { cn } from '@/lib/utils'
 
-type BadgeVariant =
+export type BadgeVariant =
   | 'default' | 'success' | 'warning' | 'error' | 'info' | 'outline'
+  | 'secondary' | 'destructive'
   | 'led' | 'domotics' | 'hvac' | 'waveconcept' | 'accessories'
 
 interface BadgeProps {
@@ -13,6 +14,8 @@ interface BadgeProps {
 export function Badge({ children, variant = 'default', className }: BadgeProps) {
   const variantClasses: Record<BadgeVariant, string> = {
     default: 'bg-secondary text-secondary-foreground',
+    secondary: 'bg-secondary text-secondary-foreground',
+    destructive: 'bg-rose-500 text-white dark:bg-rose-600',
     success: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
     warning: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
     error: 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400',

@@ -2,6 +2,7 @@
  * Quote entity representing a cost plan / quotation
  */
 export interface Quote {
+  id?: number  // Alias for cplId for convenience
   cplId: number
   fId: string
   cplCode: string

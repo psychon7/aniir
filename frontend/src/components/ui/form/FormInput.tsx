@@ -5,12 +5,19 @@ export interface FormInputProps extends React.InputHTMLAttributes<HTMLInputEleme
   error?: boolean
   leftIcon?: React.ReactNode
   rightIcon?: React.ReactNode
+  label?: string
 }
 
 export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
-  ({ className, error, leftIcon, rightIcon, type = 'text', ...props }, ref) => {
+  ({ className, error, leftIcon, rightIcon, type = 'text', label, ...props }, ref) => {
     return (
       <div className="relative">
+        {label && (
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            {label}
+            {props.required && <span className="text-destructive ml-1">*</span>}
+          </label>
+        )}
         {leftIcon && (
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
             {leftIcon}

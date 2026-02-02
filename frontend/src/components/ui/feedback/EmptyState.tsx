@@ -1,8 +1,9 @@
 import { cn } from '@/lib/utils'
 
-interface EmptyStateProps {
+export interface EmptyStateProps {
   icon?: React.ReactNode
-  message: string
+  message?: string
+  title?: string  // Alias for message
   description?: string
   action?: React.ReactNode
   className?: string
@@ -11,10 +12,13 @@ interface EmptyStateProps {
 export function EmptyState({
   icon,
   message,
+  title,
   description,
   action,
   className,
 }: EmptyStateProps) {
+  // title is an alias for message
+  const displayMessage = message || title || ''
   return (
     <div className={cn('flex flex-col items-center justify-center py-12 px-4', className)}>
       {/* Icon */}
@@ -37,7 +41,7 @@ export function EmptyState({
       )}
 
       {/* Message */}
-      <h3 className="text-lg font-medium text-foreground mb-1">{message}</h3>
+      <h3 className="text-lg font-medium text-foreground mb-1">{displayMessage}</h3>
 
       {/* Description */}
       {description && (
