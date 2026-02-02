@@ -1,0 +1,48 @@
+# Git
+.git/
+.gitignore
+
+# Environment files (will be set in Dokploy)
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts (we build fresh)
+frontend/dist/
+backend/dist/
+
+# Documentation
+*.md
+DOCUMENTATION/
+Legacy/
+Refactor/
+
+# Misc
+.DS_Store
+*.log
+tmp/
+temp/
