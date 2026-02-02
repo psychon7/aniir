@@ -41,6 +41,53 @@ async def health_check():
     )
 
 
+@router.get("/health/debug")
+async def debug_check():
+    """Debug endpoint to check env and network."""
+    import os
+    import socket
+    
+    db_url = os.getenv("DATABASE_URL", "NOT SET")
+    # Mask password
+    db_url_masked = "****" 
+    if db_url != "NOT SET" and "@" in db_url:
+        parts = db_url.split("@")
+        db_url_masked = f"****@{parts[-1]}" if len(parts) > 1 else "****"
+    
+    # Test network connectivity to DB
+    db_host = "47.254.130.238"
+    db_port = 1433
+    can_connect = False
+    
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5)
+        result = sock.connect_ex((db_host, db_port))
+        can_connect = (result == 0)
+        sock.close()
+    except:
+        pass
+    
+    # Get outbound IP
+    outbound_ip = "unknown"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        outbound_ip = s.getsockname()[0]
+        s.close()
+    except:
+        pass
+    
+    return {
+        "database_url": db_url_masked,
+        "can_reach_db_port": can_connect,
+        "db_host": db_host,
+        "db_port": db_port,
+        "outbound_ip": outbound_ip,
+        "environment": os.getenv("ENVIRONMENT", "NOT SET"),
+    }
+
+
 @router.get("/health/db", response_model=DatabaseHealthResponse)
 async def database_health_check(db: Session = Depends(get_db)):
     """
