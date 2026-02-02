@@ -141,37 +141,25 @@ class Settings(BaseSettings):
     # CORS SETTINGS
     # ==========================================================================
     
-    # Can be set as comma-separated string: "http://localhost:3000,http://example.com"
-    CORS_ORIGINS: Union[str, List[str]] = [
-        "http://localhost:3000",      # React dev server
-        "http://localhost:5173",      # Vite dev server
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-    ]
+    # Set as comma-separated string: "http://localhost:3000,http://example.com"
+    # Use a plain string to avoid pydantic-settings JSON parsing issues
+    CORS_ORIGINS_STR: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
     CORS_ALLOW_CREDENTIALS: bool = True
     CORS_ALLOW_METHODS: List[str] = ["*"]
     CORS_ALLOW_HEADERS: List[str] = ["*"]
     
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v) -> List[str]:
-        """Parse CORS origins from comma-separated string or list."""
-        if v is None or v == "":
+    @computed_field
+    @property
+    def CORS_ORIGINS(self) -> List[str]:
+        """Parse CORS origins from comma-separated string."""
+        if not self.CORS_ORIGINS_STR:
             return [
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "http://127.0.0.1:3000",
                 "http://127.0.0.1:5173",
             ]
-        if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
-        if isinstance(v, list):
-            return v
-        # Fallback to default
-        return [
-            "http://localhost:3000",
-            "http://localhost:5173",
-        ]
+        return [origin.strip() for origin in self.CORS_ORIGINS_STR.split(",") if origin.strip()]
     
     # ==========================================================================
     # PAGINATION SETTINGS
