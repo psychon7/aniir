@@ -7,14 +7,17 @@ Provides functionality for:
 - Reference number generation
 - CSV export
 - Supplier contact management
+
+Uses asyncio.to_thread() to wrap synchronous pymssql operations
+for compatibility with FastAPI's async endpoints.
 """
 import csv
 import io
+import asyncio
 from typing import List, Optional, Tuple
 from datetime import datetime
-from sqlalchemy import select, func, or_, text
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select, func, or_
+from sqlalchemy.orm import Session
 from fastapi import Depends
 
 from app.database import get_db
@@ -95,7 +98,7 @@ class SupplierContactNotFoundError(SupplierServiceError):
 
 
 # ==========================================================================
-# Supplier Service Class
+# Supplier Service Class (pymssql + asyncio.to_thread)
 # ==========================================================================
 
 class SupplierService:
@@ -103,9 +106,10 @@ class SupplierService:
     Service class for supplier operations.
 
     Handles CRUD operations, search, and reference generation for suppliers.
+    Uses asyncio.to_thread() to wrap sync pymssql operations for async compatibility.
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         """
         Initialize the supplier service.
 
@@ -115,204 +119,19 @@ class SupplierService:
         self.db = db
 
     # ==========================================================================
-    # Reference Generation
+    # Sync Database Methods (internal)
     # ==========================================================================
 
-    async def generate_reference(self) -> str:
-        """
-        Generate a unique supplier reference number.
-
-        Format: SUP-YYYYMMDD-XXXX where XXXX is a sequential number.
-
-        Returns:
-            Generated unique reference string.
-        """
-        today = datetime.now().strftime("%Y%m%d")
-        prefix = f"SUP-{today}-"
-
-        # Find the highest existing reference for today
-        query = (
-            select(Supplier.sup_ref)
-            .where(Supplier.sup_ref.like(f"{prefix}%"))
-            .order_by(Supplier.sup_ref.desc())
-            .limit(1)
-        )
-        result = await self.db.execute(query)
-        last_ref = result.scalar()
-
-        if last_ref:
-            # Extract the sequence number and increment
-            try:
-                seq = int(last_ref.split("-")[-1]) + 1
-            except (ValueError, IndexError):
-                seq = 1
-        else:
-            seq = 1
-
-        return f"{prefix}{seq:04d}"
-
-    # ==========================================================================
-    # Supplier CRUD Operations
-    # ==========================================================================
-
-    async def create_supplier(self, data: SupplierCreate) -> Supplier:
-        """
-        Create a new supplier.
-
-        Args:
-            data: Supplier creation data.
-
-        Returns:
-            Created Supplier object.
-
-        Raises:
-            DuplicateSupplierError: If a supplier with the same email already exists.
-        """
-        # Check for duplicate email if provided
-        if data.sup_email:
-            existing = await self._get_supplier_by_email(data.sup_email)
-            if existing:
-                raise DuplicateSupplierError("email", data.sup_email)
-
-        # Generate reference
-        reference = await self.generate_reference()
-
-        # Create supplier
-        supplier_data = data.model_dump()
-        supplier = Supplier(
-            sup_ref=reference,
-            **supplier_data
-        )
-
-        self.db.add(supplier)
-        await self.db.flush()
-        await self.db.refresh(supplier)
-        return supplier
-
-    async def get_supplier(self, supplier_id: int) -> Supplier:
-        """
-        Get supplier by ID.
-
-        Args:
-            supplier_id: The supplier ID.
-
-        Returns:
-            Supplier object.
-
-        Raises:
-            SupplierNotFoundError: If supplier not found.
-        """
-        result = await self.db.get(Supplier, supplier_id)
-        if not result:
-            raise SupplierNotFoundError(supplier_id)
-        return result
-
-    async def get_supplier_by_reference(self, reference: str) -> Supplier:
-        """
-        Get supplier by reference.
-
-        Args:
-            reference: The supplier reference string.
-
-        Returns:
-            Supplier object.
-
-        Raises:
-            SupplierReferenceNotFoundError: If supplier not found.
-        """
-        query = select(Supplier).where(Supplier.sup_ref == reference)
-        result = await self.db.execute(query)
-        supplier = result.scalars().first()
-        if not supplier:
-            raise SupplierReferenceNotFoundError(reference)
-        return supplier
-
-    async def get_supplier_detail(self, supplier_id: int) -> dict:
-        """
-        Get supplier by ID with resolved lookup names.
-
-        Args:
-            supplier_id: The supplier ID.
-
-        Returns:
-            Dict suitable for SupplierDetailResponse with enriched lookup names.
-
-        Raises:
-            SupplierNotFoundError: If supplier not found.
-        """
-        supplier = await self.db.get(Supplier, supplier_id)
-        if not supplier:
-            raise SupplierNotFoundError(supplier_id)
-
-        # Build base response from supplier ORM object
-        # Use model_validate with from_attributes to map ORM fields
-        response_data = SupplierDetailResponse.model_validate(supplier).model_dump()
-
-        # Resolve lookup names
-        # Society
-        if supplier.soc_id:
-            society = await self.db.get(Society, supplier.soc_id)
-            if society:
-                response_data["societyName"] = society.soc_society_name
-
-        # Supplier Type - query the table directly since no model exists
-        if supplier.sty_id:
-            try:
-                result = await self.db.execute(
-                    text("SELECT sty_designation FROM TR_STY_Supplier_Type WHERE sty_id = :sty_id"),
-                    {"sty_id": supplier.sty_id}
-                )
-                row = result.fetchone()
-                if row:
-                    response_data["supplierTypeName"] = row[0]
-            except Exception:
-                # If table doesn't exist or query fails, leave as None
-                pass
-
-        # Currency
-        if supplier.cur_id:
-            currency = await self.db.get(Currency, supplier.cur_id)
-            if currency:
-                response_data["currencyCode"] = currency.cur_designation
-                response_data["currencySymbol"] = currency.cur_symbol
-
-        # Payment Mode
-        if supplier.pmo_id:
-            payment_mode = await self.db.get(PaymentMode, supplier.pmo_id)
-            if payment_mode:
-                response_data["paymentModeName"] = payment_mode.pmo_designation
-
-        # Payment Condition (Term)
-        if supplier.pco_id:
-            payment_term = await self.db.get(PaymentTerm, supplier.pco_id)
-            if payment_term:
-                response_data["paymentConditionName"] = payment_term.pco_designation
-                response_data["paymentTermDays"] = payment_term.pco_numday + payment_term.pco_day_additional
-
-        return response_data
-
-    async def list_suppliers(
+    def _sync_list_suppliers(
         self,
         skip: int = 0,
         limit: int = 100,
         search_params: Optional[SupplierSearchParams] = None
     ) -> Tuple[List[Supplier], int]:
-        """
-        List suppliers with pagination and filtering.
-
-        Args:
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-            search_params: Optional search/filter parameters.
-
-        Returns:
-            Tuple of (suppliers list, total count).
-        """
-        # Build base query with filters
+        """Synchronous list suppliers implementation."""
         base_filters = []
 
         if search_params:
-            # Text search across multiple fields
             if search_params.search:
                 search_term = f"%{search_params.search}%"
                 base_filters.append(
@@ -320,44 +139,26 @@ class SupplierService:
                         Supplier.sup_company_name.ilike(search_term),
                         Supplier.sup_ref.ilike(search_term),
                         Supplier.sup_email.ilike(search_term),
-                        Supplier.sup_siren.ilike(search_term),
-                        Supplier.sup_siret.ilike(search_term)
                     )
                 )
 
-            # Exact match filters
+            if search_params.is_active is not None:
+                base_filters.append(Supplier.sup_isactive == search_params.is_active)
+
             if search_params.society_id is not None:
                 base_filters.append(Supplier.soc_id == search_params.society_id)
 
             if search_params.supplier_type_id is not None:
                 base_filters.append(Supplier.sty_id == search_params.supplier_type_id)
 
-            if search_params.payment_condition_id is not None:
-                base_filters.append(Supplier.pco_id == search_params.payment_condition_id)
-
-            if search_params.payment_mode_id is not None:
-                base_filters.append(Supplier.pmo_id == search_params.payment_mode_id)
-
             if search_params.currency_id is not None:
                 base_filters.append(Supplier.cur_id == search_params.currency_id)
-
-            if search_params.is_active is not None:
-                base_filters.append(Supplier.sup_isactive == search_params.is_active)
-
-            if search_params.is_blocked is not None:
-                base_filters.append(Supplier.sup_isblocked == search_params.is_blocked)
-
-            if search_params.country:
-                base_filters.append(Supplier.sup_country.ilike(f"%{search_params.country}%"))
-
-            if search_params.city:
-                base_filters.append(Supplier.sup_city.ilike(f"%{search_params.city}%"))
 
         # Get total count
         count_query = select(func.count(Supplier.sup_id))
         if base_filters:
             count_query = count_query.where(*base_filters)
-        total_result = await self.db.execute(count_query)
+        total_result = self.db.execute(count_query)
         total = total_result.scalar() or 0
 
         # Get suppliers
@@ -370,360 +171,272 @@ class SupplierService:
         if base_filters:
             query = query.where(*base_filters)
 
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         suppliers = list(result.scalars().all())
 
         return suppliers, total
 
-    async def update_supplier(
-        self,
-        supplier_id: int,
-        data: SupplierUpdate
-    ) -> Supplier:
+    def _sync_get_supplier(self, supplier_id: int) -> Supplier:
+        """Synchronous get supplier by ID."""
+        result = self.db.get(Supplier, supplier_id)
+        if not result:
+            raise SupplierNotFoundError(supplier_id)
+        return result
+
+    def _sync_get_supplier_detail(self, supplier_id: int) -> dict:
         """
-        Update a supplier.
-
-        Args:
-            supplier_id: The supplier ID.
-            data: Update data.
-
-        Returns:
-            Updated Supplier object.
-
-        Raises:
-            SupplierNotFoundError: If supplier not found.
-            DuplicateSupplierError: If new email already exists for another supplier.
+        Synchronous get supplier by ID with resolved lookup names.
+        Returns a dict suitable for SupplierDetailResponse.
         """
-        supplier = await self.get_supplier(supplier_id)
+        supplier = self.db.get(Supplier, supplier_id)
+        if not supplier:
+            raise SupplierNotFoundError(supplier_id)
 
-        # Check for duplicate email if changing
+        # Build base response from supplier ORM object
+        response_data = SupplierDetailResponse.model_validate(supplier).model_dump()
+
+        # Resolve lookup names
+        # Society
+        if supplier.soc_id:
+            society = self.db.get(Society, supplier.soc_id)
+            if society:
+                response_data["societyName"] = society.soc_society_name
+
+        # Currency
+        if supplier.cur_id:
+            currency = self.db.get(Currency, supplier.cur_id)
+            if currency:
+                response_data["currencyCode"] = currency.cur_designation
+                response_data["currencySymbol"] = currency.cur_symbol
+
+        # Payment Mode
+        if supplier.pmo_id:
+            payment_mode = self.db.get(PaymentMode, supplier.pmo_id)
+            if payment_mode:
+                response_data["paymentModeName"] = payment_mode.pmo_designation
+
+        # Payment Condition (Term)
+        if supplier.pco_id:
+            payment_term = self.db.get(PaymentTerm, supplier.pco_id)
+            if payment_term:
+                response_data["paymentConditionName"] = payment_term.pco_designation
+
+        return response_data
+
+    def _sync_get_supplier_by_email(self, email: str) -> Optional[Supplier]:
+        """Synchronous get supplier by email."""
+        query = select(Supplier).where(Supplier.sup_email == email)
+        result = self.db.execute(query)
+        return result.scalars().first()
+
+    def _sync_get_supplier_by_reference(self, reference: str) -> Supplier:
+        """Synchronous get supplier by reference."""
+        query = select(Supplier).where(Supplier.sup_ref == reference)
+        result = self.db.execute(query)
+        supplier = result.scalars().first()
+        if not supplier:
+            raise SupplierReferenceNotFoundError(reference)
+        return supplier
+
+    def _sync_create_supplier(self, data: SupplierCreate, user_id: Optional[int] = None) -> Supplier:
+        """Synchronous create supplier."""
+        if hasattr(data, 'sup_email') and data.sup_email:
+            existing = self._sync_get_supplier_by_email(data.sup_email)
+            if existing:
+                raise DuplicateSupplierError("email", data.sup_email)
+
+        supplier_data = data.model_dump(exclude_unset=True)
+        supplier = Supplier(**supplier_data)
+
+        self.db.add(supplier)
+        self.db.commit()
+        self.db.refresh(supplier)
+        return supplier
+
+    def _sync_update_supplier(self, supplier_id: int, data: SupplierUpdate, user_id: Optional[int] = None) -> Supplier:
+        """Synchronous update supplier."""
+        supplier = self._sync_get_supplier(supplier_id)
+
         update_data = data.model_dump(exclude_unset=True)
-        if "sup_email" in update_data and update_data["sup_email"]:
-            existing = await self._get_supplier_by_email(update_data["sup_email"])
-            if existing and existing.sup_id != supplier_id:
-                raise DuplicateSupplierError("email", update_data["sup_email"])
-
-        # Update fields
         for field, value in update_data.items():
             setattr(supplier, field, value)
 
-        await self.db.flush()
-        await self.db.refresh(supplier)
+        self.db.commit()
+        self.db.refresh(supplier)
         return supplier
 
-    async def delete_supplier(self, supplier_id: int) -> bool:
-        """
-        Soft delete a supplier (sets is_active to False).
-
-        Args:
-            supplier_id: The supplier ID.
-
-        Returns:
-            True if deleted successfully.
-
-        Raises:
-            SupplierNotFoundError: If supplier not found.
-        """
-        supplier = await self.get_supplier(supplier_id)
+    def _sync_delete_supplier(self, supplier_id: int) -> bool:
+        """Synchronous soft delete supplier."""
+        supplier = self._sync_get_supplier(supplier_id)
         supplier.sup_isactive = False
-        await self.db.flush()
+        self.db.commit()
         return True
 
-    async def hard_delete_supplier(self, supplier_id: int) -> bool:
-        """
-        Permanently delete a supplier.
-
-        Args:
-            supplier_id: The supplier ID.
-
-        Returns:
-            True if deleted successfully.
-
-        Raises:
-            SupplierNotFoundError: If supplier not found.
-        """
-        supplier = await self.get_supplier(supplier_id)
-
-        await self.db.delete(supplier)
-        await self.db.flush()
+    def _sync_permanent_delete_supplier(self, supplier_id: int) -> bool:
+        """Synchronous hard delete supplier."""
+        supplier = self._sync_get_supplier(supplier_id)
+        self.db.delete(supplier)
+        self.db.commit()
         return True
 
-    async def activate_supplier(self, supplier_id: int) -> Supplier:
-        """
-        Activate a supplier.
-
-        Args:
-            supplier_id: The supplier ID.
-
-        Returns:
-            Updated Supplier object.
-
-        Raises:
-            SupplierNotFoundError: If supplier not found.
-        """
-        supplier = await self.get_supplier(supplier_id)
+    def _sync_activate_supplier(self, supplier_id: int) -> Supplier:
+        """Synchronous activate supplier."""
+        supplier = self._sync_get_supplier(supplier_id)
         supplier.sup_isactive = True
-        await self.db.flush()
-        await self.db.refresh(supplier)
+        self.db.commit()
+        self.db.refresh(supplier)
         return supplier
 
-    async def deactivate_supplier(self, supplier_id: int) -> Supplier:
-        """
-        Deactivate a supplier.
-
-        Args:
-            supplier_id: The supplier ID.
-
-        Returns:
-            Updated Supplier object.
-
-        Raises:
-            SupplierNotFoundError: If supplier not found.
-        """
-        supplier = await self.get_supplier(supplier_id)
+    def _sync_deactivate_supplier(self, supplier_id: int) -> Supplier:
+        """Synchronous deactivate supplier."""
+        supplier = self._sync_get_supplier(supplier_id)
         supplier.sup_isactive = False
-        await self.db.flush()
-        await self.db.refresh(supplier)
+        self.db.commit()
+        self.db.refresh(supplier)
         return supplier
 
     # ==========================================================================
-    # Supplier Contact Operations
+    # Contact Methods (Sync)
     # ==========================================================================
 
-    async def create_contact(self, data: SupplierContactCreate) -> SupplierContact:
-        """
-        Create a new supplier contact.
-
-        Args:
-            data: Contact creation data.
-
-        Returns:
-            Created SupplierContact object.
-
-        Raises:
-            SupplierNotFoundError: If supplier not found.
-        """
+    def _sync_list_contacts(self, supplier_id: int) -> List[SupplierContact]:
+        """Synchronous list supplier contacts."""
         # Verify supplier exists
-        await self.get_supplier(data.sco_sup_id)
+        self._sync_get_supplier(supplier_id)
+        
+        query = select(SupplierContact).where(SupplierContact.sup_id == supplier_id)
+        result = self.db.execute(query)
+        return list(result.scalars().all())
 
-        # Create contact
-        contact = SupplierContact(**data.model_dump())
-        self.db.add(contact)
-        await self.db.flush()
-        await self.db.refresh(contact)
+    def _sync_get_contact(self, supplier_id: int, contact_id: int) -> SupplierContact:
+        """Synchronous get supplier contact."""
+        # Verify supplier exists
+        self._sync_get_supplier(supplier_id)
+        
+        contact = self.db.get(SupplierContact, contact_id)
+        if not contact or contact.sup_id != supplier_id:
+            raise SupplierContactNotFoundError(contact_id)
         return contact
 
-    async def get_contact(self, contact_id: int) -> SupplierContact:
-        """
-        Get supplier contact by ID.
-
-        Args:
-            contact_id: The contact ID.
-
-        Returns:
-            SupplierContact object.
-
-        Raises:
-            SupplierContactNotFoundError: If contact not found.
-        """
-        result = await self.db.get(SupplierContact, contact_id)
-        if not result:
-            raise SupplierContactNotFoundError(contact_id)
-        return result
-
-    async def list_contacts(
-        self,
-        supplier_id: int,
-        skip: int = 0,
-        limit: int = 100
-    ) -> Tuple[List[SupplierContact], int]:
-        """
-        List contacts for a supplier.
-
-        Args:
-            supplier_id: The supplier ID.
-            skip: Number of records to skip.
-            limit: Maximum number of records to return.
-
-        Returns:
-            Tuple of (contacts list, total count).
-
-        Raises:
-            SupplierNotFoundError: If supplier not found.
-        """
+    def _sync_create_contact(self, supplier_id: int, data: SupplierContactCreate) -> SupplierContact:
+        """Synchronous create supplier contact."""
         # Verify supplier exists
-        await self.get_supplier(supplier_id)
+        self._sync_get_supplier(supplier_id)
+        
+        contact_data = data.model_dump(exclude_unset=True)
+        contact_data['sup_id'] = supplier_id
+        contact = SupplierContact(**contact_data)
+        
+        self.db.add(contact)
+        self.db.commit()
+        self.db.refresh(contact)
+        return contact
 
-        # Get total count
-        count_query = (
-            select(func.count(SupplierContact.sco_id))
-            .where(SupplierContact.sco_sup_id == supplier_id)
-        )
-        total_result = await self.db.execute(count_query)
-        total = total_result.scalar() or 0
-
-        # Get contacts
-        query = (
-            select(SupplierContact)
-            .where(SupplierContact.sco_sup_id == supplier_id)
-            .order_by(SupplierContact.sco_is_primary.desc(), SupplierContact.sco_last_name)
-            .offset(skip)
-            .limit(limit)
-        )
-        result = await self.db.execute(query)
-        contacts = list(result.scalars().all())
-
-        return contacts, total
-
-    async def update_contact(
-        self,
-        contact_id: int,
-        data: SupplierContactUpdate
-    ) -> SupplierContact:
-        """
-        Update a supplier contact.
-
-        Args:
-            contact_id: The contact ID.
-            data: Update data.
-
-        Returns:
-            Updated SupplierContact object.
-
-        Raises:
-            SupplierContactNotFoundError: If contact not found.
-        """
-        contact = await self.get_contact(contact_id)
-
-        # Update fields
+    def _sync_update_contact(self, supplier_id: int, contact_id: int, data: SupplierContactUpdate) -> SupplierContact:
+        """Synchronous update supplier contact."""
+        contact = self._sync_get_contact(supplier_id, contact_id)
+        
         update_data = data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(contact, field, value)
-
-        await self.db.flush()
-        await self.db.refresh(contact)
+        
+        self.db.commit()
+        self.db.refresh(contact)
         return contact
 
-    async def delete_contact(self, contact_id: int) -> bool:
-        """
-        Delete a supplier contact.
-
-        Args:
-            contact_id: The contact ID.
-
-        Returns:
-            True if deleted successfully.
-
-        Raises:
-            SupplierContactNotFoundError: If contact not found.
-        """
-        contact = await self.get_contact(contact_id)
-        await self.db.delete(contact)
-        await self.db.flush()
+    def _sync_delete_contact(self, supplier_id: int, contact_id: int) -> bool:
+        """Synchronous delete supplier contact."""
+        contact = self._sync_get_contact(supplier_id, contact_id)
+        self.db.delete(contact)
+        self.db.commit()
         return True
 
     # ==========================================================================
-    # Helper Methods
+    # Async Wrapper Methods (for FastAPI endpoints)
     # ==========================================================================
 
-    async def _get_supplier_by_email(self, email: str) -> Optional[Supplier]:
-        """
-        Get supplier by email (internal helper).
+    async def list_suppliers(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        search_params: Optional[SupplierSearchParams] = None
+    ) -> Tuple[List[Supplier], int]:
+        """List suppliers with pagination and filtering (async wrapper)."""
+        return await asyncio.to_thread(self._sync_list_suppliers, skip, limit, search_params)
 
-        Args:
-            email: Supplier email address.
+    async def get_supplier(self, supplier_id: int) -> Supplier:
+        """Get supplier by ID (async wrapper)."""
+        return await asyncio.to_thread(self._sync_get_supplier, supplier_id)
 
-        Returns:
-            Supplier object or None.
-        """
-        query = select(Supplier).where(Supplier.sup_email == email)
-        result = await self.db.execute(query)
-        return result.scalars().first()
+    async def get_supplier_detail(self, supplier_id: int) -> dict:
+        """Get supplier by ID with resolved lookup names (async wrapper)."""
+        return await asyncio.to_thread(self._sync_get_supplier_detail, supplier_id)
 
-    async def get_supplier_with_contacts(self, supplier_id: int) -> Supplier:
-        """
-        Get supplier with contacts loaded.
+    async def get_supplier_by_email(self, email: str) -> Optional[Supplier]:
+        """Get supplier by email (async wrapper)."""
+        return await asyncio.to_thread(self._sync_get_supplier_by_email, email)
 
-        Args:
-            supplier_id: The supplier ID.
+    async def get_supplier_by_reference(self, reference: str) -> Supplier:
+        """Get supplier by reference (async wrapper)."""
+        return await asyncio.to_thread(self._sync_get_supplier_by_reference, reference)
 
-        Returns:
-            Supplier object with contacts loaded.
+    async def create_supplier(self, data: SupplierCreate, user_id: Optional[int] = None) -> Supplier:
+        """Create a new supplier (async wrapper)."""
+        return await asyncio.to_thread(self._sync_create_supplier, data, user_id)
 
-        Raises:
-            SupplierNotFoundError: If supplier not found.
-        """
-        query = (
-            select(Supplier)
-            .options(selectinload(Supplier.contacts))
-            .where(Supplier.sup_id == supplier_id)
-        )
-        result = await self.db.execute(query)
-        supplier = result.scalars().first()
-        if not supplier:
-            raise SupplierNotFoundError(supplier_id)
-        return supplier
+    async def update_supplier(self, supplier_id: int, data: SupplierUpdate, user_id: Optional[int] = None) -> Supplier:
+        """Update a supplier (async wrapper)."""
+        return await asyncio.to_thread(self._sync_update_supplier, supplier_id, data, user_id)
 
-    # ==========================================================================
-    # Export Methods
-    # ==========================================================================
+    async def delete_supplier(self, supplier_id: int) -> bool:
+        """Soft delete a supplier (async wrapper)."""
+        return await asyncio.to_thread(self._sync_delete_supplier, supplier_id)
+
+    async def permanent_delete_supplier(self, supplier_id: int) -> bool:
+        """Hard delete a supplier (async wrapper)."""
+        return await asyncio.to_thread(self._sync_permanent_delete_supplier, supplier_id)
+
+    async def activate_supplier(self, supplier_id: int) -> Supplier:
+        """Activate a supplier (async wrapper)."""
+        return await asyncio.to_thread(self._sync_activate_supplier, supplier_id)
+
+    async def deactivate_supplier(self, supplier_id: int) -> Supplier:
+        """Deactivate a supplier (async wrapper)."""
+        return await asyncio.to_thread(self._sync_deactivate_supplier, supplier_id)
+
+    # Contact async wrappers
+    async def list_contacts(self, supplier_id: int) -> List[SupplierContact]:
+        """List supplier contacts (async wrapper)."""
+        return await asyncio.to_thread(self._sync_list_contacts, supplier_id)
+
+    async def get_contact(self, supplier_id: int, contact_id: int) -> SupplierContact:
+        """Get supplier contact (async wrapper)."""
+        return await asyncio.to_thread(self._sync_get_contact, supplier_id, contact_id)
+
+    async def create_contact(self, supplier_id: int, data: SupplierContactCreate) -> SupplierContact:
+        """Create supplier contact (async wrapper)."""
+        return await asyncio.to_thread(self._sync_create_contact, supplier_id, data)
+
+    async def update_contact(self, supplier_id: int, contact_id: int, data: SupplierContactUpdate) -> SupplierContact:
+        """Update supplier contact (async wrapper)."""
+        return await asyncio.to_thread(self._sync_update_contact, supplier_id, contact_id, data)
+
+    async def delete_contact(self, supplier_id: int, contact_id: int) -> bool:
+        """Delete supplier contact (async wrapper)."""
+        return await asyncio.to_thread(self._sync_delete_contact, supplier_id, contact_id)
 
     async def export_suppliers_csv(
         self,
         search_params: Optional[SupplierSearchParams] = None
     ) -> Tuple[str, int]:
-        """
-        Export suppliers to CSV format.
+        """Export suppliers to CSV format."""
+        suppliers, total = await self.list_suppliers(skip=0, limit=10000, search_params=search_params)
 
-        Args:
-            search_params: Optional search/filter parameters.
-
-        Returns:
-            Tuple of (CSV content string, supplier count).
-        """
-        # Get all suppliers matching the filters (no pagination for export)
-        suppliers, total = await self.list_suppliers(
-            skip=0,
-            limit=10000,  # Reasonable limit for export
-            search_params=search_params
-        )
-
-        # Define CSV columns
         fieldnames = [
-            'sup_id',
-            'sup_ref',
-            'sup_company_name',
-            'sup_email',
-            'sup_tel1',
-            'sup_tel2',
-            'sup_cellphone',
-            'sup_fax',
-            'sup_address1',
-            'sup_address2',
-            'sup_postcode',
-            'sup_city',
-            'sup_country',
-            'sup_siren',
-            'sup_siret',
-            'sup_vat_intra',
-            'soc_id',
-            'vat_id',
-            'pco_id',
-            'pmo_id',
-            'cur_id',
-            'sty_id',
-            'sup_free_of_harbor',
-            'sup_recieve_newsletter',
-            'sup_newsletter_email',
-            'sup_comment_for_supplier',
-            'sup_comment_for_interne',
-            'sup_isactive',
-            'sup_isblocked',
-            'sup_d_creation',
-            'sup_d_update',
+            'sup_id', 'sup_ref', 'sup_company_name', 'sup_email',
+            'sup_tel1', 'sup_address1', 'sup_city', 'sup_isactive',
         ]
 
-        # Generate CSV content
         output = io.StringIO()
         writer = csv.DictWriter(
             output,
@@ -733,10 +446,8 @@ class SupplierService:
             extrasaction='ignore'
         )
 
-        # Write header
         writer.writeheader()
 
-        # Write data rows
         for supplier in suppliers:
             row = {
                 'sup_id': supplier.sup_id,
@@ -744,32 +455,9 @@ class SupplierService:
                 'sup_company_name': supplier.sup_company_name or '',
                 'sup_email': supplier.sup_email or '',
                 'sup_tel1': supplier.sup_tel1 or '',
-                'sup_tel2': supplier.sup_tel2 or '',
-                'sup_cellphone': supplier.sup_cellphone or '',
-                'sup_fax': supplier.sup_fax or '',
                 'sup_address1': supplier.sup_address1 or '',
-                'sup_address2': supplier.sup_address2 or '',
-                'sup_postcode': supplier.sup_postcode or '',
                 'sup_city': supplier.sup_city or '',
-                'sup_country': supplier.sup_country or '',
-                'sup_siren': supplier.sup_siren or '',
-                'sup_siret': supplier.sup_siret or '',
-                'sup_vat_intra': supplier.sup_vat_intra or '',
-                'soc_id': supplier.soc_id,
-                'vat_id': supplier.vat_id,
-                'pco_id': supplier.pco_id,
-                'pmo_id': supplier.pmo_id,
-                'cur_id': supplier.cur_id,
-                'sty_id': supplier.sty_id if supplier.sty_id else '',
-                'sup_free_of_harbor': supplier.sup_free_of_harbor if supplier.sup_free_of_harbor else '',
-                'sup_recieve_newsletter': 'true' if supplier.sup_recieve_newsletter else 'false',
-                'sup_newsletter_email': supplier.sup_newsletter_email or '',
-                'sup_comment_for_supplier': supplier.sup_comment_for_supplier or '',
-                'sup_comment_for_interne': supplier.sup_comment_for_interne or '',
                 'sup_isactive': 'true' if supplier.sup_isactive else 'false',
-                'sup_isblocked': 'true' if supplier.sup_isblocked else 'false',
-                'sup_d_creation': supplier.sup_d_creation.isoformat() if supplier.sup_d_creation else '',
-                'sup_d_update': supplier.sup_d_update.isoformat() if supplier.sup_d_update else '',
             }
             writer.writerow(row)
 
@@ -780,16 +468,10 @@ class SupplierService:
 # Dependency Injection
 # ==========================================================================
 
-async def get_supplier_service(
-    db: AsyncSession = Depends(get_db)
+def get_supplier_service(
+    db: Session = Depends(get_db)
 ) -> SupplierService:
     """
     Dependency to get SupplierService instance.
-
-    Args:
-        db: Database session from dependency.
-
-    Returns:
-        SupplierService instance.
     """
     return SupplierService(db)

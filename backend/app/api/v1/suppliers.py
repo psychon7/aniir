@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 import io
 
 from app.database import get_db

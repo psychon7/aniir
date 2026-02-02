@@ -13,18 +13,18 @@ from app.api.v1 import (
     users,
     clients,
     # client_types,
-    suppliers,  # ENABLED
-    # products,
-    # quotes,
-    # orders,
-    # invoices,
-    # deliveries,
+    suppliers,
+    products,
+    quotes,
+    orders,
+    invoices,
+    deliveries,
     # accounting,
     currencies,
     # landed_cost,
     # warehouse,
     # logistics,
-    # projects,
+    projects,
     # drive,
     lookups,
     lookup,  # Frontend alias for lookups (singular /lookup/)
@@ -68,16 +68,16 @@ api_router.include_router(users.router)
 # -----------------------------------------------------------------------------
 api_router.include_router(clients.router)
 # api_router.include_router(client_types.router)
-api_router.include_router(suppliers.router)  # ENABLED
-# api_router.include_router(products.router)
+api_router.include_router(suppliers.router)
+api_router.include_router(products.router)
 
 # -----------------------------------------------------------------------------
 # Sales & Orders
 # -----------------------------------------------------------------------------
-# api_router.include_router(quotes.router)
-# api_router.include_router(orders.router)
-# api_router.include_router(invoices.router)
-# api_router.include_router(deliveries.router)
+api_router.include_router(quotes.router)
+api_router.include_router(orders.router)
+api_router.include_router(invoices.router)
+api_router.include_router(deliveries.router)
 
 # -----------------------------------------------------------------------------
 # Finance & Accounting
@@ -91,7 +91,7 @@ api_router.include_router(currencies.router)
 # -----------------------------------------------------------------------------
 # api_router.include_router(warehouse.router)
 # api_router.include_router(logistics.router)
-# api_router.include_router(projects.router)
+api_router.include_router(projects.router)
 
 # -----------------------------------------------------------------------------
 # Communication & Files
