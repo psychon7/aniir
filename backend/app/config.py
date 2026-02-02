@@ -9,7 +9,7 @@ Handles all configuration settings for the ERP system including:
 """
 
 from functools import lru_cache
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import field_validator, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore"
+        extra="ignore",
     )
     
     # ==========================================================================
@@ -141,7 +141,8 @@ class Settings(BaseSettings):
     # CORS SETTINGS
     # ==========================================================================
     
-    CORS_ORIGINS: List[str] = [
+    # Can be set as comma-separated string: "http://localhost:3000,http://example.com"
+    CORS_ORIGINS: Union[str, List[str]] = [
         "http://localhost:3000",      # React dev server
         "http://localhost:5173",      # Vite dev server
         "http://127.0.0.1:3000",
@@ -153,11 +154,24 @@ class Settings(BaseSettings):
     
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
-    def parse_cors_origins(cls, v):
+    def parse_cors_origins(cls, v) -> List[str]:
         """Parse CORS origins from comma-separated string or list."""
+        if v is None or v == "":
+            return [
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:5173",
+            ]
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
-        return v
+        if isinstance(v, list):
+            return v
+        # Fallback to default
+        return [
+            "http://localhost:3000",
+            "http://localhost:5173",
+        ]
     
     # ==========================================================================
     # PAGINATION SETTINGS
