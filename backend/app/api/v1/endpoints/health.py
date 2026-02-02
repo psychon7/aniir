@@ -47,45 +47,46 @@ async def debug_check():
     import os
     import socket
     
-    db_url = os.getenv("DATABASE_URL", "NOT SET")
-    # Mask password
-    db_url_masked = "****" 
-    if db_url != "NOT SET" and "@" in db_url:
-        parts = db_url.split("@")
-        db_url_masked = f"****@{parts[-1]}" if len(parts) > 1 else "****"
+    result = {
+        "status": "ok",
+        "environment": os.getenv("ENVIRONMENT", "NOT SET"),
+        "db_host": "47.254.130.238",
+        "db_port": 1433,
+    }
     
-    # Test network connectivity to DB
-    db_host = "47.254.130.238"
-    db_port = 1433
-    can_connect = False
+    # Mask database URL
+    try:
+        db_url = os.getenv("DATABASE_URL", "NOT_SET")
+        if db_url != "NOT_SET" and "@" in db_url:
+            parts = db_url.split("@")
+            result["database_url"] = f"****@{parts[-1]}" if len(parts) > 1 else "****"
+        else:
+            result["database_url"] = "NOT_SET"
+    except Exception as e:
+        result["database_url"] = f"error: {str(e)}"
     
+    # Test DB port connectivity
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5)
-        result = sock.connect_ex((db_host, db_port))
-        can_connect = (result == 0)
+        connect_result = sock.connect_ex(("47.254.130.238", 1433))
+        result["can_reach_db_port"] = (connect_result == 0)
         sock.close()
-    except:
-        pass
+    except Exception as e:
+        result["can_reach_db_port"] = False
+        result["port_error"] = str(e)
     
     # Get outbound IP
-    outbound_ip = "unknown"
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
-        outbound_ip = s.getsockname()[0]
+        result["outbound_ip"] = s.getsockname()[0]
         s.close()
-    except:
-        pass
+    except Exception as e:
+        result["outbound_ip"] = "unknown"
+        result["ip_error"] = str(e)
     
-    return {
-        "database_url": db_url_masked,
-        "can_reach_db_port": can_connect,
-        "db_host": db_host,
-        "db_port": db_port,
-        "outbound_ip": outbound_ip,
-        "environment": os.getenv("ENVIRONMENT", "NOT SET"),
-    }
+    return result
 
 
 @router.get("/health/db", response_model=DatabaseHealthResponse)
