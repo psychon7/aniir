@@ -569,32 +569,49 @@ class SupplierSearchParams(BaseModel):
 # ==========================================================================
 
 class SupplierListPaginatedResponse(BaseModel):
-    """Paginated response for supplier list."""
-    items: List[SupplierListResponse] = Field(
+    """Paginated response for supplier list - matches frontend PagedResponse<T> format."""
+    success: bool = Field(
+        default=True,
+        description="Whether the request was successful"
+    )
+    data: List[SupplierListResponse] = Field(
         ...,
         description="List of suppliers"
     )
-    total: int = Field(
+    page: int = Field(
+        ...,
+        description="Current page number (1-indexed)"
+    )
+    pageSize: int = Field(
+        ...,
+        description="Number of items per page"
+    )
+    totalCount: int = Field(
         ...,
         description="Total count of suppliers matching criteria"
     )
-    skip: int = Field(
+    totalPages: int = Field(
         ...,
-        description="Number of items skipped"
+        description="Total number of pages"
     )
-    limit: int = Field(
+    hasNextPage: bool = Field(
         ...,
-        description="Maximum items returned"
+        description="Whether there is a next page"
+    )
+    hasPreviousPage: bool = Field(
+        ...,
+        description="Whether there is a previous page"
     )
 
 
 class SupplierContactListPaginatedResponse(BaseModel):
     """Paginated response for supplier contact list."""
-    items: List[SupplierContactListResponse] = Field(
+    success: bool = Field(default=True)
+    data: List[SupplierContactListResponse] = Field(
         ...,
         description="List of contacts"
     )
-    total: int = Field(
+    totalCount: int = Field(
         ...,
         description="Total count of contacts matching criteria"
     )

@@ -159,11 +159,20 @@ async def list_suppliers(
         search_params=search_params
     )
 
+    # Calculate pagination info
+    total_pages = (total + pageSize - 1) // pageSize if pageSize > 0 else 0
+    has_next = page < total_pages
+    has_previous = page > 1
+
     return SupplierListPaginatedResponse(
-        items=[SupplierListResponse.model_validate(s) for s in suppliers],
-        total=total,
-        skip=actual_skip,
-        limit=actual_limit
+        success=True,
+        data=[SupplierListResponse.model_validate(s) for s in suppliers],
+        page=page,
+        pageSize=pageSize,
+        totalCount=total,
+        totalPages=total_pages,
+        hasNextPage=has_next,
+        hasPreviousPage=has_previous
     )
 
 
