@@ -25,10 +25,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend and install dependencies
-COPY backend/pyproject.toml ./
+COPY backend/pyproject.toml backend/README.md* ./
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir pymssql && \
-    pip install --no-cache-dir -e .
+    pip install --no-cache-dir \
+        "fastapi>=0.109.0" \
+        "uvicorn[standard]>=0.27.0" \
+        "sqlalchemy>=2.0.25" \
+        "pydantic>=2.5.3" \
+        "pydantic-settings>=2.1.0" \
+        "python-jose[cryptography]>=3.3.0" \
+        "passlib[bcrypt]>=1.7.4" \
+        "python-multipart>=0.0.6" \
+        "httpx>=0.26.0" \
+        "aiofiles>=23.2.1" \
+        "python-socketio>=5.11.0" \
+        "redis>=5.0.1" \
+        "python-dateutil>=2.8.2" \
+        "structlog>=24.1.0" \
+        "python-dotenv>=1.0.0" \
+        "email-validator>=2.1.0"
 
 COPY backend/app ./app
 
