@@ -164,38 +164,59 @@ async def env_check():
 @router.get("/health/tables")
 async def tables_health_check(db: Session = Depends(get_db)):
     """
-    Check if expected tables exist.
-    Returns list of found and missing tables.
+    Check if expected tables exist and return row counts.
+    Returns list of tables with their data counts.
     """
-    expected_tables = [
-        "TR_BU_BusinessUnit",
-        "TR_STA_Status",
-        "TM_CLI_Client",
-        "TM_PRD_Product",
+    tables_to_check = [
+        ("TM_CLI_CLient", "Clients"),
+        ("TM_SUP_Supplier", "Suppliers"),
+        ("TM_PRD_Product", "Products"),
+        ("TM_COD_Client_Order", "Client Orders"),
+        ("TM_CIN_Client_Invoice", "Client Invoices"),
+        ("TM_CPL_Cost_Plan", "Quotes/CostPlans"),
+        ("TM_DFO_Delivery_Form", "Deliveries"),
+        ("TM_PRJ_Project", "Projects"),
+        ("TM_CPY_ClientInvoice_Payment", "Payments"),
+        ("TM_CCO_Client_Contact", "Client Contacts"),
+        ("TM_SCO_Supplier_Contact", "Supplier Contacts"),
+        ("TR_CUR_Currency", "Currencies"),
+        ("TR_PMO_Payment_Mode", "Payment Modes"),
+        ("TR_PCO_Payment_Condition", "Payment Terms"),
+        ("TR_CTY_Client_Type", "Client Types"),
+        ("TR_STY_Supplier_Type", "Supplier Types"),
+        ("TR_SOC_Society", "Societies"),
+        ("TR_COU_Country", "Countries"),
     ]
     
-    found = []
-    missing = []
+    results = []
+    total_records = 0
     
-    for table in expected_tables:
+    for table, description in tables_to_check:
         try:
-            result = db.execute(text(
-                f"SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES "
-                f"WHERE TABLE_NAME = :table"
-            ), {"table": table})
+            result = db.execute(text(f"SELECT COUNT(*) FROM {table}"))
             count = result.fetchone()[0]
-            
-            if count > 0:
-                found.append(table)
-            else:
-                missing.append(table)
-        except Exception:
-            missing.append(table)
+            total_records += count
+            results.append({
+                "table": table,
+                "description": description,
+                "count": count,
+                "has_data": count > 0
+            })
+        except Exception as e:
+            results.append({
+                "table": table,
+                "description": description,
+                "count": 0,
+                "has_data": False,
+                "error": str(e)[:100]
+            })
+    
+    tables_with_data = [r for r in results if r.get("has_data")]
     
     return {
-        "status": "healthy" if not missing else "degraded",
-        "found": found,
-        "missing": missing,
-        "total_expected": len(expected_tables),
-        "total_found": len(found)
+        "status": "healthy",
+        "total_tables_checked": len(results),
+        "tables_with_data": len(tables_with_data),
+        "total_records": total_records,
+        "tables": results
     }

@@ -116,8 +116,13 @@ async def create_supplier(
     """
 )
 async def list_suppliers(
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum records to return"),
+    # Support both page/pageSize (frontend) and skip/limit (legacy)
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    pageSize: int = Query(20, ge=1, le=500, alias="pageSize", description="Items per page"),
+    skip: Optional[int] = Query(None, ge=0, description="Number of records to skip (legacy)"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Maximum records to return (legacy)"),
+    sortBy: Optional[str] = Query(None, description="Field to sort by"),
+    sortOrder: Optional[str] = Query("asc", description="Sort order (asc/desc)"),
     search: Optional[str] = Query(None, max_length=100, description="Search term"),
     society_id: Optional[int] = Query(None, description="Filter by society ID"),
     supplier_type_id: Optional[int] = Query(None, description="Filter by supplier type ID"),
@@ -131,6 +136,10 @@ async def list_suppliers(
     service: SupplierService = Depends(get_supplier_service)
 ):
     """List all suppliers with pagination and filtering."""
+    # Convert page/pageSize to skip/limit if not using legacy params
+    actual_skip = skip if skip is not None else (page - 1) * pageSize
+    actual_limit = limit if limit is not None else pageSize
+    
     search_params = SupplierSearchParams(
         search=search,
         society_id=society_id,
@@ -145,16 +154,16 @@ async def list_suppliers(
     )
 
     suppliers, total = await service.list_suppliers(
-        skip=skip,
-        limit=limit,
+        skip=actual_skip,
+        limit=actual_limit,
         search_params=search_params
     )
 
     return SupplierListPaginatedResponse(
         items=[SupplierListResponse.model_validate(s) for s in suppliers],
         total=total,
-        skip=skip,
-        limit=limit
+        skip=actual_skip,
+        limit=actual_limit
     )
 
 
