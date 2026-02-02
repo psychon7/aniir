@@ -1,195 +1,227 @@
-# ERP2025 - ECOLED EUROPE
+# ERP2025 - AXTECH ECOLED
 
-Modern ERP solution composed of an ASP.NET 4.8 REST API backend (`ERP.Web`) and a Vite + React 18 SPA (`frontend`). This document walks through the full setup for local development.
+Modern ERP solution with a FastAPI (Python) backend and a Vite + React 18 SPA frontend.
 
 ## Prerequisites
 
-- Windows 10/11 with [Visual Studio 2022](https://visualstudio.microsoft.com/vs/) and the **ASP.NET and web development** workload
-- .NET Framework 4.8 Developer Pack (required by `ERP.Web`)
-- SQL Server 2019+ (Express is fine) and SQL Server Management Studio for running scripts in `/SQL`
-- Node.js 18+ and npm 9+ (used by the Vite frontend)
-- (Optional) Docker Desktop if you prefer containerized infrastructure
-- (Optional) `npx playwright install` to provision browsers for UI tests
+- Python 3.11+
+- Node.js 18+ and npm 9+
+- SQL Server 2019+ (Azure SQL Edge for ARM64/Apple Silicon)
+- Docker Desktop (recommended for local development)
+- (Optional) `npx playwright install` for UI tests
 
 ## Quick Start
 
-1. **Clone & restore packages**
-   ```bash
-   git clone <repo-url>
-   cd ERP2025
-   nuget restore ERP.sln
-   ```
-2. **Configure the backend**  
-   Update `ERP.Web/Web.config` with your SQL Server connection string and JWT keys (see [Backend Setup](#backend-setup-erpweb)).
-3. **Prepare the database**  
-   Run the scripts provided in `SQL/` to seed the schema/data expected by the services.
-4. **Run the backend**  
-   Open `ERP.sln` in Visual Studio, select `ERP.Web` and start with IIS Express (or configure a local IIS site).
-5. **Configure & run the frontend**
-   ```bash
-   cd frontend
-   cp .env.development .env.local   # adjust VITE_* values as needed
-   npm install
-   npm run dev
-   ```
-   The SPA is now available at `http://localhost:5173` and proxies API calls to `http://localhost:44300/api/v1` by default.
+### 1. Clone & Setup
+
+```bash
+git clone https://github.com/AXTECH-Shop/ERP.git
+cd ERP
+```
+
+### 2. Backend Setup
+
+```bash
+cd backend
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -e .
+
+# Configure environment
+cp ../.env.example .env
+# Edit .env with your database credentials
+
+# Run the backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+```
+
+Backend will be available at `http://localhost:8001`
+- API Docs (Swagger): `http://localhost:8001/docs`
+- Health Check: `http://localhost:8001/api/v1/health`
+
+### 3. Frontend Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Configure environment (optional)
+cp .env.example .env.local
+# Edit VITE_API_BASE_URL if backend is on different port
+
+# Run development server
+npm run dev
+```
+
+Frontend will be available at `http://localhost:5173`
+
+### 4. Database
+
+The application connects to a SQL Server database. Configure the connection in `backend/.env`:
+
+```env
+DATABASE_URL=mssql+pymssql://user:password@host:1433/database_name
+```
 
 ## Project Structure
 
 ```
 ERP2025/
+├── backend/                     # FastAPI Backend (Python)
+│   ├── app/
+│   │   ├── api/v1/             # REST API endpoints
+│   │   ├── models/             # SQLAlchemy models
+│   │   ├── schemas/            # Pydantic schemas
+│   │   ├── services/           # Business logic layer
+│   │   ├── repositories/       # Data access layer
+│   │   └── main.py             # FastAPI application
+│   ├── pyproject.toml          # Python dependencies
+│   └── .env                    # Environment config (not in git)
+│
 ├── frontend/                    # React SPA (Vite + TypeScript)
-├── ERP.Web/                     # ASP.NET Web Application + REST API
-│   ├── Api/                     # REST API Layer (Controllers, DTOs, Helpers)
-│   ├── App_Start/               # Web API, JWT, Swagger configuration
-│   ├── Services/                # Legacy ASMX services
-│   └── Views/                   # ASPX Pages
-├── ERP.DataServices/            # Business Logic Layer
-├── ERP.Repositories/            # Data Access Layer
-├── ERP.Entities/                # Domain Entities
-├── ERP.SharedServices/          # PDF generators, notifications, etc.
-├── SQL/                         # Database scripts
-├── scripts/                     # Utility scripts (build/deploy)
-├── deployment/                  # Infra-as-code / deployment assets
-└── Packages/                    # NuGet packages cache
+│   ├── src/
+│   │   ├── api/                # API client & hooks
+│   │   ├── components/         # Reusable UI components
+│   │   ├── routes/             # TanStack Router pages
+│   │   ├── hooks/              # React Query hooks
+│   │   └── i18n/               # Translations
+│   ├── package.json
+│   └── .env                    # Frontend config (not in git)
+│
+├── DOCUMENTATION/              # Project documentation
+├── Legacy/                     # Legacy .NET application (reference only)
+├── database/                   # Database scripts
+├── deployment/                 # Deployment configurations
+├── docker-compose.yml          # Docker services (Redis)
+└── .env.example                # Environment template
 ```
-
-## Backend Setup (`ERP.Web`)
-
-1. **Restore NuGet dependencies**
-   - Use Visual Studio's Package Manager Console (`Update-Package -reinstall`) or `nuget restore ERP.sln`.
-2. **Configuration**
-   - `ERP.Web/Web.config` → update `connectionStrings` with your SQL Server instance.
-   - `appSettings` → set JWT options:
-     ```xml
-     <add key="JwtSecretKey" value="YOUR_SECRET_KEY_MIN_32_CHARS" />
-     <add key="JwtAccessTokenExpiryMinutes" value="15" />
-     <add key="JwtRefreshTokenExpiryDays" value="7" />
-     ```
-   - Adjust `AllowedCorsOrigins` to include your frontend origin (e.g., `http://localhost:5173`).
-3. **Database**
-   - Execute the schema/data scripts under `SQL/` in the following order: schema definition, lookup data, and seed data (if provided).
-4. **Running locally**
-   - Set `ERP.Web` as the startup project and press `F5` in Visual Studio to launch IIS Express, or publish to a local IIS site.
-   - Swagger is exposed via `/swagger` once the site is running, enabling quick endpoint validation.
-5. **Backend tooling**
-   - Run unit/integration tests (if any) from Test Explorer.
-   - Use `scripts/` for CI/CD helper commands when deploying.
-
-## Frontend Setup (`frontend/`)
-
-1. **Environment variables**
-   - Templates live in `.env.development` and `.env.production`.
-   - Common keys:
-     - `VITE_API_BASE_URL` → default `http://localhost:44300/api/v1`
-     - `VITE_USE_MOCK_API` → `true` for local mocks, `false` for real API
-   - Create `.env.local` for machine-specific overrides.
-2. **Install dependencies**
-   ```bash
-   cd frontend
-   npm install
-   ```
-3. **Run the dev server**
-   ```bash
-   npm run dev
-   # open http://localhost:5173
-   ```
-4. **Build & preview**
-   ```bash
-   npm run build
-   npm run preview
-   ```
-5. **Lint & tests**
-   ```bash
-   npm run lint
-   npx playwright test
-   ```
-   Playwright config lives in `frontend/playwright.config.ts`; tests reside in `frontend/tests/`.
 
 ## API Endpoints
 
 Base URL: `/api/v1/`
 
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/auth/login` | Login with username/password, returns JWT tokens |
-| POST | `/auth/refresh` | Refresh access token |
-| POST | `/auth/logout` | Logout (invalidate session) |
-| GET | `/auth/me` | Get current user info |
+### Core Entities
 
-### Clients
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/clients` | Search clients with pagination |
-| GET | `/clients/{id}` | Get client by ID |
-| POST | `/clients` | Create new client |
-| PUT | `/clients/{id}` | Update client |
-| GET | `/clients/{id}/contacts` | Get client contacts |
-| POST | `/clients/{id}/activate` | Activate client |
-| POST | `/clients/{id}/deactivate` | Deactivate client |
-| POST | `/clients/{id}/block` | Block client |
-| POST | `/clients/{id}/unblock` | Unblock client |
+| Entity | List | Detail | Create | Update |
+|--------|------|--------|--------|--------|
+| Clients | GET `/clients` | GET `/clients/{id}` | POST `/clients` | PUT `/clients/{id}` |
+| Suppliers | GET `/suppliers` | GET `/suppliers/{id}` | POST `/suppliers` | PUT `/suppliers/{id}` |
+| Products | GET `/products` | GET `/products/{id}` | POST `/products` | PUT `/products/{id}` |
+| Orders | GET `/orders` | GET `/orders/{id}` | POST `/orders` | PUT `/orders/{id}` |
+| Quotes | GET `/quotes` | GET `/quotes/{id}` | POST `/quotes` | PUT `/quotes/{id}` |
+| Invoices | GET `/invoices` | GET `/invoices/{id}` | POST `/invoices` | PUT `/invoices/{id}` |
+| Deliveries | GET `/deliveries` | GET `/deliveries/{id}` | POST `/deliveries` | PUT `/deliveries/{id}` |
+| Projects | GET `/projects` | GET `/projects/{id}` | POST `/projects` | PUT `/projects/{id}` |
 
-### Products
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/products` | Search products with pagination |
-| GET | `/products/{id}` | Get product by ID |
-| GET | `/products/{id}/instances` | Get product variants |
-| GET | `/products/{id}/photos` | Get product photos |
-| GET | `/products/types` | Get all product types |
-| GET | `/products/categories` | Get all categories |
-| POST | `/products/{id}/activate` | Activate product |
-| POST | `/products/{id}/deactivate` | Deactivate product |
+### Warehouse & Inventory
 
-### Users
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/users` | Get all users |
-| GET | `/users/{id}` | Get user by ID |
-| POST | `/users` | Create new user |
-| PUT | `/users/{id}` | Update user |
-| POST | `/users/{id}/change-password` | Change user password |
-| GET | `/users/sub-commercials` | Get sub-commercials |
+| GET | `/warehouse/warehouses` | List warehouses |
+| GET | `/warehouse/warehouses/{id}` | Get warehouse detail |
+| GET | `/warehouse/stock` | Search stock levels |
+| GET | `/warehouse/movements` | Search stock movements |
 
 ### Lookup Data
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/lookup/client-types` | Get client types |
-| GET | `/lookup/currencies` | Get currencies |
-| GET | `/lookup/vat-rates` | Get VAT rates |
-| GET | `/lookup/payment-modes` | Get payment modes |
-| GET | `/lookup/payment-conditions` | Get payment conditions |
-| GET | `/lookup/trade-terms` | Get trade terms (Incoterms) |
-| GET | `/lookup/civilities` | Get civilities |
-| GET | `/lookup/activities` | Get activities |
-| GET | `/lookup/languages` | Get languages |
-| GET | `/lookup/line-types` | Get line types |
-| GET | `/lookup/costplan-statuses` | Get cost plan statuses |
-| GET | `/lookup/statuses` | Get general statuses |
-| GET | `/lookup/communes?postcode=xxx` | Get communes by postcode |
-| GET | `/lookup/colors` | Get colors for society |
-| GET | `/lookup/roles` | Get user roles |
-| GET | `/lookup/header-footer` | Get header/footer text settings |
+| GET | `/lookups/client-types` | Client types |
+| GET | `/lookups/currencies` | Currencies |
+| GET | `/lookups/payment-modes` | Payment modes |
+| GET | `/lookups/societies` | Societies/Companies |
+| GET | `/lookups/countries` | Countries |
 
-## Authentication
+## Environment Variables
 
-The API uses JWT (JSON Web Tokens) for authentication:
+### Backend (`backend/.env`)
 
-1. Call `/auth/login` with username/password
-2. Receive `accessToken` (15 min) and `refreshToken` (7 days)
-3. Include `Authorization: Bearer {accessToken}` header in requests
-4. When access token expires, call `/auth/refresh` with refresh token
+```env
+# Database
+DATABASE_URL=mssql+pymssql://user:password@host:1433/database
 
-## Business Unit Theming
+# Redis (optional)
+REDIS_URL=redis://localhost:6379/0
 
-The frontend supports dynamic theming based on business unit:
-- **LED**: Blue (#3B82F6)
-- **DOMOTICS**: Pink (#EC4899)
-- **HVAC**: Green (#10B981)
-- **WAVE_CONCEPT**: Orange (#F97316)
-- **ACCESSORIES**: Purple (#8B5CF6)
+# JWT
+JWT_SECRET_KEY=your-secret-key-min-32-chars
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# CORS
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+```
+
+### Frontend (`frontend/.env`)
+
+```env
+VITE_API_BASE_URL=http://localhost:8001/api/v1
+VITE_SOCKET_URL=http://localhost:8001
+VITE_APP_NAME=ERP System
+VITE_USE_MOCK_API=false
+```
+
+## Development Commands
+
+### Backend
+
+```bash
+cd backend
+
+# Run with auto-reload
+uvicorn app.main:app --reload --port 8001
+
+# Run tests
+pytest
+
+# Lint & format
+ruff check .
+black .
+```
+
+### Frontend
+
+```bash
+cd frontend
+
+# Development
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
+
+# Lint
+npm run lint
+```
+
+## Tech Stack
+
+### Backend
+- **FastAPI** - Modern Python web framework
+- **SQLAlchemy 2.0** - ORM with async support
+- **Pydantic 2.0** - Data validation
+- **SQL Server** - Database (via pymssql)
+- **Redis** - Caching & sessions (optional)
+- **Uvicorn** - ASGI server
+
+### Frontend
+- **React 18** - UI library
+- **TypeScript 5** - Type safety
+- **Vite 5** - Build tool
+- **TanStack Router** - File-based routing
+- **TanStack Query** - Server state management
+- **Zustand** - Client state management
+- **Tailwind CSS** - Styling
+- **i18next** - Internationalization (FR/EN/ZH)
 
 ## i18n Support
 
@@ -200,21 +232,33 @@ The frontend supports three languages:
 
 Language files are in `frontend/src/i18n/locales/`
 
-## Tech Stack
+## Business Unit Theming
 
-### Backend
-- ASP.NET 4.8 WebForms + Web API 2
-- Entity Framework 4
-- SQL Server
-- JWT Authentication
-- Swagger/OpenAPI Documentation
+Dynamic theming based on business unit:
+- **LED**: Blue (#3B82F6)
+- **DOMOTICS**: Pink (#EC4899)
+- **HVAC**: Green (#10B981)
+- **WAVE_CONCEPT**: Orange (#F97316)
+- **ACCESSORIES**: Purple (#8B5CF6)
 
-### Frontend
-- React 18
-- TypeScript 5
-- Vite 5
-- TanStack Router
-- TanStack Query
-- Zustand (State Management)
-- Tailwind CSS + shadcn/ui
-- i18next (Internationalization)
+## Docker Deployment
+
+```bash
+# Start Redis
+docker-compose up -d
+
+# Or run full stack with Docker
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+## Legacy Application
+
+The original .NET application is preserved in the `Legacy/` folder for reference:
+- `Legacy/ERP.Web/` - ASP.NET 4.8 Web API
+- `Legacy/ERP.DataServices/` - Business logic
+- `Legacy/ERP.Repositories/` - Data access
+- `Legacy/ERP.Entities/` - Domain models
+
+## License
+
+Proprietary - AXTECH
