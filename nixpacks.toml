@@ -1,0 +1,10 @@
+# Force Nixpacks to use our Dockerfile instead of auto-detecting .NET
+[phases.setup]
+onlyIncludeFiles = ["Dockerfile"]
+
+[phases.build]
+cmds = ["echo 'Using custom Dockerfile'"]
+
+# Tell Nixpacks to use Dockerfile provider
+[build]
+builder = "docker"
