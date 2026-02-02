@@ -44,7 +44,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
         "python-dateutil>=2.8.2" \
         "structlog>=24.1.0" \
         "python-dotenv>=1.0.0" \
-        "email-validator>=2.1.0"
+        "email-validator>=2.1.0" \
+        "loguru>=0.7.0" \
+        "minio>=7.2.0" \
+        "jinja2>=3.1.0" \
+        "weasyprint>=60.0" \
+        "openpyxl>=3.1.0"
 
 COPY backend/app ./app
 
