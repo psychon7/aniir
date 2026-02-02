@@ -1,9 +1,9 @@
-# ERP2025 AI Copilot - Enterprise Implementation Plan
+# ERP2025 AI Copilot - Unified Production Implementation Plan
 
-**Version:** 1.0.0
+**Version:** 2.0.0
 **Created:** 2026-02-02
-**Status:** Architecture Design
-**Integration:** Extends existing FastAPI + React + RBAC system
+**Status:** Architecture Design - Model Agnostic
+**Integration:** Python FastAPI + Hipocap Observability + Multi-LLM Support
 
 ---
 
@@ -11,16 +11,18 @@
 
 1. [Executive Summary](#1-executive-summary)
 2. [System Architecture](#2-system-architecture)
-3. [Database Schema Design](#3-database-schema-design)
-4. [Backend Implementation](#4-backend-implementation)
-5. [Frontend Implementation](#5-frontend-implementation)
-6. [Tool Registry & Manifest](#6-tool-registry--manifest)
+3. [Model-Agnostic LLM Integration](#3-model-agnostic-llm-integration)
+4. [Hipocap Observability Integration](#4-hipocap-observability-integration)
+5. [Database Schema Design](#5-database-schema-design)
+6. [Backend Implementation](#6-backend-implementation)
 7. [Security & RBAC Integration](#7-security--rbac-integration)
-8. [Generative UI with Tambo](#8-generative-ui-with-tambo)
-9. [Streaming Architecture](#9-streaming-architecture)
-10. [Implementation Roadmap](#10-implementation-roadmap)
-11. [Testing Strategy](#11-testing-strategy)
-12. [Production Considerations](#12-production-considerations)
+8. [Tool Registry & Execution](#8-tool-registry--execution)
+9. [Frontend Implementation](#9-frontend-implementation)
+10. [Generative UI with Tambo](#10-generative-ui-with-tambo)
+11. [Streaming Architecture](#11-streaming-architecture)
+12. [Implementation Roadmap](#12-implementation-roadmap)
+13. [Testing Strategy](#13-testing-strategy)
+14. [Production Deployment](#14-production-deployment)
 
 ---
 
@@ -28,12 +30,12 @@
 
 ### 1.1 Vision
 
-Build a **Claude-like AI Copilot** integrated into the ERP2025 system that enables users to:
-- Execute any CRUD operation via natural language
-- Get intelligent insights from data (charts, reports, analytics)
-- Automate multi-step workflows (send invoices, create POs, sync Shopify)
-- Receive context-aware assistance based on current view
-- See generative UI (tables, charts, forms) rendered inline via **Tambo**
+Build a **production-ready AI Copilot** for ERP2025 with:
+- **Model-agnostic architecture** - Support Claude, GPT-4, Gemini, and other LLM providers
+- **Python-native implementation** - All agent logic in FastAPI (no separate Node.js service)
+- **Hipocap observability** - Real-time security monitoring, trace visualization, and policy enforcement
+- **Enterprise-grade security** - RBAC integration, prompt injection detection, PII masking
+- **Full audit compliance** - Complete tool execution logs and reasoning chain traces
 
 ### 1.2 Core Capabilities
 
@@ -46,30 +48,41 @@ Build a **Claude-like AI Copilot** integrated into the ERP2025 system that enabl
 | **Integration Commands** | "Sync Shopify orders from last 7 days and create delivery notes" |
 | **Data Export** | "Export all paid invoices from January to X3 format as ZIP" |
 
-### 1.3 Technical Foundation
+### 1.3 Key Architectural Decisions
 
-**Leverages Existing Architecture:**
-- ✅ **FastAPI Service Layer** - 43 existing services with DI pattern
-- ✅ **React + TanStack Query** - Established hooks and API patterns
-- ✅ **SQLAlchemy Models** - 48 existing models with relationships
-- ✅ **RBAC System** - TR_ROL_Role, TR_RIT_Right (348 permissions)
-- ✅ **Integrations** - Shopify, Email (SMTP/SES), PDF generation, Celery tasks
+✅ **Python-Only Backend**
+- All agent orchestration in FastAPI
+- No separate Node.js service
+- Leverages existing Python ecosystem (pymssql, SQLAlchemy, Celery)
 
-**New Components:**
-- 🆕 **CopilotService** - Agent orchestration and tool execution
-- 🆕 **Tool Registry** - Declarative tool manifest with permissions
-- 🆕 **Streaming API** - SSE for real-time token/tool events
-- 🆕 **Tambo Components** - Registered UI blocks for generative rendering
-- 🆕 **Approval Flow** - Confirmation gates for side-effect operations
+✅ **Model Agnostic LLM Client**
+- Unified interface for multiple LLM providers
+- Configurable model selection per request
+- Fallback chain (Claude → GPT-4 → Gemini)
+- Cost optimization via model routing
+
+✅ **Hipocap Observability Platform**
+- Real-time security monitoring (prompt injections, toxic content)
+- Function-level RBAC enforcement
+- Automated PII redaction in logs
+- Visual reasoning chain traces
+- Latency and token usage analytics
+
+✅ **Reuses Existing Infrastructure**
+- 43 existing FastAPI services with DI pattern
+- 48 SQLAlchemy models with relationships
+- RBAC system (TR_ROL_Role, TR_RIT_Right)
+- Shopify, Email, PDF integrations
+- React + TanStack Query frontend
 
 ### 1.4 Key Benefits
 
-- **80%+ Task Coverage**: Most ERP operations achievable via chat
-- **Role-Based Tools**: Different capabilities per user role
-- **Full Audit Trail**: Every tool call logged with user/timestamp/result
-- **Safety Gates**: No destructive actions without explicit confirmation
-- **Context Awareness**: Copilot knows current route/entity/selection
-- **Scalable Architecture**: Easy to add new tools following established patterns
+- **80%+ Task Coverage**: Most ERP operations via natural language
+- **Provider Flexibility**: Switch LLM providers without code changes
+- **Real-time Security**: Hipocap intercepts threats before execution
+- **Full Observability**: Every decision traced and visualized
+- **Production-Ready**: Security, monitoring, audit logs from day one
+- **Cost Efficient**: Smart model routing based on task complexity
 
 ---
 
@@ -81,14 +94,13 @@ Build a **Claude-like AI Copilot** integrated into the ERP2025 system that enabl
 ┌─────────────────────────────────────────────────────────────────┐
 │                      FRONTEND (React + Vite)                     │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
 │  ┌────────────────────────────────────────────────────────┐    │
 │  │              Copilot Side Panel Component               │    │
 │  ├────────────────────────────────────────────────────────┤    │
-│  │ 1. Context Header (Company/BU/Route/Entity)            │    │
-│  │ 2. Message Thread (User + Assistant + Tambo UI Blocks) │    │
-│  │ 3. Tool Call Timeline (planned → running → complete)   │    │
-│  │ 4. Input Area (text + attachments + quick actions)     │    │
+│  │ • Context Header (Company/BU/Route/Entity)            │    │
+│  │ • Message Thread (User + Assistant + Tambo UI Blocks) │    │
+│  │ • Tool Call Timeline (planned → running → complete)   │    │
+│  │ • Input Area (text + attachments + quick actions)     │    │
 │  └────────────────────────────────────────────────────────┘    │
 │                                                                  │
 │  ┌──────────────────┐  ┌──────────────────┐                    │
@@ -98,164 +110,1316 @@ Build a **Claude-like AI Copilot** integrated into the ERP2025 system that enabl
 │  │  - DataTable      │  │  - /copilot/stream                   │
 │  │  - ChartCard      │  │  - /copilot/confirm                  │
 │  │  - EmailDraft     │  └──────────────────┘                    │
-│  │  - FormWizard     │                                           │
 │  └──────────────────┘                                           │
-│                                                                  │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ HTTPS / SSE
 ┌──────────────────────────┴──────────────────────────────────────┐
-│                    BACKEND (FastAPI + Python)                    │
+│                    BACKEND (FastAPI + Python 3.11)              │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────┐    │
-│  │                  /api/v1/copilot                        │    │
+│  │              Hipocap Security Layer (SDK)               │    │
 │  ├────────────────────────────────────────────────────────┤    │
-│  │ POST   /chat          → Start/continue conversation    │    │
-│  │ GET    /stream        → SSE token/tool/UI stream       │    │
-│  │ POST   /confirm       → Approve pending action         │    │
-│  │ GET    /tools/manifest→ Tool catalog + permissions     │    │
-│  │ GET    /history       → Past conversations             │    │
+│  │ • Prompt injection detection (real-time)              │    │
+│  │ • Sensitive keyword filtering                          │    │
+│  │ • PII masking in logs (automatic)                     │    │
+│  │ • Function-level RBAC enforcement                      │    │
+│  │ • Trace collection and forwarding                      │    │
 │  └────────────────────────────────────────────────────────┘    │
-│                                                                  │
+│                             │                                    │
 │  ┌────────────────────────────────────────────────────────┐    │
-│  │              CopilotService (Agent Core)                │    │
+│  │           LLM Client Abstraction Layer                  │    │
+│  ├────────────────────────────────────────────────────────┤    │
+│  │ Unified Interface:                                      │    │
+│  │  - LLMProvider (ABC)                                    │    │
+│  │                                                         │    │
+│  │ Implementations:                                        │    │
+│  │  - ClaudeProvider (Anthropic SDK)                      │    │
+│  │  - OpenAIProvider (OpenAI SDK)                         │    │
+│  │  - GeminiProvider (Google AI SDK)                      │    │
+│  │  - AzureOpenAIProvider                                 │    │
+│  │                                                         │    │
+│  │ Features:                                               │    │
+│  │  - Auto-retry with exponential backoff                 │    │
+│  │  - Fallback chain (primary → secondary → tertiary)    │    │
+│  │  - Cost tracking per provider                          │    │
+│  │  - Model capability routing (simple vs complex)       │    │
+│  └────────────────────────────────────────────────────────┘    │
+│                             │                                    │
+│  ┌────────────────────────────────────────────────────────┐    │
+│  │                 CopilotService (Agent Core)             │    │
 │  ├────────────────────────────────────────────────────────┤    │
 │  │ 1. ContextBuilder    → Route/entity/user/permissions   │    │
-│  │ 2. AgentPlanner      → Message → Tool calls plan       │    │
-│  │ 3. PolicyEngine      → Validate tool permissions       │    │
-│  │ 4. ToolRunner        → Execute tools + handle errors   │    │
+│  │ 2. AgentPlanner      → Message → Tool call plan        │    │
+│  │ 3. SecurityShield    → Validate safety & permissions   │    │
+│  │ 4. ToolRunner        → Execute tools + error handling  │    │
 │  │ 5. UIComposer        → Map outputs → Tambo blocks      │    │
 │  │ 6. EventStreamer     → SSE token/event emission        │    │
 │  └────────────────────────────────────────────────────────┘    │
-│                                                                  │
+│                             │                                    │
 │  ┌────────────────────────────────────────────────────────┐    │
-│  │                   Tool Registry                         │    │
+│  │                    Tool Registry                        │    │
 │  ├────────────────────────────────────────────────────────┤    │
-│  │ Tool Definition Format:                                 │    │
-│  │ - name: "products.create"                               │    │
-│  │ - description: "Create a new product"                   │    │
-│  │ - input_schema: JSON Schema                             │    │
-│  │ - output_schema: JSON Schema                            │    │
-│  │ - required_permissions: ["rit_create"]                  │    │
-│  │ - side_effect_level: "draft|external|financial"         │    │
-│  │ - handler: async callable                               │    │
+│  │ Tool Categories:                                        │    │
+│  │  - CRUD Tools (products, clients, orders, invoices)   │    │
+│  │  - Analytics Tools (reports, charts, dashboards)      │    │
+│  │  - Integration Tools (Shopify, email, X3 export)      │    │
+│  │  - Workflow Tools (multi-step automation)             │    │
+│  │                                                         │    │
+│  │ Each tool defines:                                      │    │
+│  │  - name, description, input/output schema             │    │
+│  │  - required_permissions (RBAC mapping)                 │    │
+│  │  - side_effect_level (none/draft/external/financial)  │    │
+│  │  - handler (async callable)                            │    │
 │  └────────────────────────────────────────────────────────┘    │
-│                                                                  │
+│                             │                                    │
 │  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐      │
 │  │  Existing    │  │   External   │  │   Database       │      │
 │  │  Services    │  │  Integrations│  │   (SQL Server)   │      │
 │  │  (43 svcs)   │  │  - Shopify   │  │  - Copilot tables│      │
 │  │              │  │  - Email     │  │  - Audit logs    │      │
-│  │ - Client     │  │  - PDF       │  │  - Tool calls    │      │
-│  │ - Invoice    │  │  - X3 Export │  │  - Approvals     │      │
+│  │ - Client     │  │  - PDF       │  │  - Conversations │      │
+│  │ - Invoice    │  │  - X3 Export │  │  - Tool calls    │      │
 │  │ - Order      │  │              │  └──────────────────┘      │
 │  │ - Product    │  └──────────────┘                            │
 │  │ - Payment    │                                               │
 │  │ - Delivery   │                                               │
-│  │ - etc...     │                                               │
 │  └─────────────┘                                               │
-│                                                                  │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │
+┌──────────────────────────┴──────────────────────────────────────┐
+│                     Hipocap Platform (Cloud)                     │
+├─────────────────────────────────────────────────────────────────┤
+│ • Trace Visualization Dashboard                                 │
+│ • Security Event Monitoring                                     │
+│ • Policy Management Console                                     │
+│ • Analytics & Cost Tracking                                     │
+│ • Alert Configuration                                            │
 └─────────────────────────────────────────────────────────────────┘
+         │                           │                    │
+    ┌────┴────┐              ┌──────┴──────┐    ┌────────┴────────┐
+    │ Claude  │              │   OpenAI    │    │     Gemini      │
+    │   API   │              │     API     │    │      API        │
+    └─────────┘              └─────────────┘    └─────────────────┘
 ```
 
-### 2.2 Agent Loop Flow
+### 2.2 Agent Execution Flow
 
 ```
-User Message
+User Message Received
      │
      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 1. CONTEXT BUILDING                                          │
-│    - Extract: route, entity ID, user role, BU, society      │
-│    - Load: recent actions, current data, permissions        │
+│ 1. HIPOCAP SECURITY SHIELD (Input Validation)              │
+│    ✓ Prompt injection detection                             │
+│    ✓ Toxic content filtering                                │
+│    ✓ PII detection (log but don't block)                   │
+│    ✓ Rate limiting check                                    │
 └─────────────────────────────────────────────────────────────┘
      │
      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 2. AGENT PLANNING (LLM Call #1)                             │
+│ 2. CONTEXT BUILDING                                          │
+│    • Extract: route, entity ID, user role, BU, society      │
+│    • Load: recent actions, current data, permissions        │
+│    • Build system prompt with context                        │
+└─────────────────────────────────────────────────────────────┘
+     │
+     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. LLM PROVIDER SELECTION                                    │
+│    • Analyze task complexity                                 │
+│    • Select provider (Claude for complex, GPT-4o-mini cheap)│
+│    • Check provider availability + rate limits              │
+└─────────────────────────────────────────────────────────────┘
+     │
+     ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 4. AGENT PLANNING (LLM Call #1 via Hipocap)                │
 │    Input: system prompt + context + user message + tools    │
-│    Output: Plan (text) + Tool calls (JSON)                  │
+│    Output: Reasoning + Tool calls (structured)              │
+│    Hipocap: Traces request/response, measures latency       │
 └─────────────────────────────────────────────────────────────┘
      │
      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 3. POLICY VALIDATION                                         │
-│    For each tool call:                                       │
-│    - Check user has permission (RBAC query)                 │
-│    - Determine side_effect_level                            │
-│    - Tag as "auto" or "requires_confirmation"               │
+│ 5. TOOL VALIDATION & RBAC ENFORCEMENT                        │
+│    For each planned tool call:                              │
+│    ✓ Check user has RBAC permission (via PolicyEngine)     │
+│    ✓ Validate tool input schema                             │
+│    ✓ Determine side_effect_level                           │
+│    ✓ Tag as "auto-execute" or "requires_confirmation"      │
+│    Hipocap: Function-level access control enforcement       │
 └─────────────────────────────────────────────────────────────┘
      │
      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 4. CONFIRMATION GATE (if side effects)                      │
-│    - Generate ActionCard UI block                           │
-│    - Stream to frontend                                     │
-│    - Wait for POST /confirm with approval                   │
+│ 6. CONFIRMATION GATE (if side effects detected)            │
+│    • Generate ActionCard UI block with details              │
+│    • Stream to frontend via SSE                             │
+│    • Pause execution, wait for POST /confirm                │
+│    • Log approval decision to audit trail                   │
 └─────────────────────────────────────────────────────────────┘
      │
      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 5. TOOL EXECUTION                                            │
-│    - Run approved tools sequentially or parallel            │
-│    - Handle errors + retries (idempotency)                  │
-│    - Stream progress events (tool_started, tool_completed)  │
-│    - Log to TM_TCL_Tool_Call_Log                            │
+│ 7. TOOL EXECUTION                                            │
+│    • Execute approved tools (parallel or sequential)        │
+│    • Apply idempotency keys for financial operations       │
+│    • Handle errors with retry logic                         │
+│    • Stream progress events (tool_started, tool_completed)  │
+│    • Save to TM_TCL_Tool_Call_Log                          │
+│    Hipocap: Logs all tool inputs/outputs (PII-masked)      │
 └─────────────────────────────────────────────────────────────┘
      │
      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 6. RESPONSE GENERATION (LLM Call #2)                        │
-│    Input: tool results + original question                  │
-│    Output: Assistant message + UI blocks                    │
+│ 8. RESPONSE GENERATION (LLM Call #2 via Hipocap)           │
+│    Input: tool results + original question + context        │
+│    Output: Assistant message + UI component suggestions     │
+│    Hipocap: Traces reasoning chain, detects PII in output  │
 └─────────────────────────────────────────────────────────────┘
      │
      ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ 7. UI COMPOSITION                                            │
-│    - Map tool outputs to Tambo components                   │
-│    - Generate DataTable/Chart/RecordPreview props           │
-│    - Stream ui_block events                                 │
+│ 9. UI COMPOSITION                                            │
+│    • Map tool outputs → Tambo components (DataTable, Chart)│
+│    • Generate component props (columns, data, formatting)   │
+│    • Stream ui_block events to frontend                     │
 └─────────────────────────────────────────────────────────────┘
      │
      ▼
- Frontend renders Tambo components + text
+┌─────────────────────────────────────────────────────────────┐
+│ 10. HIPOCAP TRACE FINALIZATION                              │
+│     • Close trace span                                       │
+│     • Calculate total cost (tokens × model pricing)         │
+│     • Send to Hipocap for visualization                     │
+│     • Trigger alerts if anomalies detected                  │
+└─────────────────────────────────────────────────────────────┘
+     │
+     ▼
+Frontend renders complete response
 ```
 
 ### 2.3 Component Responsibilities
 
-#### Frontend Components
-
-| Component | Responsibility |
-|-----------|---------------|
-| `<CopilotPanel />` | Main container, layout, state management |
-| `<MessageThread />` | Render user/assistant messages + UI blocks |
-| `<ToolTimeline />` | Show tool call status (pending/running/success/failed) |
-| `<TamboRenderer />` | Dynamically render registered Tambo components |
-| `<ActionCard />` | Confirmation gate for side effects |
-| `<ContextHeader />` | Display current context (route/entity/BU) |
-| `useCopilotChat()` | Hook for sending messages + SSE streaming |
-| `useCopilotStream()` | Hook for consuming SSE events |
-
 #### Backend Services
 
-| Service | Responsibility |
-|---------|---------------|
-| `CopilotService` | Main agent orchestration, LLM calls, loop control |
-| `ToolRegistry` | Tool registration, discovery, schema validation |
-| `PolicyEngine` | Permission checking via RBAC integration |
-| `ToolRunner` | Tool execution, error handling, idempotency |
-| `UIComposer` | Map tool outputs → Tambo component props |
-| `EventStreamer` | SSE stream management, event emission |
-| `ContextBuilder` | Extract context from request + database |
+| Service | Responsibility | Dependencies |
+|---------|---------------|--------------|
+| `CopilotService` | Main orchestration, LLM calls, loop control | LLMClient, ToolRegistry, PolicyEngine |
+| `LLMClient` | Abstract LLM provider interface | Multiple provider SDKs |
+| `HipocapClient` | Trace collection, security enforcement | Hipocap SDK |
+| `ToolRegistry` | Tool registration, discovery, schema validation | None |
+| `PolicyEngine` | Permission checking via RBAC integration | RBACService, DB |
+| `ToolRunner` | Tool execution, error handling, idempotency | Existing services |
+| `UIComposer` | Map tool outputs → Tambo component props | Tool results |
+| `EventStreamer` | SSE stream management, event emission | asyncio |
+| `ContextBuilder` | Extract context from request + database | DB, Request |
+| `SecurityShield` | Prompt injection, PII detection (pre-Hipocap) | Pattern libraries |
 
 ---
 
-## 3. Database Schema Design
+## 3. Model-Agnostic LLM Integration
 
-### 3.1 New Tables
+### 3.1 LLM Provider Interface
+
+#### File: `backend/app/core/llm/base.py`
+
+```python
+from abc import ABC, abstractmethod
+from typing import Dict, Any, List, AsyncIterator, Optional
+from pydantic import BaseModel
+from enum import Enum
+
+class ModelCapability(str, Enum):
+    """Model capability tiers for smart routing."""
+    BASIC = "basic"           # Simple queries, cheap models (GPT-4o-mini, Haiku)
+    STANDARD = "standard"     # Most tasks (GPT-4o, Sonnet)
+    ADVANCED = "advanced"     # Complex reasoning (o1, Opus)
+    VISION = "vision"         # Image understanding
+    LONG_CONTEXT = "long_context"  # >100k tokens
+
+class LLMMessage(BaseModel):
+    """Standardized message format across providers."""
+    role: str  # 'user', 'assistant', 'system', 'tool'
+    content: str | List[Dict[str, Any]]  # Text or multimodal
+    tool_calls: Optional[List[Dict[str, Any]]] = None
+    tool_call_id: Optional[str] = None
+
+class LLMResponse(BaseModel):
+    """Standardized response format."""
+    content: str
+    tool_calls: List[Dict[str, Any]] = []
+    model: str
+    usage: Dict[str, int]  # input_tokens, output_tokens, total_tokens
+    finish_reason: str
+    cost_usd: float
+
+class LLMProvider(ABC):
+    """
+    Abstract base class for LLM providers.
+
+    All providers must implement this interface for unified usage.
+    """
+
+    provider_name: str
+    default_model: str
+    supports_streaming: bool = True
+    supports_tool_calling: bool = True
+
+    @abstractmethod
+    async def complete(
+        self,
+        messages: List[LLMMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        model: Optional[str] = None
+    ) -> LLMResponse:
+        """
+        Non-streaming completion.
+
+        Args:
+            messages: Conversation history
+            tools: Available tools for function calling
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            model: Specific model override
+
+        Returns:
+            LLMResponse with content and metadata
+        """
+        pass
+
+    @abstractmethod
+    async def stream_complete(
+        self,
+        messages: List[LLMMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        model: Optional[str] = None
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """
+        Streaming completion.
+
+        Yields:
+            Dict with 'type' (token|tool_call|done) and 'data'
+        """
+        pass
+
+    @abstractmethod
+    def calculate_cost(self, usage: Dict[str, int], model: str) -> float:
+        """
+        Calculate cost in USD based on token usage.
+
+        Args:
+            usage: Token counts (input_tokens, output_tokens)
+            model: Model identifier
+
+        Returns:
+            Cost in USD
+        """
+        pass
+
+    @abstractmethod
+    async def health_check(self) -> bool:
+        """
+        Check if provider is available.
+
+        Returns:
+            True if healthy, False otherwise
+        """
+        pass
+```
+
+### 3.2 Claude Provider Implementation
+
+#### File: `backend/app/core/llm/providers/claude.py`
+
+```python
+from anthropic import AsyncAnthropic
+from typing import List, Dict, Any, AsyncIterator, Optional
+from app.core.llm.base import LLMProvider, LLMMessage, LLMResponse
+from app.core.config import settings
+
+class ClaudeProvider(LLMProvider):
+    """
+    Anthropic Claude provider implementation.
+    """
+
+    provider_name = "anthropic"
+    default_model = "claude-opus-4-5-20251101"
+
+    # Pricing per 1M tokens (as of 2026-02)
+    PRICING = {
+        "claude-opus-4-5-20251101": {"input": 15.00, "output": 75.00},
+        "claude-sonnet-4-5-20250929": {"input": 3.00, "output": 15.00},
+        "claude-3-5-haiku-20241022": {"input": 0.80, "output": 4.00},
+    }
+
+    def __init__(self, api_key: str = None):
+        self.client = AsyncAnthropic(
+            api_key=api_key or settings.ANTHROPIC_API_KEY
+        )
+
+    async def complete(
+        self,
+        messages: List[LLMMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        model: Optional[str] = None
+    ) -> LLMResponse:
+        """Complete using Claude API."""
+
+        # Convert to Anthropic format
+        anthropic_messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+            if msg.role != "system"
+        ]
+
+        # Extract system message
+        system_message = next(
+            (msg.content for msg in messages if msg.role == "system"),
+            None
+        )
+
+        # Build request
+        request = {
+            "model": model or self.default_model,
+            "messages": anthropic_messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        if system_message:
+            request["system"] = system_message
+
+        if tools:
+            request["tools"] = tools
+
+        # Call API
+        response = await self.client.messages.create(**request)
+
+        # Parse tool calls
+        tool_calls = []
+        if response.stop_reason == "tool_use":
+            for content_block in response.content:
+                if content_block.type == "tool_use":
+                    tool_calls.append({
+                        "id": content_block.id,
+                        "name": content_block.name,
+                        "input": content_block.input
+                    })
+
+        # Extract text content
+        text_content = ""
+        for content_block in response.content:
+            if hasattr(content_block, "text"):
+                text_content += content_block.text
+
+        # Calculate cost
+        usage = {
+            "input_tokens": response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens,
+            "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+        }
+        cost = self.calculate_cost(usage, response.model)
+
+        return LLMResponse(
+            content=text_content,
+            tool_calls=tool_calls,
+            model=response.model,
+            usage=usage,
+            finish_reason=response.stop_reason,
+            cost_usd=cost
+        )
+
+    async def stream_complete(
+        self,
+        messages: List[LLMMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        model: Optional[str] = None
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """Stream completion from Claude."""
+
+        # Build request (same as complete)
+        anthropic_messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+            if msg.role != "system"
+        ]
+
+        system_message = next(
+            (msg.content for msg in messages if msg.role == "system"),
+            None
+        )
+
+        request = {
+            "model": model or self.default_model,
+            "messages": anthropic_messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        if system_message:
+            request["system"] = system_message
+
+        if tools:
+            request["tools"] = tools
+
+        # Stream response
+        async with self.client.messages.stream(**request) as stream:
+            async for event in stream:
+                if event.type == "content_block_delta":
+                    if hasattr(event.delta, "text"):
+                        yield {
+                            "type": "token",
+                            "data": {"token": event.delta.text}
+                        }
+
+                elif event.type == "content_block_start":
+                    if event.content_block.type == "tool_use":
+                        yield {
+                            "type": "tool_call_start",
+                            "data": {
+                                "id": event.content_block.id,
+                                "name": event.content_block.name
+                            }
+                        }
+
+                elif event.type == "message_stop":
+                    yield {
+                        "type": "done",
+                        "data": {
+                            "usage": {
+                                "input_tokens": stream.get_usage().input_tokens,
+                                "output_tokens": stream.get_usage().output_tokens
+                            }
+                        }
+                    }
+
+    def calculate_cost(self, usage: Dict[str, int], model: str) -> float:
+        """Calculate cost for Claude models."""
+        pricing = self.PRICING.get(model, self.PRICING[self.default_model])
+
+        input_cost = (usage["input_tokens"] / 1_000_000) * pricing["input"]
+        output_cost = (usage["output_tokens"] / 1_000_000) * pricing["output"]
+
+        return input_cost + output_cost
+
+    async def health_check(self) -> bool:
+        """Check Claude API health."""
+        try:
+            await self.complete(
+                messages=[LLMMessage(role="user", content="ping")],
+                max_tokens=10
+            )
+            return True
+        except Exception:
+            return False
+```
+
+### 3.3 OpenAI Provider Implementation
+
+#### File: `backend/app/core/llm/providers/openai.py`
+
+```python
+from openai import AsyncOpenAI
+from typing import List, Dict, Any, AsyncIterator, Optional
+from app.core.llm.base import LLMProvider, LLMMessage, LLMResponse
+from app.core.config import settings
+
+class OpenAIProvider(LLMProvider):
+    """
+    OpenAI provider implementation (GPT-4, GPT-4o, o1, etc.)
+    """
+
+    provider_name = "openai"
+    default_model = "gpt-4o-2024-11-20"
+
+    # Pricing per 1M tokens (as of 2026-02)
+    PRICING = {
+        "gpt-4o-2024-11-20": {"input": 2.50, "output": 10.00},
+        "gpt-4o-mini-2024-07-18": {"input": 0.15, "output": 0.60},
+        "o1-2024-12-17": {"input": 15.00, "output": 60.00},
+        "o1-mini-2024-09-12": {"input": 3.00, "output": 12.00},
+    }
+
+    def __init__(self, api_key: str = None):
+        self.client = AsyncOpenAI(
+            api_key=api_key or settings.OPENAI_API_KEY
+        )
+
+    async def complete(
+        self,
+        messages: List[LLMMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        model: Optional[str] = None
+    ) -> LLMResponse:
+        """Complete using OpenAI API."""
+
+        # Convert to OpenAI format
+        openai_messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+        ]
+
+        # Build request
+        request = {
+            "model": model or self.default_model,
+            "messages": openai_messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        if tools:
+            request["tools"] = [
+                {"type": "function", "function": tool}
+                for tool in tools
+            ]
+
+        # Call API
+        response = await self.client.chat.completions.create(**request)
+
+        message = response.choices[0].message
+
+        # Parse tool calls
+        tool_calls = []
+        if message.tool_calls:
+            for tc in message.tool_calls:
+                tool_calls.append({
+                    "id": tc.id,
+                    "name": tc.function.name,
+                    "input": json.loads(tc.function.arguments)
+                })
+
+        # Calculate cost
+        usage = {
+            "input_tokens": response.usage.prompt_tokens,
+            "output_tokens": response.usage.completion_tokens,
+            "total_tokens": response.usage.total_tokens
+        }
+        cost = self.calculate_cost(usage, response.model)
+
+        return LLMResponse(
+            content=message.content or "",
+            tool_calls=tool_calls,
+            model=response.model,
+            usage=usage,
+            finish_reason=response.choices[0].finish_reason,
+            cost_usd=cost
+        )
+
+    async def stream_complete(
+        self,
+        messages: List[LLMMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        model: Optional[str] = None
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """Stream completion from OpenAI."""
+
+        openai_messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+        ]
+
+        request = {
+            "model": model or self.default_model,
+            "messages": openai_messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": True,
+        }
+
+        if tools:
+            request["tools"] = [
+                {"type": "function", "function": tool}
+                for tool in tools
+            ]
+
+        stream = await self.client.chat.completions.create(**request)
+
+        async for chunk in stream:
+            delta = chunk.choices[0].delta
+
+            if delta.content:
+                yield {
+                    "type": "token",
+                    "data": {"token": delta.content}
+                }
+
+            if delta.tool_calls:
+                for tc in delta.tool_calls:
+                    yield {
+                        "type": "tool_call_start",
+                        "data": {
+                            "id": tc.id,
+                            "name": tc.function.name
+                        }
+                    }
+
+            if chunk.choices[0].finish_reason:
+                yield {
+                    "type": "done",
+                    "data": {
+                        "usage": {
+                            "input_tokens": chunk.usage.prompt_tokens if chunk.usage else 0,
+                            "output_tokens": chunk.usage.completion_tokens if chunk.usage else 0
+                        }
+                    }
+                }
+
+    def calculate_cost(self, usage: Dict[str, int], model: str) -> float:
+        """Calculate cost for OpenAI models."""
+        pricing = self.PRICING.get(model, self.PRICING[self.default_model])
+
+        input_cost = (usage["input_tokens"] / 1_000_000) * pricing["input"]
+        output_cost = (usage["output_tokens"] / 1_000_000) * pricing["output"]
+
+        return input_cost + output_cost
+
+    async def health_check(self) -> bool:
+        """Check OpenAI API health."""
+        try:
+            await self.complete(
+                messages=[LLMMessage(role="user", content="ping")],
+                max_tokens=10
+            )
+            return True
+        except Exception:
+            return False
+```
+
+### 3.4 LLM Client with Smart Routing
+
+#### File: `backend/app/core/llm/client.py`
+
+```python
+from typing import List, Dict, Any, AsyncIterator, Optional
+from app.core.llm.base import LLMProvider, LLMMessage, LLMResponse, ModelCapability
+from app.core.llm.providers.claude import ClaudeProvider
+from app.core.llm.providers.openai import OpenAIProvider
+from app.core.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+class LLMClient:
+    """
+    Unified LLM client with multi-provider support and smart routing.
+    """
+
+    def __init__(self):
+        self.providers: Dict[str, LLMProvider] = {}
+        self.provider_fallback_chain: List[str] = []
+        self._initialize_providers()
+
+    def _initialize_providers(self):
+        """Initialize all configured providers."""
+
+        # Claude
+        if settings.ANTHROPIC_API_KEY:
+            self.providers["anthropic"] = ClaudeProvider(settings.ANTHROPIC_API_KEY)
+            logger.info("Claude provider initialized")
+
+        # OpenAI
+        if settings.OPENAI_API_KEY:
+            self.providers["openai"] = OpenAIProvider(settings.OPENAI_API_KEY)
+            logger.info("OpenAI provider initialized")
+
+        # Define fallback chain
+        self.provider_fallback_chain = settings.LLM_PROVIDER_FALLBACK_CHAIN or [
+            "anthropic",  # Primary: Claude
+            "openai",     # Secondary: OpenAI
+        ]
+
+        logger.info(f"Provider fallback chain: {self.provider_fallback_chain}")
+
+    def _select_provider_by_task(
+        self,
+        task_complexity: ModelCapability = ModelCapability.STANDARD,
+        preferred_provider: Optional[str] = None
+    ) -> str:
+        """
+        Select best provider based on task complexity.
+
+        Routing logic:
+        - BASIC: Use cheapest (GPT-4o-mini, Haiku)
+        - STANDARD: Use reliable (GPT-4o, Sonnet)
+        - ADVANCED: Use most capable (Claude Opus, o1)
+        """
+
+        if preferred_provider and preferred_provider in self.providers:
+            return preferred_provider
+
+        # Smart routing based on complexity
+        if task_complexity == ModelCapability.BASIC:
+            # Prefer cheap models
+            if "openai" in self.providers:
+                return "openai"  # Will use gpt-4o-mini
+
+        elif task_complexity == ModelCapability.ADVANCED:
+            # Prefer powerful models
+            if "anthropic" in self.providers:
+                return "anthropic"  # Will use Claude Opus
+
+        # Default: use first available in fallback chain
+        for provider_name in self.provider_fallback_chain:
+            if provider_name in self.providers:
+                return provider_name
+
+        raise RuntimeError("No LLM providers available")
+
+    async def complete(
+        self,
+        messages: List[LLMMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        task_complexity: ModelCapability = ModelCapability.STANDARD,
+        preferred_provider: Optional[str] = None,
+        model_override: Optional[str] = None
+    ) -> LLMResponse:
+        """
+        Complete with automatic provider selection and fallback.
+
+        Args:
+            messages: Conversation history
+            tools: Available tools
+            temperature: Sampling temperature
+            max_tokens: Max tokens to generate
+            task_complexity: Hint for model selection
+            preferred_provider: Specific provider to use
+            model_override: Specific model to use (overrides provider selection)
+
+        Returns:
+            LLMResponse from selected provider
+        """
+
+        provider_name = self._select_provider_by_task(task_complexity, preferred_provider)
+        provider = self.providers[provider_name]
+
+        try:
+            logger.info(f"Using provider: {provider_name}, model: {model_override or provider.default_model}")
+
+            response = await provider.complete(
+                messages=messages,
+                tools=tools,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                model=model_override
+            )
+
+            logger.info(
+                f"Completed with {provider_name}: "
+                f"{response.usage['total_tokens']} tokens, "
+                f"${response.cost_usd:.4f}"
+            )
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Provider {provider_name} failed: {e}")
+
+            # Try fallback
+            for fallback_name in self.provider_fallback_chain:
+                if fallback_name == provider_name or fallback_name not in self.providers:
+                    continue
+
+                try:
+                    logger.warning(f"Falling back to {fallback_name}")
+                    fallback_provider = self.providers[fallback_name]
+
+                    return await fallback_provider.complete(
+                        messages=messages,
+                        tools=tools,
+                        temperature=temperature,
+                        max_tokens=max_tokens
+                    )
+
+                except Exception as fallback_error:
+                    logger.error(f"Fallback {fallback_name} also failed: {fallback_error}")
+                    continue
+
+            raise RuntimeError(f"All providers failed. Last error: {e}")
+
+    async def stream_complete(
+        self,
+        messages: List[LLMMessage],
+        tools: Optional[List[Dict[str, Any]]] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        task_complexity: ModelCapability = ModelCapability.STANDARD,
+        preferred_provider: Optional[str] = None
+    ) -> AsyncIterator[Dict[str, Any]]:
+        """Stream completion with provider selection."""
+
+        provider_name = self._select_provider_by_task(task_complexity, preferred_provider)
+        provider = self.providers[provider_name]
+
+        logger.info(f"Streaming from provider: {provider_name}")
+
+        async for chunk in provider.stream_complete(
+            messages=messages,
+            tools=tools,
+            temperature=temperature,
+            max_tokens=max_tokens
+        ):
+            yield chunk
+
+
+# Dependency injection factory
+def get_llm_client() -> LLMClient:
+    """Get LLM client instance."""
+    return LLMClient()
+```
+
+### 3.5 Configuration
+
+#### Add to `backend/app/core/config.py`:
+
+```python
+from pydantic_settings import BaseSettings
+from typing import List, Optional
+
+class Settings(BaseSettings):
+    # ... existing settings ...
+
+    # LLM Provider API Keys
+    ANTHROPIC_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
+    GOOGLE_AI_API_KEY: Optional[str] = None  # For Gemini
+    AZURE_OPENAI_API_KEY: Optional[str] = None
+    AZURE_OPENAI_ENDPOINT: Optional[str] = None
+
+    # Provider Configuration
+    LLM_PROVIDER_FALLBACK_CHAIN: List[str] = ["anthropic", "openai"]
+    LLM_DEFAULT_MODEL: str = "claude-sonnet-4-5-20250929"
+    LLM_CHEAP_MODEL: str = "gpt-4o-mini-2024-07-18"  # For simple tasks
+    LLM_ADVANCED_MODEL: str = "claude-opus-4-5-20251101"  # For complex reasoning
+
+    # Copilot-specific LLM settings
+    COPILOT_MAX_TOKENS: int = 4096
+    COPILOT_TEMPERATURE: float = 0.7
+    COPILOT_ENABLE_STREAMING: bool = True
+    COPILOT_TOOL_TIMEOUT_SECONDS: int = 60
+```
+
+---
+
+## 4. Hipocap Observability Integration
+
+### 4.1 Hipocap SDK Setup
+
+#### File: `backend/app/core/hipocap/client.py`
+
+```python
+"""
+Hipocap client for observability and security enforcement.
+
+Since Hipocap documentation is limited, this is a conceptual implementation
+based on typical LLM observability platform patterns.
+
+Adjust based on actual Hipocap SDK once documentation becomes available.
+"""
+
+from typing import Dict, Any, List, Optional
+from datetime import datetime
+import logging
+import httpx
+
+logger = logging.getLogger(__name__)
+
+class HipocapClient:
+    """
+    Client for Hipocap observability platform.
+
+    Features:
+    - Trace collection (reasoning chains, tool calls, latency)
+    - Security monitoring (prompt injections, PII, toxic content)
+    - Policy enforcement (function-level RBAC)
+    - Cost tracking
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        project_id: str,
+        environment: str = "production",
+        endpoint: str = "https://api.hipocap.com"
+    ):
+        self.api_key = api_key
+        self.project_id = project_id
+        self.environment = environment
+        self.endpoint = endpoint
+        self.http_client = httpx.AsyncClient(
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "X-Project-ID": project_id,
+                "X-Environment": environment
+            }
+        )
+
+    async def start_trace(
+        self,
+        trace_id: str,
+        user_id: str,
+        session_id: str,
+        metadata: Dict[str, Any] = None
+    ) -> str:
+        """
+        Start a new trace for an agent execution.
+
+        Returns:
+            trace_id for subsequent span operations
+        """
+        try:
+            response = await self.http_client.post(
+                f"{self.endpoint}/v1/traces",
+                json={
+                    "trace_id": trace_id,
+                    "user_id": user_id,
+                    "session_id": session_id,
+                    "started_at": datetime.utcnow().isoformat(),
+                    "metadata": metadata or {}
+                }
+            )
+            response.raise_for_status()
+            logger.info(f"Hipocap trace started: {trace_id}")
+            return trace_id
+
+        except Exception as e:
+            logger.error(f"Failed to start Hipocap trace: {e}")
+            return trace_id  # Continue execution even if Hipocap fails
+
+    async def log_llm_call(
+        self,
+        trace_id: str,
+        provider: str,
+        model: str,
+        messages: List[Dict[str, Any]],
+        response: Dict[str, Any],
+        latency_ms: int,
+        cost_usd: float,
+        tools: Optional[List[Dict[str, Any]]] = None
+    ):
+        """
+        Log an LLM API call.
+
+        Hipocap will:
+        - Detect PII in messages/response and mask in stored logs
+        - Check for prompt injections
+        - Calculate token usage and costs
+        - Visualize reasoning chain
+        """
+        try:
+            await self.http_client.post(
+                f"{self.endpoint}/v1/traces/{trace_id}/llm_calls",
+                json={
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "provider": provider,
+                    "model": model,
+                    "messages": messages,  # Hipocap will sanitize PII
+                    "response": response,
+                    "latency_ms": latency_ms,
+                    "cost_usd": cost_usd,
+                    "tools": tools or []
+                }
+            )
+            logger.debug(f"Logged LLM call to Hipocap: {provider}/{model}")
+
+        except Exception as e:
+            logger.error(f"Failed to log LLM call to Hipocap: {e}")
+
+    async def log_tool_call(
+        self,
+        trace_id: str,
+        tool_name: str,
+        tool_input: Dict[str, Any],
+        tool_output: Dict[str, Any],
+        status: str,
+        latency_ms: int,
+        error: Optional[str] = None
+    ):
+        """
+        Log a tool execution.
+
+        Hipocap will:
+        - Track tool call graph
+        - Measure latency per tool
+        - Identify errors and patterns
+        """
+        try:
+            await self.http_client.post(
+                f"{self.endpoint}/v1/traces/{trace_id}/tool_calls",
+                json={
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "tool_name": tool_name,
+                    "input": tool_input,  # Sanitized by Hipocap
+                    "output": tool_output,
+                    "status": status,  # success, failed, cancelled
+                    "latency_ms": latency_ms,
+                    "error": error
+                }
+            )
+            logger.debug(f"Logged tool call to Hipocap: {tool_name}")
+
+        except Exception as e:
+            logger.error(f"Failed to log tool call to Hipocap: {e}")
+
+    async def check_security(
+        self,
+        trace_id: str,
+        user_input: str,
+        context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Security check on user input BEFORE sending to LLM.
+
+        Hipocap will check for:
+        - Prompt injections (jailbreak attempts)
+        - Toxic/harmful content
+        - Sensitive keywords leakage attempts
+
+        Returns:
+            {
+                "safe": bool,
+                "violations": [{"type": "prompt_injection", "confidence": 0.95}],
+                "sanitized_input": str  # If safe=True
+            }
+        """
+        try:
+            response = await self.http_client.post(
+                f"{self.endpoint}/v1/security/check",
+                json={
+                    "trace_id": trace_id,
+                    "input": user_input,
+                    "context": context
+                }
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except Exception as e:
+            logger.error(f"Hipocap security check failed: {e}")
+            # Fail open: allow request but log
+            return {
+                "safe": True,
+                "violations": [],
+                "sanitized_input": user_input
+            }
+
+    async def enforce_function_rbac(
+        self,
+        trace_id: str,
+        user_id: str,
+        function_name: str,
+        permissions: List[str]
+    ) -> bool:
+        """
+        Enforce function-level RBAC via Hipocap.
+
+        Returns:
+            True if user is authorized, False otherwise
+        """
+        try:
+            response = await self.http_client.post(
+                f"{self.endpoint}/v1/rbac/check",
+                json={
+                    "trace_id": trace_id,
+                    "user_id": user_id,
+                    "function": function_name,
+                    "required_permissions": permissions
+                }
+            )
+            response.raise_for_status()
+            result = response.json()
+            return result.get("authorized", False)
+
+        except Exception as e:
+            logger.error(f"Hipocap RBAC check failed: {e}")
+            # Fail closed: deny access if Hipocap unavailable
+            return False
+
+    async def close_trace(
+        self,
+        trace_id: str,
+        status: str,
+        total_cost_usd: float,
+        metadata: Dict[str, Any] = None
+    ):
+        """
+        Close a trace with final status and metrics.
+        """
+        try:
+            await self.http_client.patch(
+                f"{self.endpoint}/v1/traces/{trace_id}",
+                json={
+                    "completed_at": datetime.utcnow().isoformat(),
+                    "status": status,  # success, error, cancelled
+                    "total_cost_usd": total_cost_usd,
+                    "metadata": metadata or {}
+                }
+            )
+            logger.info(f"Hipocap trace closed: {trace_id}, status={status}")
+
+        except Exception as e:
+            logger.error(f"Failed to close Hipocap trace: {e}")
+
+    async def health_check(self) -> bool:
+        """Check Hipocap service health."""
+        try:
+            response = await self.http_client.get(f"{self.endpoint}/health")
+            return response.status_code == 200
+        except Exception:
+            return False
+
+
+# Dependency injection
+_hipocap_client = None
+
+def get_hipocap_client() -> Optional[HipocapClient]:
+    """Get Hipocap client instance."""
+    global _hipocap_client
+
+    from app.core.config import settings
+
+    if not settings.HIPOCAP_API_KEY:
+        logger.warning("Hipocap not configured (no API key)")
+        return None
+
+    if _hipocap_client is None:
+        _hipocap_client = HipocapClient(
+            api_key=settings.HIPOCAP_API_KEY,
+            project_id=settings.HIPOCAP_PROJECT_ID,
+            environment=settings.HIPOCAP_ENVIRONMENT
+        )
+
+    return _hipocap_client
+```
+
+### 4.2 Add Hipocap Config
+
+#### Update `backend/app/core/config.py`:
+
+```python
+class Settings(BaseSettings):
+    # ... existing settings ...
+
+    # Hipocap Observability
+    HIPOCAP_API_KEY: Optional[str] = None
+    HIPOCAP_PROJECT_ID: str = "erp2025-copilot"
+    HIPOCAP_ENVIRONMENT: str = "production"  # development, staging, production
+    HIPOCAP_ENDPOINT: str = "https://api.hipocap.com"
+
+    # Security enforcement via Hipocap
+    HIPOCAP_ENABLE_SECURITY_CHECKS: bool = True
+    HIPOCAP_ENABLE_FUNCTION_RBAC: bool = True
+    HIPOCAP_ENABLE_PII_MASKING: bool = True
+```
+
+### 4.3 Integration in CopilotService
+
+The CopilotService will wrap all LLM calls and tool executions with Hipocap tracing:
+
+```python
+# Pseudo-code showing Hipocap integration flow
+async def handle_message(self, user_id, message, conversation_id):
+    trace_id = str(uuid.uuid4())
+
+    # Start Hipocap trace
+    if self.hipocap:
+        await self.hipocap.start_trace(
+            trace_id=trace_id,
+            user_id=user_id,
+            session_id=conversation_id,
+            metadata={"route": context.route}
+        )
+
+    try:
+        # Security check via Hipocap
+        if self.hipocap:
+            security_result = await self.hipocap.check_security(
+                trace_id, message, context
+            )
+            if not security_result["safe"]:
+                return {"error": "Security violation detected"}
+
+        # LLM call
+        start = time.time()
+        llm_response = await self.llm_client.complete(messages, tools)
+        latency_ms = int((time.time() - start) * 1000)
+
+        # Log to Hipocap
+        if self.hipocap:
+            await self.hipocap.log_llm_call(
+                trace_id,
+                provider="anthropic",
+                model=llm_response.model,
+                messages=[...],
+                response=llm_response.dict(),
+                latency_ms=latency_ms,
+                cost_usd=llm_response.cost_usd
+            )
+
+        # Execute tools
+        for tool_call in llm_response.tool_calls:
+            # Function-level RBAC via Hipocap
+            if self.hipocap:
+                authorized = await self.hipocap.enforce_function_rbac(
+                    trace_id, user_id, tool_call.name, [...]
+                )
+                if not authorized:
+                    continue
+
+            # Execute tool
+            start = time.time()
+            result = await self.tool_runner.execute(tool_call)
+            latency_ms = int((time.time() - start) * 1000)
+
+            # Log to Hipocap
+            if self.hipocap:
+                await self.hipocap.log_tool_call(
+                    trace_id,
+                    tool_name=tool_call.name,
+                    tool_input=tool_call.input,
+                    tool_output=result,
+                    status="success",
+                    latency_ms=latency_ms
+                )
+
+        # Close trace
+        if self.hipocap:
+            await self.hipocap.close_trace(
+                trace_id,
+                status="success",
+                total_cost_usd=total_cost
+            )
+
+    except Exception as e:
+        if self.hipocap:
+            await self.hipocap.close_trace(trace_id, status="error")
+        raise
+```
+
+---
+
+## 5. Database Schema Design
+
+### 5.1 New Tables (SQL Server)
 
 #### TM_CPC_Copilot_Conversation
+
 ```sql
 CREATE TABLE TM_CPC_Copilot_Conversation (
     cpc_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -274,6 +1438,7 @@ CREATE TABLE TM_CPC_Copilot_Conversation (
     -- Metadata
     cpc_message_count INT DEFAULT 0,
     cpc_tool_call_count INT DEFAULT 0,
+    cpc_total_cost_usd DECIMAL(10, 4) DEFAULT 0.0,     -- Cumulative cost
     cpc_status VARCHAR(20) DEFAULT 'active',           -- active, archived, deleted
     cpc_created_at DATETIME2 DEFAULT GETDATE(),
     cpc_updated_at DATETIME2 DEFAULT GETDATE(),
@@ -284,6 +1449,7 @@ CREATE TABLE TM_CPC_Copilot_Conversation (
 ```
 
 #### TM_CPM_Copilot_Message
+
 ```sql
 CREATE TABLE TM_CPM_Copilot_Message (
     cpm_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -301,8 +1467,13 @@ CREATE TABLE TM_CPM_Copilot_Message (
     -- UI blocks (JSON array of Tambo component props)
     cpm_ui_blocks NVARCHAR(MAX),
 
-    -- Metadata
+    -- LLM metadata
+    cpm_model VARCHAR(100),                            -- e.g., "claude-opus-4-5", "gpt-4o"
+    cpm_provider VARCHAR(50),                          -- e.g., "anthropic", "openai"
     cpm_token_count INT,
+    cpm_cost_usd DECIMAL(10, 6),
+
+    -- Metadata
     cpm_created_at DATETIME2 DEFAULT GETDATE(),
 
     INDEX idx_conversation (cpc_id, cpm_created_at),
@@ -311,6 +1482,7 @@ CREATE TABLE TM_CPM_Copilot_Message (
 ```
 
 #### TM_TCL_Tool_Call_Log
+
 ```sql
 CREATE TABLE TM_TCL_Tool_Call_Log (
     tcl_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -341,6 +1513,9 @@ CREATE TABLE TM_TCL_Tool_Call_Log (
     -- Idempotency (required for external/financial operations)
     tcl_idempotency_key VARCHAR(100),
 
+    -- Hipocap trace reference
+    tcl_hipocap_trace_id VARCHAR(100),
+
     -- User/tenant
     usr_id INT NOT NULL FOREIGN KEY REFERENCES TM_USR_User(usr_id),
     soc_id INT NOT NULL FOREIGN KEY REFERENCES TR_SOC_Society(soc_id),
@@ -348,11 +1523,13 @@ CREATE TABLE TM_TCL_Tool_Call_Log (
     INDEX idx_conversation (cpc_id, tcl_started_at),
     INDEX idx_status (tcl_status),
     INDEX idx_user (usr_id, tcl_started_at DESC),
-    INDEX idx_idempotency (tcl_idempotency_key) WHERE tcl_idempotency_key IS NOT NULL
+    INDEX idx_idempotency (tcl_idempotency_key) WHERE tcl_idempotency_key IS NOT NULL,
+    INDEX idx_hipocap_trace (tcl_hipocap_trace_id)
 );
 ```
 
 #### TM_APR_Approval_Request
+
 ```sql
 CREATE TABLE TM_APR_Approval_Request (
     apr_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -363,7 +1540,7 @@ CREATE TABLE TM_APR_Approval_Request (
     cpc_id INT NOT NULL FOREIGN KEY REFERENCES TM_CPC_Copilot_Conversation(cpc_id),
 
     -- Approver requirements
-    apr_required_role_level INT,                       -- Minimum role level (from TR_ROL_Role.rol_level)
+    apr_required_role_level INT,                       -- Minimum role level
     apr_approver_role_id INT FOREIGN KEY REFERENCES TR_ROL_Role(rol_id),
 
     -- Status
@@ -384,6 +1561,7 @@ CREATE TABLE TM_APR_Approval_Request (
 ```
 
 #### TM_UIB_UI_Block_Log
+
 ```sql
 CREATE TABLE TM_UIB_UI_Block_Log (
     uib_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -397,7 +1575,7 @@ CREATE TABLE TM_UIB_UI_Block_Log (
     -- Interaction tracking
     uib_rendered BIT DEFAULT 0,
     uib_interacted BIT DEFAULT 0,                      -- User clicked/interacted
-    uib_interaction_result NVARCHAR(MAX),              -- Result of interaction (e.g., confirmed action)
+    uib_interaction_result NVARCHAR(MAX),              -- Result of interaction
 
     -- Metadata
     uib_created_at DATETIME2 DEFAULT GETDATE(),
@@ -407,260 +1585,64 @@ CREATE TABLE TM_UIB_UI_Block_Log (
 );
 ```
 
-### 3.2 Integration with Existing RBAC Tables
-
-#### Querying User Permissions for Tools
-
-```sql
--- Example: Check if user can execute "products.create" tool
-SELECT r.rit_create
-FROM TR_RIT_Right r
-JOIN TR_SAM_Screen_API_Mapping sam ON r.scr_id = sam.scr_id
-WHERE r.rol_id = @user_role_id
-  AND sam.sam_api_resource = 'products'
-  AND r.rit_active = 1;
-```
-
-#### Permission Mapping: Tools → RBAC Actions
-
-| Tool Category | Required Permission Column |
-|---------------|---------------------------|
-| `*.create` | `rit_create = 1` |
-| `*.read`, `*.list`, `*.search` | `rit_read = 1` |
-| `*.update` | `rit_modify = 1` |
-| `*.delete` | `rit_delete = 1` |
-| `*.approve`, `*.validate` | `rit_valid = 1` |
-| `*.cancel`, `*.void` | `rit_cancel = 1` |
-| `*.activate`, `*.deactivate` | `rit_active = 1` |
-| `*.admin_*` | `rit_super_right = 1` |
-
 ---
 
-## 4. Backend Implementation
+## 6. Backend Implementation
 
-### 4.1 FastAPI API Endpoints
-
-#### File: `backend/app/api/v1/copilot.py`
-
-```python
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
-from typing import Optional, List
-import json
-import asyncio
-
-from app.api.deps import get_db, get_current_active_user
-from app.services.copilot_service import CopilotService, get_copilot_service
-from app.schemas.copilot import (
-    ChatRequest,
-    ChatResponse,
-    ConfirmActionRequest,
-    ToolManifestResponse,
-    ConversationHistoryResponse
-)
-from app.models.user import User
-
-router = APIRouter(prefix="/copilot", tags=["copilot"])
-
-
-@router.post("/chat", response_model=ChatResponse)
-async def chat(
-    request: ChatRequest,
-    current_user: User = Depends(get_current_active_user),
-    service: CopilotService = Depends(get_copilot_service)
-):
-    """
-    Start or continue a conversation.
-
-    Returns:
-    - conversation_id: UUID for SSE stream
-    - message_id: UUID of assistant's response
-    - requires_stream: True if response is being streamed
-    """
-    try:
-        result = await service.handle_message(
-            user_id=current_user.usr_id,
-            message=request.message,
-            conversation_id=request.conversation_id,
-            context=request.context
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/stream")
-async def stream(
-    conversation_id: str,
-    current_user: User = Depends(get_current_active_user),
-    service: CopilotService = Depends(get_copilot_service)
-):
-    """
-    SSE stream for real-time updates.
-
-    Event types:
-    - token: Streaming text tokens
-    - plan: Agent's plan before execution
-    - tool_call_started: Tool execution started
-    - tool_call_result: Tool execution completed
-    - ui_block: Generative UI component
-    - error: Error occurred
-    - done: Stream complete
-    """
-    async def event_generator():
-        try:
-            async for event in service.stream_conversation(
-                conversation_id=conversation_id,
-                user_id=current_user.usr_id
-            ):
-                # SSE format: event: <type>\ndata: <json>\n\n
-                yield f"event: {event['type']}\n"
-                yield f"data: {json.dumps(event['data'])}\n\n"
-
-                # Flush after each event
-                await asyncio.sleep(0)
-
-        except Exception as e:
-            error_event = {
-                "type": "error",
-                "data": {"message": str(e)}
-            }
-            yield f"event: error\n"
-            yield f"data: {json.dumps(error_event['data'])}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable nginx buffering
-        }
-    )
-
-
-@router.post("/confirm")
-async def confirm_action(
-    request: ConfirmActionRequest,
-    current_user: User = Depends(get_current_active_user),
-    service: CopilotService = Depends(get_copilot_service)
-):
-    """
-    Approve or reject a pending tool call.
-
-    Required for tools with side_effect_level != 'none'
-    """
-    try:
-        result = await service.confirm_tool_call(
-            tool_call_id=request.tool_call_id,
-            user_id=current_user.usr_id,
-            approved=request.approved,
-            rejection_reason=request.rejection_reason
-        )
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.get("/tools/manifest", response_model=ToolManifestResponse)
-async def get_tools_manifest(
-    current_user: User = Depends(get_current_active_user),
-    service: CopilotService = Depends(get_copilot_service)
-):
-    """
-    Get list of available tools for current user.
-
-    Filtered by user's role permissions.
-    """
-    manifest = await service.get_user_tools_manifest(
-        user_id=current_user.usr_id,
-        role_id=current_user.rol_id
-    )
-    return manifest
-
-
-@router.get("/history", response_model=ConversationHistoryResponse)
-async def get_conversation_history(
-    conversation_id: Optional[str] = None,
-    limit: int = 50,
-    offset: int = 0,
-    current_user: User = Depends(get_current_active_user),
-    service: CopilotService = Depends(get_copilot_service)
-):
-    """
-    Get conversation history.
-
-    If conversation_id provided: messages for that conversation
-    Otherwise: list of user's conversations
-    """
-    history = await service.get_conversation_history(
-        user_id=current_user.usr_id,
-        conversation_id=conversation_id,
-        limit=limit,
-        offset=offset
-    )
-    return history
-```
-
-### 4.2 CopilotService Implementation
+### 6.1 CopilotService with Hipocap Integration
 
 #### File: `backend/app/services/copilot_service.py`
 
 ```python
-from typing import Dict, Any, List, Optional, AsyncGenerator
+from typing import Dict, Any, List, Optional, AsyncIterator
 from sqlalchemy.orm import Session
-from sqlalchemy import select
-import asyncio
-import json
+from datetime import datetime
 import uuid
-from datetime import datetime, timedelta
+import time
+import json
+import logging
 
+from app.core.llm.client import LLMClient
+from app.core.llm.base import LLMMessage, ModelCapability
+from app.core.hipocap.client import HipocapClient, get_hipocap_client
+from app.services.tool_registry import ToolRegistry, get_tool_registry
+from app.services.policy_engine import PolicyEngine, get_policy_engine
+from app.services.tool_runner import ToolRunner
 from app.models.copilot import (
     CopilotConversation,
     CopilotMessage,
-    ToolCallLog,
-    ApprovalRequest
+    ToolCallLog
 )
-from app.services.tool_registry import ToolRegistry
-from app.services.policy_engine import PolicyEngine
-from app.services.context_builder import ContextBuilder
-from app.services.ui_composer import UIComposer
-from app.core.llm_client import LLMClient
-from app.core.database import get_db
+from app.core.config import settings
 
-
-class CopilotServiceError(Exception):
-    """Base exception for CopilotService"""
-    pass
-
+logger = logging.getLogger(__name__)
 
 class CopilotService:
     """
-    Main agent orchestration service.
+    Main Copilot orchestration service.
 
-    Responsibilities:
-    1. Context building from request
-    2. LLM interaction for planning
-    3. Tool execution coordination
-    4. Permission validation
-    5. SSE event streaming
-    6. UI block generation
+    Handles:
+    - Agent loop execution
+    - LLM provider coordination
+    - Tool execution
+    - Hipocap observability integration
+    - Streaming events
     """
 
     def __init__(
         self,
         db: Session,
+        llm_client: LLMClient,
         tool_registry: ToolRegistry,
         policy_engine: PolicyEngine,
-        llm_client: LLMClient
+        hipocap_client: Optional[HipocapClient] = None
     ):
         self.db = db
+        self.llm = llm_client
         self.tools = tool_registry
         self.policy = policy_engine
-        self.llm = llm_client
-        self.context_builder = ContextBuilder(db)
-        self.ui_composer = UIComposer()
+        self.hipocap = hipocap_client
+        self.tool_runner = ToolRunner(db, tool_registry)
 
     async def handle_message(
         self,
@@ -670,330 +1652,351 @@ class CopilotService:
         context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Process a user message and return response metadata.
+        Handle incoming user message.
 
-        Actual response is streamed via /stream endpoint.
+        Returns:
+            {
+                "conversation_id": str,
+                "message_id": str,
+                "requires_stream": bool
+            }
         """
-        # Create or load conversation
-        conversation = await self._get_or_create_conversation(
-            user_id=user_id,
-            conversation_id=conversation_id,
-            context=context
+
+        # Get or create conversation
+        conversation = self._get_or_create_conversation(
+            user_id, conversation_id, context
         )
 
         # Save user message
-        user_message = self._save_message(
-            conversation_id=conversation.cpc_id,
-            role="user",
-            content=message
+        user_msg = CopilotMessage(
+            cpm_uuid=str(uuid.uuid4()),
+            cpc_id=conversation.cpc_id,
+            cpm_role="user",
+            cpm_content=message
         )
+        self.db.add(user_msg)
+        self.db.commit()
+
+        # Start Hipocap trace
+        trace_id = str(uuid.uuid4())
+        if self.hipocap:
+            await self.hipocap.start_trace(
+                trace_id=trace_id,
+                user_id=str(user_id),
+                session_id=conversation.cpc_uuid,
+                metadata={
+                    "route": context.get("route") if context else None,
+                    "entity_type": context.get("entity_type") if context else None
+                }
+            )
 
         return {
             "conversation_id": conversation.cpc_uuid,
-            "message_id": user_message.cpm_uuid,
-            "requires_stream": True
+            "message_id": user_msg.cpm_uuid,
+            "requires_stream": True,
+            "trace_id": trace_id
         }
 
-    async def stream_conversation(
+    async def stream_response(
         self,
         conversation_id: str,
-        user_id: int
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+        user_id: int,
+        trace_id: str
+    ) -> AsyncIterator[Dict[str, Any]]:
         """
-        Stream conversation events via SSE.
+        Stream assistant response via SSE.
 
-        Event flow:
-        1. Build context
-        2. Call LLM for planning
-        3. Validate permissions
-        4. If confirmation needed: yield ui_block + wait
-        5. Execute tools
-        6. Call LLM for final response
-        7. Yield UI blocks
-        8. Done
+        Yields:
+            SSE events: token, tool_call_started, tool_call_result, ui_block, done
         """
+
+        # Load conversation
+        conversation = (
+            self.db.query(CopilotConversation)
+            .filter_by(cpc_uuid=conversation_id)
+            .first()
+        )
+
+        if not conversation:
+            yield {"type": "error", "data": {"error": "Conversation not found"}}
+            return
+
+        # Security check via Hipocap
+        last_message = conversation.messages[-1].cpm_content
+        if self.hipocap and settings.HIPOCAP_ENABLE_SECURITY_CHECKS:
+            security_result = await self.hipocap.check_security(
+                trace_id,
+                last_message,
+                context=json.loads(conversation.cpc_context_json or "{}")
+            )
+
+            if not security_result["safe"]:
+                violations = security_result.get("violations", [])
+                yield {
+                    "type": "error",
+                    "data": {
+                        "error": "Security violation detected",
+                        "violations": violations
+                    }
+                }
+                return
+
+        # Build context
+        context_data = self._build_context(conversation, user_id)
+
+        # Build messages for LLM
+        messages = self._build_llm_messages(conversation, context_data)
+
+        # Get user's available tools
+        available_tools = self.tools.get_user_tools(
+            user_id,
+            context_data["role_id"]
+        )
+
+        # LLM call (streaming)
+        total_cost = 0.0
+        assistant_content = ""
+        tool_calls = []
+
+        start_time = time.time()
+
         try:
-            # Load conversation
-            conversation = await self._load_conversation(conversation_id, user_id)
+            async for chunk in self.llm.stream_complete(
+                messages=messages,
+                tools=available_tools,
+                task_complexity=ModelCapability.STANDARD
+            ):
+                if chunk["type"] == "token":
+                    token = chunk["data"]["token"]
+                    assistant_content += token
+                    yield {"type": "token", "data": {"token": token}}
 
-            # Build context
-            context = await self.context_builder.build_context(
-                conversation=conversation,
-                user_id=user_id
-            )
+                elif chunk["type"] == "tool_call_start":
+                    tool_call = chunk["data"]
+                    tool_calls.append(tool_call)
 
-            # Get last user message
-            last_message = self._get_last_user_message(conversation.cpc_id)
+                    # Validate with PolicyEngine
+                    can_execute = await self.policy.can_execute_tool(
+                        user_id,
+                        tool_call["name"],
+                        tool_call.get("input", {})
+                    )
 
-            # Phase 1: Planning
-            yield {"type": "status", "data": {"status": "planning"}}
-
-            plan_result = await self.llm.plan(
-                context=context,
-                message=last_message.cpm_content,
-                tools=self.tools.get_user_tools(user_id, context["role_id"])
-            )
-
-            if plan_result.get("text"):
-                # Stream text tokens
-                for token in plan_result["text"].split():
-                    yield {"type": "token", "data": {"token": token + " "}}
-                    await asyncio.sleep(0.01)  # Simulated streaming
-
-            # Phase 2: Tool execution
-            if plan_result.get("tool_calls"):
-                for tool_call in plan_result["tool_calls"]:
-                    async for event in self._execute_tool_call(
-                        tool_call=tool_call,
-                        conversation_id=conversation.cpc_id,
-                        user_id=user_id,
-                        context=context
-                    ):
-                        yield event
-
-            # Phase 3: Final response generation
-            if plan_result.get("tool_results"):
-                final_response = await self.llm.generate_response(
-                    context=context,
-                    tool_results=plan_result["tool_results"]
-                )
-
-                # Save assistant message
-                self._save_message(
-                    conversation_id=conversation.cpc_id,
-                    role="assistant",
-                    content=final_response["text"],
-                    ui_blocks=final_response.get("ui_blocks")
-                )
-
-                # Stream UI blocks
-                if final_response.get("ui_blocks"):
-                    for block in final_response["ui_blocks"]:
+                    if not can_execute:
                         yield {
-                            "type": "ui_block",
-                            "data": block
+                            "type": "tool_call_blocked",
+                            "data": {
+                                "tool_name": tool_call["name"],
+                                "reason": "Insufficient permissions"
+                            }
                         }
+                        continue
+
+                    # Check if requires approval
+                    tool_def = self.tools.get_tool(tool_call["name"])
+                    if tool_def.side_effect_level in ["external", "financial"]:
+                        yield {
+                            "type": "tool_requires_approval",
+                            "data": {
+                                "tool_call_id": tool_call["id"],
+                                "tool_name": tool_call["name"],
+                                "tool_input": tool_call["input"],
+                                "side_effect_level": tool_def.side_effect_level
+                            }
+                        }
+                        # Wait for confirmation (handled via separate endpoint)
+                        continue
+
+                    # Execute tool
+                    yield {
+                        "type": "tool_call_started",
+                        "data": {
+                            "tool_call_id": tool_call["id"],
+                            "tool_name": tool_call["name"]
+                        }
+                    }
+
+                    tool_start = time.time()
+                    tool_result = await self.tool_runner.execute(
+                        tool_name=tool_call["name"],
+                        tool_input=tool_call["input"],
+                        user_id=user_id
+                    )
+                    tool_latency_ms = int((time.time() - tool_start) * 1000)
+
+                    # Log to Hipocap
+                    if self.hipocap:
+                        await self.hipocap.log_tool_call(
+                            trace_id=trace_id,
+                            tool_name=tool_call["name"],
+                            tool_input=tool_call["input"],
+                            tool_output=tool_result,
+                            status="success" if tool_result.get("success") else "failed",
+                            latency_ms=tool_latency_ms,
+                            error=tool_result.get("error")
+                        )
+
+                    # Save to database
+                    self._save_tool_call_log(
+                        conversation.cpc_id,
+                        user_id,
+                        tool_call,
+                        tool_result,
+                        tool_latency_ms,
+                        trace_id
+                    )
+
+                    yield {
+                        "type": "tool_call_result",
+                        "data": {
+                            "tool_call_id": tool_call["id"],
+                            "tool_name": tool_call["name"],
+                            "result": tool_result
+                        }
+                    }
+
+                elif chunk["type"] == "done":
+                    usage = chunk["data"]["usage"]
+
+                    # Log to Hipocap
+                    latency_ms = int((time.time() - start_time) * 1000)
+                    if self.hipocap:
+                        await self.hipocap.log_llm_call(
+                            trace_id=trace_id,
+                            provider="anthropic",  # TODO: get from LLM client
+                            model="claude-sonnet-4-5",  # TODO: get from response
+                            messages=[m.dict() for m in messages],
+                            response={"content": assistant_content, "tool_calls": tool_calls},
+                            latency_ms=latency_ms,
+                            cost_usd=0.0,  # TODO: calculate
+                            tools=available_tools
+                        )
+
+            # Save assistant message
+            assistant_msg = CopilotMessage(
+                cpm_uuid=str(uuid.uuid4()),
+                cpc_id=conversation.cpc_id,
+                cpm_role="assistant",
+                cpm_content=assistant_content,
+                cpm_token_count=usage.get("total_tokens", 0),
+                cpm_cost_usd=total_cost
+            )
+            self.db.add(assistant_msg)
+            self.db.commit()
+
+            # Close Hipocap trace
+            if self.hipocap:
+                await self.hipocap.close_trace(
+                    trace_id=trace_id,
+                    status="success",
+                    total_cost_usd=total_cost
+                )
 
             yield {"type": "done", "data": {}}
 
         except Exception as e:
-            yield {
-                "type": "error",
-                "data": {"message": str(e)}
-            }
+            logger.error(f"Stream error: {e}", exc_info=True)
 
-    async def _execute_tool_call(
+            if self.hipocap:
+                await self.hipocap.close_trace(
+                    trace_id=trace_id,
+                    status="error",
+                    total_cost_usd=total_cost
+                )
+
+            yield {"type": "error", "data": {"error": str(e)}}
+
+    def _build_context(
         self,
-        tool_call: Dict[str, Any],
-        conversation_id: int,
-        user_id: int,
-        context: Dict[str, Any]
-    ) -> AsyncGenerator[Dict[str, Any], None]:
-        """
-        Execute a single tool call with permission checks.
-        """
-        tool_name = tool_call["name"]
-        tool_args = tool_call["arguments"]
-
-        # Create tool call log
-        tcl = ToolCallLog(
-            tcl_uuid=str(uuid.uuid4()),
-            cpc_id=conversation_id,
-            tcl_tool_name=tool_name,
-            tcl_input_args=json.dumps(tool_args),
-            tcl_status="pending",
-            usr_id=user_id,
-            soc_id=context["soc_id"]
-        )
-        self.db.add(tcl)
-        self.db.commit()
-
-        # Check permissions
-        tool_def = self.tools.get_tool(tool_name)
-        has_permission = await self.policy.check_permission(
-            user_id=user_id,
-            role_id=context["role_id"],
-            tool_name=tool_name,
-            required_permissions=tool_def["required_permissions"]
-        )
-
-        if not has_permission:
-            tcl.tcl_status = "failed"
-            tcl.tcl_error_message = "Insufficient permissions"
-            self.db.commit()
-
-            yield {
-                "type": "error",
-                "data": {
-                    "tool_call_id": tcl.tcl_uuid,
-                    "message": "You don't have permission to execute this action"
-                }
-            }
-            return
-
-        # Check if confirmation required
-        requires_confirmation = (
-            tool_def["side_effect_level"] in ["external", "financial", "inventory"]
-        )
-
-        if requires_confirmation:
-            # Generate ActionCard
-            action_card = self.ui_composer.create_action_card(
-                tool_name=tool_name,
-                tool_args=tool_args,
-                tool_def=tool_def
-            )
-
-            tcl.tcl_requires_confirmation = True
-            self.db.commit()
-
-            yield {
-                "type": "ui_block",
-                "data": action_card
-            }
-
-            yield {
-                "type": "awaiting_confirmation",
-                "data": {
-                    "tool_call_id": tcl.tcl_uuid,
-                    "action_card": action_card
-                }
-            }
-
-            # Wait for confirmation (handled separately via /confirm endpoint)
-            return
-
-        # Execute tool
-        yield {
-            "type": "tool_call_started",
-            "data": {
-                "tool_call_id": tcl.tcl_uuid,
-                "tool_name": tool_name
-            }
+        conversation: CopilotConversation,
+        user_id: int
+    ) -> Dict[str, Any]:
+        """Build context for system prompt."""
+        # Load user permissions, business units, etc.
+        # TODO: Implement full context building
+        return {
+            "user_id": user_id,
+            "role_id": 1,  # TODO: Get from user
+            "society_id": conversation.soc_id,
+            "business_unit_id": conversation.bu_id
         }
 
-        tcl.tcl_status = "running"
-        tcl.tcl_started_at = datetime.utcnow()
+    def _build_llm_messages(
+        self,
+        conversation: CopilotConversation,
+        context: Dict[str, Any]
+    ) -> List[LLMMessage]:
+        """Build message history for LLM."""
+        messages = []
+
+        # System prompt
+        system_prompt = self._build_system_prompt(context)
+        messages.append(LLMMessage(role="system", content=system_prompt))
+
+        # Conversation history
+        for msg in conversation.messages:
+            messages.append(
+                LLMMessage(
+                    role=msg.cpm_role,
+                    content=msg.cpm_content
+                )
+            )
+
+        return messages
+
+    def _build_system_prompt(self, context: Dict[str, Any]) -> str:
+        """Build system prompt with context."""
+        # TODO: Implement comprehensive system prompt
+        return f"""You are an AI assistant for an ERP system.
+
+User Context:
+- User ID: {context['user_id']}
+- Society ID: {context['society_id']}
+- Business Unit: {context.get('business_unit_id', 'N/A')}
+
+You have access to various tools to help manage business operations.
+Always use the appropriate tool to fulfill user requests.
+"""
+
+    def _save_tool_call_log(
+        self,
+        conversation_id: int,
+        user_id: int,
+        tool_call: Dict[str, Any],
+        result: Dict[str, Any],
+        latency_ms: int,
+        trace_id: str
+    ):
+        """Save tool call to audit log."""
+        log = ToolCallLog(
+            tcl_uuid=str(uuid.uuid4()),
+            cpc_id=conversation_id,
+            usr_id=user_id,
+            soc_id=1,  # TODO: Get from context
+            tcl_tool_name=tool_call["name"],
+            tcl_input_args=json.dumps(tool_call.get("input", {})),
+            tcl_output_result=json.dumps(result),
+            tcl_status="success" if result.get("success") else "failed",
+            tcl_duration_ms=latency_ms,
+            tcl_hipocap_trace_id=trace_id
+        )
+        self.db.add(log)
         self.db.commit()
 
-        try:
-            # Get tool handler
-            handler = self.tools.get_handler(tool_name)
-
-            # Execute with idempotency key if needed
-            if tool_def["side_effect_level"] in ["external", "financial"]:
-                idempotency_key = f"{tool_name}:{uuid.uuid4()}"
-                tcl.tcl_idempotency_key = idempotency_key
-                result = await handler(
-                    db=self.db,
-                    args=tool_args,
-                    idempotency_key=idempotency_key
-                )
-            else:
-                result = await handler(db=self.db, args=tool_args)
-
-            # Success
-            tcl.tcl_status = "success"
-            tcl.tcl_output_result = json.dumps(result)
-            tcl.tcl_completed_at = datetime.utcnow()
-            tcl.tcl_duration_ms = int(
-                (tcl.tcl_completed_at - tcl.tcl_started_at).total_seconds() * 1000
-            )
-            self.db.commit()
-
-            yield {
-                "type": "tool_call_result",
-                "data": {
-                    "tool_call_id": tcl.tcl_uuid,
-                    "tool_name": tool_name,
-                    "result": result,
-                    "duration_ms": tcl.tcl_duration_ms
-                }
-            }
-
-            # Generate UI block if applicable
-            ui_block = self.ui_composer.map_tool_result_to_ui(
-                tool_name=tool_name,
-                result=result
-            )
-
-            if ui_block:
-                yield {
-                    "type": "ui_block",
-                    "data": ui_block
-                }
-
-        except Exception as e:
-            tcl.tcl_status = "failed"
-            tcl.tcl_error_message = str(e)
-            tcl.tcl_completed_at = datetime.utcnow()
-            self.db.commit()
-
-            yield {
-                "type": "tool_call_failed",
-                "data": {
-                    "tool_call_id": tcl.tcl_uuid,
-                    "tool_name": tool_name,
-                    "error": str(e)
-                }
-            }
-
-    async def confirm_tool_call(
-        self,
-        tool_call_id: str,
-        user_id: int,
-        approved: bool,
-        rejection_reason: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Approve or reject a pending tool call.
-        """
-        # Load tool call
-        tcl = self.db.query(ToolCallLog).filter(
-            ToolCallLog.tcl_uuid == tool_call_id,
-            ToolCallLog.tcl_status == "pending",
-            ToolCallLog.tcl_requires_confirmation == True
-        ).first()
-
-        if not tcl:
-            raise CopilotServiceError("Tool call not found or not pending")
-
-        if approved:
-            # Execute the tool
-            # (Simplified - in production, re-trigger execution flow)
-            tcl.tcl_confirmed_at = datetime.utcnow()
-            tcl.tcl_confirmed_by = user_id
-            self.db.commit()
-
-            return {
-                "status": "approved",
-                "tool_call_id": tool_call_id,
-                "message": "Tool execution approved. Processing..."
-            }
-        else:
-            tcl.tcl_status = "cancelled"
-            tcl.tcl_error_message = rejection_reason or "User rejected"
-            self.db.commit()
-
-            return {
-                "status": "rejected",
-                "tool_call_id": tool_call_id,
-                "message": "Action cancelled"
-            }
-
-    # Helper methods
-    async def _get_or_create_conversation(
+    def _get_or_create_conversation(
         self,
         user_id: int,
         conversation_id: Optional[str],
         context: Optional[Dict[str, Any]]
     ) -> CopilotConversation:
-        """Load existing or create new conversation."""
+        """Get existing or create new conversation."""
+
         if conversation_id:
-            conv = self.db.query(CopilotConversation).filter(
-                CopilotConversation.cpc_uuid == conversation_id,
-                CopilotConversation.usr_id == user_id
-            ).first()
+            conv = (
+                self.db.query(CopilotConversation)
+                .filter_by(cpc_uuid=conversation_id)
+                .first()
+            )
             if conv:
                 return conv
 
@@ -1001,7 +2004,7 @@ class CopilotService:
         conv = CopilotConversation(
             cpc_uuid=str(uuid.uuid4()),
             usr_id=user_id,
-            soc_id=context.get("soc_id") if context else None,
+            soc_id=context.get("soc_id", 1) if context else 1,
             bu_id=context.get("bu_id") if context else None,
             cpc_context_route=context.get("route") if context else None,
             cpc_context_entity_type=context.get("entity_type") if context else None,
@@ -1014,2180 +2017,32 @@ class CopilotService:
         return conv
 
 
-def get_copilot_service(db: Session = Depends(get_db)) -> CopilotService:
-    """Dependency injection factory."""
-    from app.services.tool_registry import get_tool_registry
-    from app.services.policy_engine import get_policy_engine
-    from app.core.llm_client import get_llm_client
+# Dependency injection factory
+def get_copilot_service(db: Session) -> CopilotService:
+    """Get CopilotService instance with all dependencies."""
+    from app.core.llm.client import get_llm_client
 
     return CopilotService(
         db=db,
+        llm_client=get_llm_client(),
         tool_registry=get_tool_registry(),
         policy_engine=get_policy_engine(db),
-        llm_client=get_llm_client()
+        hipocap_client=get_hipocap_client()
     )
 ```
 
 ---
 
-## 5. Frontend Implementation
-
-### 5.1 Copilot Panel Component
-
-#### File: `frontend/src/components/copilot/CopilotPanel.tsx`
-
-```typescript
-import React, { useState, useEffect, useRef } from 'react'
-import { useAuthStore } from '@/stores/authStore'
-import { useCopilotChat } from '@/hooks/useCopilotChat'
-import { MessageThread } from './MessageThread'
-import { ToolTimeline } from './ToolTimeline'
-import { ContextHeader } from './ContextHeader'
-import { ChatInput } from './ChatInput'
-import { TamboRenderer } from './TamboRenderer'
-
-interface CopilotPanelProps {
-  isOpen: boolean
-  onClose: () => void
-}
-
-export function CopilotPanel({ isOpen, onClose }: CopilotPanelProps) {
-  const { user } = useAuthStore()
-  const {
-    messages,
-    toolCalls,
-    sendMessage,
-    isStreaming,
-    conversationId
-  } = useCopilotChat()
-
-  const [input, setInput] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const handleSend = async () => {
-    if (!input.trim()) return
-
-    await sendMessage(input)
-    setInput('')
-  }
-
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed right-0 top-0 h-full w-[500px] bg-white shadow-2xl flex flex-col border-l border-gray-200 z-50">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-          <h2 className="font-semibold text-lg">AI Copilot</h2>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600"
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* Context */}
-      <ContextHeader />
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <MessageThread messages={messages} />
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Tool Timeline */}
-      {toolCalls.length > 0 && (
-        <div className="border-t bg-gray-50 p-3">
-          <ToolTimeline calls={toolCalls} />
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="border-t p-4">
-        <ChatInput
-          value={input}
-          onChange={setInput}
-          onSend={handleSend}
-          disabled={isStreaming}
-          placeholder="Ask me anything about your ERP data..."
-        />
-      </div>
-    </div>
-  )
-}
-```
-
-### 5.2 SSE Hook for Streaming
-
-#### File: `frontend/src/hooks/useCopilotChat.ts`
-
-```typescript
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { useAuthStore } from '@/stores/authStore'
-import { copilotApi } from '@/api/copilot'
-
-export interface Message {
-  id: string
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  uiBlocks?: any[]
-  timestamp: string
-}
-
-export interface ToolCall {
-  id: string
-  name: string
-  status: 'pending' | 'running' | 'success' | 'failed'
-  startedAt?: string
-  completedAt?: string
-  result?: any
-  error?: string
-}
-
-export function useCopilotChat() {
-  const { user } = useAuthStore()
-  const [messages, setMessages] = useState<Message[]>([])
-  const [toolCalls, setToolCalls] = useState<ToolCall[]>([])
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [conversationId, setConversationId] = useState<string | null>(null)
-
-  const eventSourceRef = useRef<EventSource | null>(null)
-
-  // Send message and start streaming
-  const sendMessage = useCallback(async (content: string) => {
-    if (!user) return
-
-    // Add user message immediately
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content,
-      timestamp: new Date().toISOString()
-    }
-    setMessages(prev => [...prev, userMessage])
-
-    try {
-      // Call chat API
-      const response = await copilotApi.sendMessage({
-        message: content,
-        conversation_id: conversationId,
-        context: {
-          route: window.location.pathname,
-          // Add more context as needed
-        }
-      })
-
-      setConversationId(response.conversation_id)
-
-      // Start SSE stream
-      if (response.requires_stream) {
-        startStreaming(response.conversation_id)
-      }
-    } catch (error) {
-      console.error('Failed to send message:', error)
-    }
-  }, [conversationId, user])
-
-  // SSE streaming
-  const startStreaming = useCallback((convId: string) => {
-    setIsStreaming(true)
-
-    const token = localStorage.getItem('access_token')
-    const url = `${import.meta.env.VITE_API_BASE_URL}/copilot/stream?conversation_id=${convId}`
-
-    const es = new EventSource(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    } as any)
-
-    let currentAssistantMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: '',
-      timestamp: new Date().toISOString()
-    }
-
-    es.addEventListener('token', (event) => {
-      const data = JSON.parse(event.data)
-      currentAssistantMessage.content += data.token
-
-      setMessages(prev => {
-        const lastMessage = prev[prev.length - 1]
-        if (lastMessage?.id === currentAssistantMessage.id) {
-          return [...prev.slice(0, -1), { ...currentAssistantMessage }]
-        }
-        return [...prev, { ...currentAssistantMessage }]
-      })
-    })
-
-    es.addEventListener('tool_call_started', (event) => {
-      const data = JSON.parse(event.data)
-      setToolCalls(prev => [...prev, {
-        id: data.tool_call_id,
-        name: data.tool_name,
-        status: 'running',
-        startedAt: new Date().toISOString()
-      }])
-    })
-
-    es.addEventListener('tool_call_result', (event) => {
-      const data = JSON.parse(event.data)
-      setToolCalls(prev => prev.map(tc =>
-        tc.id === data.tool_call_id
-          ? {
-              ...tc,
-              status: 'success',
-              result: data.result,
-              completedAt: new Date().toISOString()
-            }
-          : tc
-      ))
-    })
-
-    es.addEventListener('ui_block', (event) => {
-      const data = JSON.parse(event.data)
-
-      setMessages(prev => {
-        const lastMessage = prev[prev.length - 1]
-        if (lastMessage?.role === 'assistant') {
-          return [
-            ...prev.slice(0, -1),
-            {
-              ...lastMessage,
-              uiBlocks: [...(lastMessage.uiBlocks || []), data]
-            }
-          ]
-        }
-        return prev
-      })
-    })
-
-    es.addEventListener('error', (event) => {
-      const data = JSON.parse(event.data)
-      console.error('Stream error:', data)
-      es.close()
-      setIsStreaming(false)
-    })
-
-    es.addEventListener('done', () => {
-      es.close()
-      setIsStreaming(false)
-    })
-
-    eventSourceRef.current = es
-  }, [])
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      eventSourceRef.current?.close()
-    }
-  }, [])
-
-  return {
-    messages,
-    toolCalls,
-    sendMessage,
-    isStreaming,
-    conversationId
-  }
-}
-```
-
----
-
-## 6. Tool Registry & Manifest
-
-### 6.1 Tool Definition Schema
-
-```python
-from typing import Dict, Any, Callable, List, Optional
-from pydantic import BaseModel, Field
-
-class ToolDefinition(BaseModel):
-    """Schema for tool registration."""
-
-    name: str = Field(..., description="Unique tool identifier (e.g., 'products.create')")
-    description: str = Field(..., description="Human-readable description for LLM")
-    category: str = Field(..., description="Tool category (crud, analytics, integration)")
-
-    input_schema: Dict[str, Any] = Field(..., description="JSON Schema for input parameters")
-    output_schema: Dict[str, Any] = Field(..., description="JSON Schema for output")
-
-    # Permissions
-    required_permissions: List[str] = Field(
-        default=[],
-        description="RBAC permission columns required (e.g., ['rit_create'])"
-    )
-    required_api_resource: str = Field(
-        ...,
-        description="API resource name mapped via TR_SAM_Screen_API_Mapping"
-    )
-
-    # Safety
-    side_effect_level: str = Field(
-        default="none",
-        description="none|draft|external|financial|inventory"
-    )
-    requires_idempotency: bool = Field(
-        default=False,
-        description="Whether tool requires idempotency key"
-    )
-
-    # Metadata
-    version: str = Field(default="1.0.0")
-    tags: List[str] = Field(default=[])
-
-    # Handler (not serialized to manifest)
-    handler: Optional[Callable] = Field(
-        default=None,
-        exclude=True,
-        description="Async callable that executes the tool"
-    )
-```
-
-### 6.2 Tool Registry Implementation
-
-#### File: `backend/app/services/tool_registry.py`
-
-```python
-from typing import Dict, List, Callable, Optional
-from app.schemas.tool_definition import ToolDefinition
-
-class ToolRegistry:
-    """
-    Central registry for all Copilot tools.
-
-    Tools are registered at app startup and filtered by user permissions.
-    """
-
-    def __init__(self):
-        self._tools: Dict[str, ToolDefinition] = {}
-
-    def register(self, tool: ToolDefinition):
-        """Register a tool."""
-        if tool.name in self._tools:
-            raise ValueError(f"Tool {tool.name} already registered")
-
-        if tool.handler is None:
-            raise ValueError(f"Tool {tool.name} has no handler")
-
-        self._tools[tool.name] = tool
-
-    def get_tool(self, name: str) -> ToolDefinition:
-        """Get tool definition by name."""
-        if name not in self._tools:
-            raise KeyError(f"Tool {name} not found")
-        return self._tools[name]
-
-    def get_handler(self, name: str) -> Callable:
-        """Get tool handler function."""
-        tool = self.get_tool(name)
-        return tool.handler
-
-    def get_user_tools(
-        self,
-        user_id: int,
-        role_id: int,
-        filter_permissions: bool = True
-    ) -> List[Dict[str, Any]]:
-        """
-        Get tools available to user.
-
-        If filter_permissions=True, only return tools user has permission for.
-        """
-        tools = []
-
-        for tool in self._tools.values():
-            # Serialize for LLM (excluding handler)
-            tool_dict = tool.model_dump(exclude={'handler'})
-            tools.append(tool_dict)
-
-        # TODO: Filter by user permissions via PolicyEngine
-
-        return tools
-
-    def list_all(self) -> List[str]:
-        """List all registered tool names."""
-        return list(self._tools.keys())
-
-
-# Global singleton
-_registry = None
-
-def get_tool_registry() -> ToolRegistry:
-    """Get or create global tool registry."""
-    global _registry
-    if _registry is None:
-        _registry = ToolRegistry()
-        # Register all tools (done at app startup)
-        register_all_tools(_registry)
-    return _registry
-
-
-def register_all_tools(registry: ToolRegistry):
-    """Register all available tools."""
-    # Import tool modules
-    from app.tools import (
-        product_tools,
-        client_tools,
-        invoice_tools,
-        order_tools,
-        payment_tools,
-        report_tools,
-        integration_tools
-    )
-
-    # Each module has register_tools(registry) function
-    product_tools.register_tools(registry)
-    client_tools.register_tools(registry)
-    invoice_tools.register_tools(registry)
-    order_tools.register_tools(registry)
-    payment_tools.register_tools(registry)
-    report_tools.register_tools(registry)
-    integration_tools.register_tools(registry)
-```
-
-### 6.3 Example Tool Implementations
-
-#### File: `backend/app/tools/product_tools.py`
-
-```python
-from typing import Dict, Any
-from sqlalchemy.orm import Session
-from app.services.tool_registry import ToolRegistry
-from app.schemas.tool_definition import ToolDefinition
-from app.services.product_service import ProductService
-
-async def create_product_handler(
-    db: Session,
-    args: Dict[str, Any],
-    idempotency_key: str = None
-) -> Dict[str, Any]:
-    """
-    Handler for products.create tool.
-    """
-    service = ProductService(db)
-
-    product = await service.create_product(
-        sku=args["sku"],
-        name=args["name"],
-        category_id=args.get("category_id"),
-        price=args.get("price"),
-        description=args.get("description")
-    )
-
-    return {
-        "product_id": product.prd_id,
-        "sku": product.prd_sku,
-        "name": product.prd_name,
-        "message": f"Product {product.prd_sku} created successfully"
-    }
-
-
-async def search_products_handler(
-    db: Session,
-    args: Dict[str, Any],
-    idempotency_key: str = None
-) -> Dict[str, Any]:
-    """
-    Handler for products.search tool.
-    """
-    service = ProductService(db)
-
-    results = await service.search_products(
-        query=args.get("query"),
-        category_id=args.get("category_id"),
-        limit=args.get("limit", 20)
-    )
-
-    return {
-        "products": [
-            {
-                "id": p.prd_id,
-                "sku": p.prd_sku,
-                "name": p.prd_name,
-                "price": p.prd_price
-            }
-            for p in results
-        ],
-        "count": len(results)
-    }
-
-
-def register_tools(registry: ToolRegistry):
-    """Register product-related tools."""
-
-    # products.create
-    registry.register(ToolDefinition(
-        name="products.create",
-        description="Create a new product in the catalog",
-        category="crud",
-        required_api_resource="products",
-        required_permissions=["rit_create"],
-        side_effect_level="draft",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "sku": {"type": "string", "description": "Product SKU code"},
-                "name": {"type": "string", "description": "Product name"},
-                "category_id": {"type": "integer", "description": "Product category ID"},
-                "price": {"type": "number", "description": "Unit price"},
-                "description": {"type": "string", "description": "Product description"}
-            },
-            "required": ["sku", "name"]
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "product_id": {"type": "integer"},
-                "sku": {"type": "string"},
-                "name": {"type": "string"},
-                "message": {"type": "string"}
-            }
-        },
-        handler=create_product_handler
-    ))
-
-    # products.search
-    registry.register(ToolDefinition(
-        name="products.search",
-        description="Search products by keyword, SKU, or category",
-        category="crud",
-        required_api_resource="products",
-        required_permissions=["rit_read"],
-        side_effect_level="none",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "Search query"},
-                "category_id": {"type": "integer", "description": "Filter by category"},
-                "limit": {"type": "integer", "description": "Max results", "default": 20}
-            }
-        },
-        output_schema={
-            "type": "object",
-            "properties": {
-                "products": {"type": "array"},
-                "count": {"type": "integer"}
-            }
-        },
-        handler=search_products_handler
-    ))
-```
-
----
-
-## 7. Security & RBAC Integration
-
-### 7.1 PolicyEngine Service
-
-#### File: `backend/app/services/policy_engine.py`
-
-```python
-from typing import List
-from sqlalchemy.orm import Session
-from sqlalchemy import select
-
-from app.models.rbac import Right, ScreenAPIMapping
-from app.models.user import User
-
-class PolicyEngine:
-    """
-    Permission checking via existing RBAC tables.
-
-    Integrates with:
-    - TR_ROL_Role (roles)
-    - TR_RIT_Right (permissions)
-    - TR_SAM_Screen_API_Mapping (screen → API mapping)
-    """
-
-    def __init__(self, db: Session):
-        self.db = db
-
-    async def check_permission(
-        self,
-        user_id: int,
-        role_id: int,
-        tool_name: str,
-        required_permissions: List[str]
-    ) -> bool:
-        """
-        Check if user has permissions for tool.
-
-        Args:
-            user_id: User ID
-            role_id: User's role ID
-            tool_name: Tool name (e.g., "products.create")
-            required_permissions: List of permission columns (e.g., ["rit_create"])
-
-        Returns:
-            True if user has all required permissions
-        """
-        # Extract API resource from tool name (e.g., "products" from "products.create")
-        api_resource = tool_name.split('.')[0]
-
-        # Query permission via RBAC tables
-        stmt = (
-            select(Right)
-            .join(ScreenAPIMapping, Right.scr_id == ScreenAPIMapping.scr_id)
-            .where(
-                Right.rol_id == role_id,
-                ScreenAPIMapping.sam_api_resource == api_resource,
-                Right.rit_active == True
-            )
-        )
-
-        result = self.db.execute(stmt).scalar_one_or_none()
-
-        if not result:
-            return False
-
-        # Check each required permission column
-        for perm in required_permissions:
-            if not getattr(result, perm, False):
-                return False
-
-        return True
-
-    def get_user_tool_permissions(
-        self,
-        role_id: int
-    ) -> Dict[str, List[str]]:
-        """
-        Get all API resources and actions user can access.
-
-        Returns:
-            {
-                "products": ["rit_read", "rit_create"],
-                "invoices": ["rit_read", "rit_create", "rit_modify"],
-                ...
-            }
-        """
-        stmt = (
-            select(Right, ScreenAPIMapping)
-            .join(ScreenAPIMapping, Right.scr_id == ScreenAPIMapping.scr_id)
-            .where(
-                Right.rol_id == role_id,
-                Right.rit_active == True
-            )
-        )
-
-        results = self.db.execute(stmt).all()
-
-        permissions = {}
-        for right, mapping in results:
-            resource = mapping.sam_api_resource
-            if resource not in permissions:
-                permissions[resource] = []
-
-            # Add permission columns that are True
-            for perm in ["rit_read", "rit_create", "rit_modify", "rit_delete",
-                         "rit_valid", "rit_cancel", "rit_active", "rit_super_right"]:
-                if getattr(right, perm, False):
-                    permissions[resource].append(perm)
-
-        return permissions
-
-
-def get_policy_engine(db: Session) -> PolicyEngine:
-    """Dependency injection factory."""
-    return PolicyEngine(db)
-```
-
-### 7.2 Security Considerations
-
-#### Authentication
-- All `/copilot/*` endpoints require authenticated user via `Depends(get_current_active_user)`
-- JWT token validated on every request
-- SSE streams verify token before establishing connection
-
-#### Authorization
-- **Tool-level permissions**: Each tool declares `required_permissions` and `required_api_resource`
-- **RBAC query**: PolicyEngine checks `TR_RIT_Right` table for user's role
-- **Permission inheritance**: Role hierarchy supported via `TR_ROL_Role.rol_parent_id`
-- **Business unit isolation**: All queries filtered by user's `soc_id` and `bu_id`
-
-#### Data Isolation
-- Every tool call logged with `usr_id`, `soc_id`
-- Conversation context includes `soc_id`, `bu_id`
-- Service layer enforces society filtering on all queries
-
-#### Side-Effect Protection
-- Tools with `side_effect_level` != "none" require confirmation
-- ActionCard rendered before execution
-- User must explicitly approve via `/confirm` endpoint
-- Approval logged in `TM_APR_Approval_Request`
-
-#### Idempotency
-- Tools with external/financial side effects require idempotency key
-- Prevents duplicate executions (email sends, invoice posts, Shopify writes)
-- Idempotency key stored in `TM_TCL_Tool_Call_Log.tcl_idempotency_key`
-
-#### Audit Trail
-- Every tool call logged in `TM_TCL_Tool_Call_Log`
-- Includes: input args, output result, duration, errors
-- Every message logged in `TM_CPM_Copilot_Message`
-- Every UI block logged in `TM_UIB_UI_Block_Log`
-
----
-
-## 8. Generative UI with Tambo
-
-### 8.1 Tambo Component Registry
-
-#### File: `frontend/src/components/copilot/TamboRegistry.tsx`
-
-```typescript
-import { createTamboRegistry } from '@tambo/react'
-import { ActionCard } from './tambo/ActionCard'
-import { DataTable } from './tambo/DataTable'
-import { ChartCard } from './tambo/ChartCard'
-import { RecordPreview } from './tambo/RecordPreview'
-import { EmailDraft } from './tambo/EmailDraft'
-import { InvoiceSendWizard } from './tambo/InvoiceSendWizard'
-import { FormWizard } from './tambo/FormWizard'
-import { ToolErrorCard } from './tambo/ToolErrorCard'
-
-export const tamboRegistry = createTamboRegistry({
-  components: {
-    // Confirmation gate
-    ActionCard: {
-      component: ActionCard,
-      schema: {
-        type: 'object',
-        properties: {
-          tool_name: { type: 'string' },
-          tool_description: { type: 'string' },
-          action_summary: { type: 'string' },
-          parameters: { type: 'object' },
-          risk_level: { type: 'string', enum: ['low', 'medium', 'high'] },
-          side_effects: { type: 'array', items: { type: 'string' } }
-        },
-        required: ['tool_name', 'action_summary']
-      }
-    },
-
-    // Data display
-    DataTable: {
-      component: DataTable,
-      schema: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          columns: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                key: { type: 'string' },
-                label: { type: 'string' },
-                type: { type: 'string' }
-              }
-            }
-          },
-          rows: { type: 'array' },
-          total_count: { type: 'number' },
-          actions: { type: 'array' }
-        },
-        required: ['columns', 'rows']
-      }
-    },
-
-    // Analytics visualization
-    ChartCard: {
-      component: ChartCard,
-      schema: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          chart_type: { type: 'string', enum: ['bar', 'line', 'pie', 'area'] },
-          series: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string' },
-                data: { type: 'array' }
-              }
-            }
-          },
-          x_axis: { type: 'object' },
-          y_axis: { type: 'object' },
-          unit: { type: 'string' }
-        },
-        required: ['title', 'chart_type', 'series']
-      }
-    },
-
-    // Record preview
-    RecordPreview: {
-      component: RecordPreview,
-      schema: {
-        type: 'object',
-        properties: {
-          entity_type: { type: 'string' },
-          entity_id: { type: 'number' },
-          title: { type: 'string' },
-          fields: { type: 'array' },
-          actions: { type: 'array' }
-        },
-        required: ['entity_type', 'entity_id', 'fields']
-      }
-    },
-
-    // Email composer
-    EmailDraft: {
-      component: EmailDraft,
-      schema: {
-        type: 'object',
-        properties: {
-          to: { type: 'array', items: { type: 'string' } },
-          cc: { type: 'array', items: { type: 'string' } },
-          subject: { type: 'string' },
-          body: { type: 'string' },
-          attachments: { type: 'array' }
-        },
-        required: ['to', 'subject', 'body']
-      }
-    },
-
-    // Error display
-    ToolErrorCard: {
-      component: ToolErrorCard,
-      schema: {
-        type: 'object',
-        properties: {
-          tool_name: { type: 'string' },
-          error_message: { type: 'string' },
-          error_code: { type: 'string' },
-          retry_allowed: { type: 'boolean' }
-        },
-        required: ['tool_name', 'error_message']
-      }
-    }
-  }
-})
-```
-
-### 8.2 Example Tambo Components
-
-#### ActionCard Component
-
-```typescript
-import React, { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { copilotApi } from '@/api/copilot'
-
-interface ActionCardProps {
-  tool_name: string
-  tool_description: string
-  action_summary: string
-  parameters: Record<string, any>
-  risk_level: 'low' | 'medium' | 'high'
-  side_effects: string[]
-  tool_call_id: string
-}
-
-export function ActionCard(props: ActionCardProps) {
-  const [isConfirming, setIsConfirming] = useState(false)
-
-  const riskColors = {
-    low: 'border-green-200 bg-green-50',
-    medium: 'border-yellow-200 bg-yellow-50',
-    high: 'border-red-200 bg-red-50'
-  }
-
-  const handleConfirm = async () => {
-    setIsConfirming(true)
-    try {
-      await copilotApi.confirmAction({
-        tool_call_id: props.tool_call_id,
-        approved: true
-      })
-    } catch (error) {
-      console.error('Failed to confirm action:', error)
-    }
-    setIsConfirming(false)
-  }
-
-  const handleReject = async () => {
-    await copilotApi.confirmAction({
-      tool_call_id: props.tool_call_id,
-      approved: false,
-      rejection_reason: 'User cancelled'
-    })
-  }
-
-  return (
-    <Card className={`p-4 border-2 ${riskColors[props.risk_level]}`}>
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0">
-          {props.risk_level === 'high' ? '⚠️' : '🔔'}
-        </div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-sm mb-1">
-            Confirm Action: {props.tool_name}
-          </h3>
-          <p className="text-sm text-gray-700 mb-3">
-            {props.action_summary}
-          </p>
-
-          {/* Parameters */}
-          <div className="bg-white rounded p-2 mb-3 text-xs">
-            <div className="font-medium mb-1">Parameters:</div>
-            <pre className="text-gray-600">
-              {JSON.stringify(props.parameters, null, 2)}
-            </pre>
-          </div>
-
-          {/* Side effects */}
-          {props.side_effects?.length > 0 && (
-            <div className="mb-3">
-              <div className="text-xs font-medium mb-1">This will:</div>
-              <ul className="text-xs text-gray-600 list-disc list-inside">
-                {props.side_effects.map((effect, i) => (
-                  <li key={i}>{effect}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={handleConfirm}
-              disabled={isConfirming}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Confirm
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleReject}
-              disabled={isConfirming}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    </Card>
-  )
-}
-```
-
-#### ChartCard Component
-
-```typescript
-import React from 'react'
-import { Card } from '@/components/ui/card'
-import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer
-} from 'recharts'
-
-interface ChartCardProps {
-  title: string
-  chart_type: 'bar' | 'line' | 'pie' | 'area'
-  series: Array<{
-    name: string
-    data: Array<{ x: any, y: number }>
-  }>
-  x_axis?: { label?: string }
-  y_axis?: { label?: string }
-  unit?: string
-}
-
-export function ChartCard(props: ChartCardProps) {
-  // Transform data for Recharts
-  const data = props.series[0].data.map((point, i) => {
-    const row: any = { name: point.x }
-    props.series.forEach(s => {
-      row[s.name] = s.data[i]?.y || 0
-    })
-    return row
-  })
-
-  const renderChart = () => {
-    switch (props.chart_type) {
-      case 'bar':
-        return (
-          <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            {props.series.map((s, i) => (
-              <Bar key={i} dataKey={s.name} fill={`hsl(${i * 60}, 70%, 50%)`} />
-            ))}
-          </BarChart>
-        )
-
-      case 'line':
-        return (
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            {props.series.map((s, i) => (
-              <Line
-                key={i}
-                type="monotone"
-                dataKey={s.name}
-                stroke={`hsl(${i * 60}, 70%, 50%)`}
-              />
-            ))}
-          </LineChart>
-        )
-
-      // ... other chart types
-
-      default:
-        return null
-    }
-  }
-
-  return (
-    <Card className="p-4">
-      <h3 className="font-semibold mb-3">{props.title}</h3>
-      <ResponsiveContainer width="100%" height={250}>
-        {renderChart()}
-      </ResponsiveContainer>
-      {props.unit && (
-        <div className="text-xs text-gray-500 text-center mt-2">
-          Unit: {props.unit}
-        </div>
-      )}
-    </Card>
-  )
-}
-```
-
-### 8.3 UI Composer Service
-
-#### File: `backend/app/services/ui_composer.py`
-
-```python
-from typing import Dict, Any, Optional
-
-class UIComposer:
-    """
-    Maps tool results to Tambo UI component props.
-
-    Deterministic mapping: tool output → registered Tambo component
-    """
-
-    def create_action_card(
-        self,
-        tool_name: str,
-        tool_args: Dict[str, Any],
-        tool_def: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Generate ActionCard props for confirmation gate.
-        """
-        # Determine risk level
-        risk_level = "low"
-        if tool_def["side_effect_level"] == "financial":
-            risk_level = "high"
-        elif tool_def["side_effect_level"] == "external":
-            risk_level = "medium"
-
-        # Generate side effects list
-        side_effects = []
-        if "create" in tool_name:
-            side_effects.append(f"Create a new {tool_name.split('.')[0]} record")
-        elif "send" in tool_name:
-            side_effects.append("Send external communication")
-        elif "delete" in tool_name:
-            side_effects.append("Permanently delete data")
-
-        return {
-            "type": "ActionCard",
-            "props": {
-                "tool_name": tool_name,
-                "tool_description": tool_def["description"],
-                "action_summary": self._generate_action_summary(tool_name, tool_args),
-                "parameters": tool_args,
-                "risk_level": risk_level,
-                "side_effects": side_effects,
-                "tool_call_id": None  # Set by caller
-            }
-        }
-
-    def map_tool_result_to_ui(
-        self,
-        tool_name: str,
-        result: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Map tool execution result to UI block.
-
-        Returns None if result doesn't warrant a UI block.
-        """
-        # Search tools → DataTable
-        if "search" in tool_name or "list" in tool_name:
-            return self._create_data_table(tool_name, result)
-
-        # Report tools → ChartCard
-        if "report" in tool_name or "analytics" in tool_name:
-            return self._create_chart_card(tool_name, result)
-
-        # Create/Update tools → RecordPreview
-        if "create" in tool_name or "update" in tool_name:
-            return self._create_record_preview(tool_name, result)
-
-        # Email tools → EmailDraft
-        if "email" in tool_name:
-            return self._create_email_draft(tool_name, result)
-
-        return None
-
-    def _create_data_table(
-        self,
-        tool_name: str,
-        result: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Create DataTable UI block."""
-        entity_type = tool_name.split('.')[0]
-
-        # Infer columns from first row
-        rows = result.get("items") or result.get("products") or result.get("invoices") or []
-        if not rows:
-            return None
-
-        first_row = rows[0]
-        columns = [
-            {"key": k, "label": k.replace("_", " ").title(), "type": "text"}
-            for k in first_row.keys()
-        ]
-
-        return {
-            "type": "DataTable",
-            "props": {
-                "title": f"{entity_type.title()} Search Results",
-                "columns": columns,
-                "rows": rows,
-                "total_count": result.get("total", len(rows))
-            }
-        }
-
-    def _create_chart_card(
-        self,
-        tool_name: str,
-        result: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Create ChartCard UI block."""
-        # Example: AR aging report
-        if "aging" in tool_name:
-            return {
-                "type": "ChartCard",
-                "props": {
-                    "title": "Accounts Receivable Aging",
-                    "chart_type": "bar",
-                    "series": [
-                        {
-                            "name": "Outstanding Amount",
-                            "data": [
-                                {"x": bucket["bucket"], "y": bucket["amount"]}
-                                for bucket in result.get("buckets", [])
-                            ]
-                        }
-                    ],
-                    "x_axis": {"label": "Aging Bucket"},
-                    "y_axis": {"label": "Amount"},
-                    "unit": result.get("currency", "EUR")
-                }
-            }
-
-        return None
-
-    def _generate_action_summary(
-        self,
-        tool_name: str,
-        tool_args: Dict[str, Any]
-    ) -> str:
-        """Generate human-readable action summary."""
-        parts = tool_name.split('.')
-        entity = parts[0].rstrip('s')  # "products" → "product"
-        action = parts[1]
-
-        if action == "create":
-            name = tool_args.get("name") or tool_args.get("sku") or "new record"
-            return f"Create {entity} '{name}'"
-        elif action == "update":
-            id_val = tool_args.get("id")
-            return f"Update {entity} #{id_val}"
-        elif action == "delete":
-            id_val = tool_args.get("id")
-            return f"Delete {entity} #{id_val}"
-        elif action == "send":
-            to = tool_args.get("to") or tool_args.get("recipient")
-            return f"Send {entity} to {to}"
-
-        return f"{action.title()} {entity}"
-```
-
----
-
-## 9. Streaming Architecture
-
-### 9.1 SSE Event Schema
-
-```typescript
-// Event types sent via SSE stream
-
-interface SSEEvent {
-  type: string
-  data: any
-}
-
-// Event: token
-// Streamed text tokens for assistant response
-interface TokenEvent extends SSEEvent {
-  type: 'token'
-  data: {
-    token: string  // Single word or character
-  }
-}
-
-// Event: plan
-// Agent's planned actions before execution
-interface PlanEvent extends SSEEvent {
-  type: 'plan'
-  data: {
-    summary: string
-    tool_calls: Array<{
-      name: string
-      args: Record<string, any>
-    }>
-  }
-}
-
-// Event: tool_call_started
-interface ToolCallStartedEvent extends SSEEvent {
-  type: 'tool_call_started'
-  data: {
-    tool_call_id: string
-    tool_name: string
-    started_at: string
-  }
-}
-
-// Event: tool_call_result
-interface ToolCallResultEvent extends SSEEvent {
-  type: 'tool_call_result'
-  data: {
-    tool_call_id: string
-    tool_name: string
-    result: any
-    duration_ms: number
-  }
-}
-
-// Event: tool_call_failed
-interface ToolCallFailedEvent extends SSEEvent {
-  type: 'tool_call_failed'
-  data: {
-    tool_call_id: string
-    tool_name: string
-    error: string
-  }
-}
-
-// Event: ui_block
-// Generative UI component to render
-interface UIBlockEvent extends SSEEvent {
-  type: 'ui_block'
-  data: {
-    type: string  // Tambo component name
-    props: Record<string, any>
-  }
-}
-
-// Event: awaiting_confirmation
-interface AwaitingConfirmationEvent extends SSEEvent {
-  type: 'awaiting_confirmation'
-  data: {
-    tool_call_id: string
-    action_card: Record<string, any>
-  }
-}
-
-// Event: error
-interface ErrorEvent extends SSEEvent {
-  type: 'error'
-  data: {
-    message: string
-    code?: string
-  }
-}
-
-// Event: done
-interface DoneEvent extends SSEEvent {
-  type: 'done'
-  data: {}
-}
-```
-
-### 9.2 Frontend SSE Consumer
-
-```typescript
-// frontend/src/api/copilot.ts
-
-export const copilotApi = {
-  async sendMessage(request: {
-    message: string
-    conversation_id?: string
-    context?: any
-  }) {
-    const response = await apiClient.post('/copilot/chat', request)
-    return response.data
-  },
-
-  async confirmAction(request: {
-    tool_call_id: string
-    approved: boolean
-    rejection_reason?: string
-  }) {
-    const response = await apiClient.post('/copilot/confirm', request)
-    return response.data
-  },
-
-  async getToolsManifest() {
-    const response = await apiClient.get('/copilot/tools/manifest')
-    return response.data
-  }
-}
-```
-
----
-
-## 10. Implementation Roadmap
-
-### Phase 0: Foundation (Week 1-2)
-
-**Database:**
-- ✅ Create tables: TM_CPC_Copilot_Conversation, TM_CPM_Copilot_Message, TM_TCL_Tool_Call_Log
-- ✅ Add SQLAlchemy models
-- ✅ Run migrations
-
-**Backend:**
-- ✅ Create `/api/v1/copilot.py` router
-- ✅ Implement `CopilotService` skeleton
-- ✅ Set up SSE streaming endpoint `/stream`
-- ✅ Implement basic message persistence
-
-**Frontend:**
-- ✅ Create `<CopilotPanel />` component
-- ✅ Add panel toggle button in main layout
-- ✅ Implement `useCopilotChat()` hook with SSE
-- ✅ Basic message display (text only)
-
-**Goal:** User can open panel, type message, see response (mock for now)
-
----
-
-### Phase 1: Tool Registry + Core CRUD Tools (Week 3-4)
-
-**Backend:**
-- ✅ Implement `ToolRegistry` service
-- ✅ Create tool definition schema
-- ✅ Implement first 10 tools:
-  - `products.create`, `products.search`, `products.update`
-  - `clients.create`, `clients.search`
-  - `invoices.createDraft`, `invoices.addLine`, `invoices.search`
-  - `orders.create`, `orders.search`
-- ✅ Implement `ToolRunner` with error handling
-- ✅ Add tool call logging to `TM_TCL_Tool_Call_Log`
-
-**Integration:**
-- ✅ Connect tool handlers to existing services (ProductService, ClientService, etc.)
-- ✅ Ensure idempotency for create operations
-
-**Frontend:**
-- ✅ Display tool call timeline
-- ✅ Show tool status (pending/running/success/failed)
-- ✅ Render tool results as JSON (temporary)
-
-**Goal:** User can execute 10 core CRUD operations via chat
-
----
-
-### Phase 2: RBAC Integration + Permissions (Week 5)
-
-**Backend:**
-- ✅ Implement `PolicyEngine` service
-- ✅ Add RBAC permission checks before tool execution
-- ✅ Create `TR_SAM_Screen_API_Mapping` table
-- ✅ Seed mappings for existing screens → API resources
-- ✅ Filter `/tools/manifest` by user role
-
-**Security:**
-- ✅ Test permission denial flows
-- ✅ Add audit logging for failed permission checks
-- ✅ Ensure society/BU isolation on all queries
-
-**Frontend:**
-- ✅ Display permission errors clearly
-- ✅ Show only available tools in autocomplete/suggestions
-
-**Goal:** Tools are properly gated by RBAC permissions
-
----
-
-### Phase 3: Confirmation Gates + Action Cards (Week 6)
-
-**Backend:**
-- ✅ Implement side-effect detection logic
-- ✅ Create `UIComposer.create_action_card()`
-- ✅ Add `/confirm` endpoint
-- ✅ Implement `TM_APR_Approval_Request` table
-- ✅ Pause tool execution until confirmation received
-
-**Frontend:**
-- ✅ Implement `<ActionCard />` Tambo component
-- ✅ Add "Confirm" and "Cancel" handlers
-- ✅ Call `/confirm` API on user action
-- ✅ Resume stream after confirmation
-
-**Tools:**
-- ✅ Tag tools with `side_effect_level`
-- ✅ Add idempotency keys for external/financial tools
-
-**Goal:** No side-effect operations execute without user confirmation
-
----
-
-### Phase 4: Generative UI - Tambo Components (Week 7-8)
-
-**Frontend:**
-- ✅ Set up Tambo registry
-- ✅ Implement core components:
-  - `<ActionCard />` (already done in Phase 3)
-  - `<DataTable />`
-  - `<ChartCard />`
-  - `<RecordPreview />`
-  - `<EmailDraft />`
-  - `<FormWizard />`
-  - `<ToolErrorCard />`
-- ✅ Implement `<TamboRenderer />` to dynamically mount components
-
-**Backend:**
-- ✅ Implement `UIComposer.map_tool_result_to_ui()`
-- ✅ Create UI block mappings:
-  - Search tools → DataTable
-  - Report tools → ChartCard
-  - Create/Update tools → RecordPreview
-  - Email tools → EmailDraft
-- ✅ Stream `ui_block` events via SSE
-
-**Goal:** Search results render as tables, reports as charts, confirmations as cards
-
----
-
-### Phase 5: Business Logic Tools (Week 9-11)
-
-**Invoice Tools:**
-- `invoices.generatePdf`
-- `invoices.sendEmail`
-- `invoices.createFromOrder`
-- `invoices.recordPayment`
-- `invoices.void`
-
-**Payment Tools:**
-- `payments.create`
-- `payments.allocate`
-- `payments.reconcile`
-
-**Order Tools:**
-- `orders.updateStatus`
-- `orders.createDelivery`
-- `orders.convertToInvoice`
-
-**Report Tools:**
-- `reports.arAging` (chart)
-- `reports.marginByLot` (chart + table)
-- `reports.stockLow` (table)
-
-**Shipment Tools:**
-- `shipments.update`
-- `shipments.trackContainer`
-- `shipments.receiveLot`
-
-**Goal:** 80% of common ERP workflows achievable via chat
-
----
-
-### Phase 6: External Integrations (Week 12-13)
-
-**Shopify Tools:**
-- `shopify.syncOrders`
-- `shopify.pushInventory`
-- `shopify.syncProducts`
-- `shopify.webhookStatus`
-
-**Email Tools:**
-- `email.sendCustom`
-- `email.sendDailyInvoiceBatch`
-- `email.sendOverdueReminders`
-
-**Export Tools:**
-- `x3.exportZip`
-- `x3.exportInvoices`
-- `x3.exportPayments`
-
-**PDF Tools:**
-- `pdf.generateInvoice`
-- `pdf.generateStatement`
-- `pdf.generatePackingList`
-
-**Integration:**
-- ✅ Use existing Shopify service
-- ✅ Use existing Email service (SMTP/SES)
-- ✅ Use existing PDF service
-- ✅ Add idempotency for all external operations
-
-**Goal:** Copilot can trigger integrations with external systems
-
----
-
-### Phase 7: Analytics & Insights (Week 14)
-
-**Advanced Charts:**
-- `analytics.salesTrend` (line chart)
-- `analytics.topProducts` (bar chart)
-- `analytics.customerSegments` (pie chart)
-- `analytics.marginAnalysis` (multi-series chart)
-
-**Financial Reports:**
-- `reports.trialBalance`
-- `reports.profitAndLoss`
-- `reports.cashFlow`
-
-**Inventory Reports:**
-- `reports.stockValuation`
-- `reports.turnoverRate`
-- `reports.lowStockAlert`
-
-**UI Enhancements:**
-- Add drilldown links in charts (click bar → show detail)
-- Export chart data as CSV
-- Schedule reports for email delivery
-
-**Goal:** Copilot provides actionable business insights
-
----
-
-### Phase 8: Multi-Step Workflows (Week 15-16)
-
-**Macro Tools** (orchestrate multiple tools):
-- `workflows.invoiceSendBatch`: Generate PDFs + send emails for all ready invoices
-- `workflows.poCreateFromLowStock`: Detect low stock + create PO + notify
-- `workflows.lotCloseWithCosting`: Allocate costs + update inventory + mark lot closed
-- `workflows.monthEndClose`: Generate reports + send summaries + lock period
-
-**Implementation:**
-- Create workflow tools that call other tools internally
-- Chain tool executions with error handling
-- Stream progress for each sub-step
-- Rollback on failure (compensating transactions)
-
-**Goal:** Complex multi-step operations automated via single command
-
----
-
-### Phase 9: Context Awareness (Week 17)
-
-**Route-Based Context:**
-- Detect current route: `/authenticated/invoices/123`
-- Auto-load entity: invoice #123
-- Suggest relevant actions: "Send this invoice?", "Record payment?", "View aging?"
-
-**Selection Context:**
-- Pass selected rows from data tables
-- "Export selected products to Shopify"
-- "Send invoices for selected clients"
-
-**Recent Actions:**
-- Show last 5 actions in context header
-- "Undo last action" support for reversible operations
-
-**Smart Suggestions:**
-- Show quick action buttons based on context
-- "Current invoice is draft → [Generate PDF] [Send Email]"
-
-**Goal:** Copilot feels context-aware and proactive
-
----
-
-### Phase 10: Production Hardening (Week 18-20)
-
-**Performance:**
-- ✅ Add Redis caching for tool manifest
-- ✅ Optimize RBAC queries (add indexes)
-- ✅ Stream response tokens (don't wait for full response)
-- ✅ Connection pooling for database
-
-**Reliability:**
-- ✅ Retry logic for LLM API calls (exponential backoff)
-- ✅ Circuit breaker for external services (Shopify, email)
-- ✅ Graceful degradation (if email down, queue for later)
-
-**Security:**
-- ✅ Rate limiting per user (e.g., 50 messages/hour)
-- ✅ Input validation on all tool arguments
-- ✅ SQL injection prevention (use parameterized queries)
-- ✅ Escape user input in email templates
-
-**Observability:**
-- ✅ Add OpenTelemetry tracing
-- ✅ Log all tool calls to monitoring system
-- ✅ Dashboard for Copilot usage metrics
-- ✅ Alert on high error rates
-
-**Compliance:**
-- ✅ GDPR: Conversation deletion endpoint
-- ✅ Data retention policy (auto-delete old conversations)
-- ✅ Export user's conversation history
-
-**Goal:** Copilot is production-ready and secure
-
----
-
-## 11. Testing Strategy
-
-### 11.1 Backend Tests
-
-**Unit Tests:**
-```python
-# test_tool_registry.py
-def test_register_tool():
-    registry = ToolRegistry()
-    tool = ToolDefinition(name="test.tool", ...)
-    registry.register(tool)
-    assert registry.get_tool("test.tool") == tool
-
-# test_policy_engine.py
-async def test_check_permission_allowed():
-    engine = PolicyEngine(db)
-    result = await engine.check_permission(
-        user_id=1,
-        role_id=1,
-        tool_name="products.create",
-        required_permissions=["rit_create"]
-    )
-    assert result == True
-
-# test_copilot_service.py
-async def test_handle_message():
-    service = CopilotService(db, tools, policy, llm)
-    result = await service.handle_message(
-        user_id=1,
-        message="Create a product"
-    )
-    assert result["conversation_id"] is not None
-```
-
-**Integration Tests:**
-```python
-# test_api_copilot.py
-async def test_chat_endpoint(client: TestClient):
-    response = client.post("/api/v1/copilot/chat", json={
-        "message": "List all products"
-    })
-    assert response.status_code == 200
-    assert "conversation_id" in response.json()
-
-async def test_stream_endpoint(client: TestClient):
-    # Send message first
-    chat_resp = client.post("/api/v1/copilot/chat", ...)
-    conv_id = chat_resp.json()["conversation_id"]
-
-    # Open SSE stream
-    with client.stream("GET", f"/api/v1/copilot/stream?conversation_id={conv_id}") as r:
-        events = []
-        for line in r.iter_lines():
-            if line.startswith("event:"):
-                events.append(line)
-
-        assert any("token" in e for e in events)
-        assert any("done" in e for e in events)
-```
-
-**Tool Tests:**
-```python
-# test_product_tools.py
-async def test_create_product_tool():
-    handler = get_tool_registry().get_handler("products.create")
-    result = await handler(
-        db=test_db,
-        args={"sku": "TEST-001", "name": "Test Product"}
-    )
-    assert result["product_id"] is not None
-    assert result["sku"] == "TEST-001"
-```
-
-### 11.2 Frontend Tests
-
-**Component Tests:**
-```typescript
-// CopilotPanel.test.tsx
-import { render, screen } from '@testing-library/react'
-import { CopilotPanel } from './CopilotPanel'
-
-test('renders panel when open', () => {
-  render(<CopilotPanel isOpen={true} onClose={() => {}} />)
-  expect(screen.getByText('AI Copilot')).toBeInTheDocument()
-})
-
-test('sends message on submit', async () => {
-  const { user } = renderWithProviders(<CopilotPanel isOpen={true} />)
-  const input = screen.getByPlaceholderText(/ask me anything/i)
-
-  await user.type(input, 'Create a product')
-  await user.click(screen.getByRole('button', { name: /send/i }))
-
-  // Verify API call
-  expect(mockCopilotApi.sendMessage).toHaveBeenCalledWith({
-    message: 'Create a product',
-    ...
-  })
-})
-```
-
-**Hook Tests:**
-```typescript
-// useCopilotChat.test.ts
-import { renderHook, waitFor } from '@testing-library/react'
-import { useCopilotChat } from './useCopilotChat'
-
-test('sends message and receives stream', async () => {
-  const { result } = renderHook(() => useCopilotChat())
-
-  act(() => {
-    result.current.sendMessage('Test message')
-  })
-
-  await waitFor(() => {
-    expect(result.current.messages).toHaveLength(2)  // user + assistant
-    expect(result.current.messages[1].role).toBe('assistant')
-  })
-})
-```
-
-**Tambo Component Tests:**
-```typescript
-// ActionCard.test.tsx
-test('renders action card with parameters', () => {
-  render(
-    <ActionCard
-      tool_name="products.create"
-      action_summary="Create product TEST-001"
-      parameters={{ sku: 'TEST-001', name: 'Test' }}
-      risk_level="low"
-      side_effects={['Create new product record']}
-      tool_call_id="123"
-    />
-  )
-
-  expect(screen.getByText(/Create product TEST-001/i)).toBeInTheDocument()
-  expect(screen.getByText(/TEST-001/i)).toBeInTheDocument()
-})
-
-test('calls confirm API on approve', async () => {
-  const { user } = render(<ActionCard {...props} />)
-
-  await user.click(screen.getByRole('button', { name: /confirm/i }))
-
-  expect(mockCopilotApi.confirmAction).toHaveBeenCalledWith({
-    tool_call_id: '123',
-    approved: true
-  })
-})
-```
-
-### 11.3 E2E Tests
-
-```typescript
-// e2e/copilot.spec.ts (Playwright)
-import { test, expect } from '@playwright/test'
-
-test('complete copilot workflow', async ({ page }) => {
-  await page.goto('/authenticated/dashboard')
-
-  // Open copilot panel
-  await page.click('[data-testid="copilot-toggle"]')
-  await expect(page.locator('.copilot-panel')).toBeVisible()
-
-  // Send message
-  await page.fill('[data-testid="copilot-input"]', 'Create a product SKU TEST-001')
-  await page.click('[data-testid="copilot-send"]')
-
-  // Wait for response
-  await expect(page.locator('[data-testid="assistant-message"]')).toBeVisible()
-
-  // Verify tool call timeline
-  await expect(page.locator('[data-testid="tool-call-products.create"]')).toBeVisible()
-
-  // Check tool status
-  await expect(page.locator('[data-testid="tool-status-success"]')).toBeVisible()
-})
-
-test('confirmation flow for side effects', async ({ page }) => {
-  await page.goto('/authenticated/invoices')
-
-  // Open copilot
-  await page.click('[data-testid="copilot-toggle"]')
-
-  // Request side-effect action
-  await page.fill('[data-testid="copilot-input"]', 'Send invoice INV-001 to customer')
-  await page.click('[data-testid="copilot-send"]')
-
-  // Wait for ActionCard
-  await expect(page.locator('[data-testid="action-card"]')).toBeVisible()
-
-  // Verify parameters shown
-  await expect(page.locator('text=INV-001')).toBeVisible()
-
-  // Approve action
-  await page.click('[data-testid="action-card-confirm"]')
-
-  // Verify execution
-  await expect(page.locator('[data-testid="tool-status-success"]')).toBeVisible()
-})
-```
-
----
-
-## 12. Production Considerations
-
-### 12.1 LLM Provider Configuration
-
-**Recommended Provider:**
-- **Anthropic Claude 3.5 Sonnet** for production
-- Fast, reliable tool calling
-- Strong instruction following
-- Good cost/performance ratio
-
-**Configuration:**
-```python
-# backend/app/core/llm_client.py
-from anthropic import Anthropic
-
-class LLMClient:
-    def __init__(self):
-        self.client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        self.model = "claude-3-5-sonnet-20241022"
-
-    async def plan(
-        self,
-        context: Dict[str, Any],
-        message: str,
-        tools: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """
-        Call LLM to generate plan with tool calls.
-        """
-        system_prompt = self._build_system_prompt(context, tools)
-
-        response = await asyncio.to_thread(
-            self.client.messages.create,
-            model=self.model,
-            max_tokens=4096,
-            temperature=0.1,  # Low temp for consistency
-            system=system_prompt,
-            messages=[
-                {"role": "user", "content": message}
-            ],
-            tools=tools  # Anthropic tool format
-        )
-
-        return {
-            "text": self._extract_text(response),
-            "tool_calls": self._extract_tool_calls(response)
-        }
-```
-
-**System Prompt Template:**
-```python
-def _build_system_prompt(self, context: Dict[str, Any], tools: List[Dict]) -> str:
-    return f"""You are an AI assistant integrated into the ERP2025 system.
-
-Current Context:
-- User: {context['user_name']} (Role: {context['role_name']})
-- Company: {context['society_name']}
-- Business Unit: {context['bu_name']}
-- Current View: {context['route']}
-- Selected Entity: {context['entity_type']} #{context['entity_id']}
-
-Your Capabilities:
-You have access to {len(tools)} tools to interact with the ERP system.
-
-IMPORTANT Rules:
-1. NEVER execute tools with side effects without asking for confirmation
-2. ALWAYS check permissions before suggesting actions
-3. Provide clear explanations for your actions
-4. If a task is ambiguous, ask clarifying questions
-5. Use the most specific tool for the task
-6. For data queries, use search/list tools first before creating
-7. Respect the user's business unit and data isolation
-
-Side Effect Levels:
-- none: Safe to execute automatically (read operations)
-- draft: Creates drafts/temporary data (auto-execute with notification)
-- external: Sends emails, API calls (REQUIRES confirmation)
-- financial: Money-related operations (REQUIRES confirmation)
-- inventory: Stock movements (REQUIRES confirmation)
-
-Available Tools:
-{self._format_tools_for_prompt(tools)}
-
-When you need to execute a tool:
-- Use the exact tool name from the list above
-- Provide all required parameters
-- Explain what you're about to do before using a tool
-
-Be helpful, accurate, and respectful of the user's permissions and context.
-"""
-```
-
-### 12.2 Performance Optimization
-
-**Caching:**
-```python
-# Cache tool manifest per role
-@lru_cache(maxsize=100)
-def get_cached_user_tools(role_id: int) -> List[Dict]:
-    return tool_registry.get_user_tools(role_id=role_id)
-
-# Cache RBAC permissions per user
-@lru_cache(maxsize=1000)
-def get_cached_permissions(user_id: int, role_id: int) -> Dict[str, List[str]]:
-    return policy_engine.get_user_tool_permissions(role_id)
-```
-
-**Database Optimization:**
-```sql
--- Indexes for copilot tables
-CREATE INDEX idx_cpc_user_created ON TM_CPC_Copilot_Conversation(usr_id, cpc_created_at DESC);
-CREATE INDEX idx_cpm_conversation ON TM_CPM_Copilot_Message(cpc_id, cpm_created_at);
-CREATE INDEX idx_tcl_conversation ON TM_TCL_Tool_Call_Log(cpc_id, tcl_started_at);
-CREATE INDEX idx_tcl_status ON TM_TCL_Tool_Call_Log(tcl_status, tcl_started_at DESC);
-CREATE INDEX idx_tcl_idempotency ON TM_TCL_Tool_Call_Log(tcl_idempotency_key)
-  WHERE tcl_idempotency_key IS NOT NULL;
-```
-
-**Connection Pooling:**
-```python
-# Increase pool size for copilot endpoints
-engine = create_engine(
-    DATABASE_URL,
-    pool_size=20,  # Increased for SSE connections
-    max_overflow=40,
-    pool_pre_ping=True,
-    pool_recycle=3600
-)
-```
-
-### 12.3 Monitoring & Observability
-
-**Metrics to Track:**
-```python
-from prometheus_client import Counter, Histogram, Gauge
-
-# Copilot usage metrics
-copilot_messages_total = Counter(
-    'copilot_messages_total',
-    'Total messages sent to copilot',
-    ['user_id', 'role']
-)
-
-copilot_tool_calls_total = Counter(
-    'copilot_tool_calls_total',
-    'Total tool calls executed',
-    ['tool_name', 'status']
-)
-
-copilot_tool_duration = Histogram(
-    'copilot_tool_duration_seconds',
-    'Tool execution duration',
-    ['tool_name']
-)
-
-copilot_llm_latency = Histogram(
-    'copilot_llm_latency_seconds',
-    'LLM API call latency'
-)
-
-copilot_active_streams = Gauge(
-    'copilot_active_streams',
-    'Number of active SSE streams'
-)
-```
-
-**Logging:**
-```python
-import structlog
-
-logger = structlog.get_logger()
-
-# Log every tool call
-logger.info(
-    "tool_call_executed",
-    tool_name=tool_name,
-    user_id=user_id,
-    status=status,
-    duration_ms=duration,
-    error=error_msg if failed else None
-)
-
-# Log permission denials
-logger.warning(
-    "permission_denied",
-    user_id=user_id,
-    role_id=role_id,
-    tool_name=tool_name,
-    required_permissions=required_perms
-)
-```
-
-### 12.4 Cost Management
-
-**LLM API Costs:**
-- Estimate: ~$0.003 per message (Claude 3.5 Sonnet)
-- 10,000 messages/month = ~$30
-- Cache system prompts to reduce input tokens
-
-**Optimization Strategies:**
-```python
-# 1. Cache system prompt per user session
-@lru_cache(maxsize=1000)
-def get_system_prompt_for_user(user_id: int) -> str:
-    # Build once, reuse for session
-    ...
-
-# 2. Limit conversation history sent to LLM
-def get_conversation_window(messages: List, max_messages: int = 10):
-    # Only send last N messages to LLM
-    return messages[-max_messages:]
-
-# 3. Use cheaper model for simple queries
-def select_model(message: str, context: Dict) -> str:
-    if is_simple_search(message):
-        return "claude-3-haiku-20240307"  # Cheaper
-    return "claude-3-5-sonnet-20241022"  # Default
-```
-
-### 12.5 Rate Limiting
-
-```python
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
-limiter = Limiter(key_func=get_remote_address)
-
-@router.post("/chat")
-@limiter.limit("50/hour")  # 50 messages per hour per user
-async def chat(...):
-    ...
-
-@router.get("/stream")
-@limiter.limit("100/hour")  # Allow more streams (retries)
-async def stream(...):
-    ...
-```
-
-### 12.6 Error Recovery
-
-**Retry Logic:**
-```python
-import tenacity
-
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(3),
-    wait=tenacity.wait_exponential(multiplier=1, min=2, max=10),
-    retry=tenacity.retry_if_exception_type(APIError)
-)
-async def call_llm_with_retry(...):
-    return await llm_client.plan(...)
-```
-
-**Circuit Breaker:**
-```python
-from pybreaker import CircuitBreaker
-
-# Protect external services
-shopify_breaker = CircuitBreaker(
-    fail_max=5,
-    timeout_duration=60,
-    name='shopify'
-)
-
-@shopify_breaker
-async def sync_shopify_orders(...):
-    ...
-```
-
-### 12.7 Data Retention
-
-```python
-# Scheduled task to clean old conversations
-from app.tasks import celery_app
-
-@celery_app.task
-def cleanup_old_conversations():
-    """Delete conversations older than 90 days."""
-    cutoff_date = datetime.utcnow() - timedelta(days=90)
-
-    db.query(CopilotConversation).filter(
-        CopilotConversation.cpc_created_at < cutoff_date,
-        CopilotConversation.cpc_status == 'archived'
-    ).delete()
-
-    db.commit()
-
-# Run daily at 2 AM
-celery_app.conf.beat_schedule['cleanup-conversations'] = {
-    'task': 'cleanup_old_conversations',
-    'schedule': crontab(hour=2, minute=0)
-}
-```
-
----
-
-## Summary
-
-This implementation plan provides a **production-ready architecture** for integrating a Claude-like AI Copilot into the ERP2025 system. Key highlights:
-
-✅ **Leverages Existing Infrastructure**: Uses established FastAPI services, React patterns, and RBAC system
-✅ **Tambo Generative UI**: Dynamic component rendering for rich interactions
-✅ **Security-First**: Permission checks, confirmation gates, audit logs
-✅ **Scalable Tool Registry**: Easy to add new capabilities
-✅ **Streaming Architecture**: Real-time SSE for responsive UX
-✅ **Production-Ready**: Monitoring, rate limiting, error recovery
-
-**Next Steps:**
-1. Review and approve architecture
-2. Set up development environment
-3. Begin Phase 0 implementation
-4. Iterate through phases with continuous testing
-
-Total estimated timeline: **18-20 weeks** for full implementation.
+**[CONTINUED IN NEXT SECTION DUE TO LENGTH...]**
+
+This plan continues with:
+- Section 7: Security & RBAC Integration
+- Section 8: Tool Registry & Execution
+- Section 9: Frontend Implementation
+- Section 10: Generative UI with Tambo
+- Section 11: Streaming Architecture
+- Section 12: Implementation Roadmap
+- Section 13: Testing Strategy
+- Section 14: Production Deployment
+
+Would you like me to continue with the remaining sections?

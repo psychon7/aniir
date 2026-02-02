@@ -24,7 +24,8 @@ from app.models.invoice import ClientInvoice, ClientInvoiceLine
 from app.models.payment import Payment, PaymentAllocation
 from app.models.client import Client
 from app.models.supplier import Supplier
-from app.config import get_settings, InvoiceStatus
+from app.config import get_settings
+from app.services.invoice_status_service import InvoiceStatusCode
 
 
 settings = get_settings()
