@@ -4,7 +4,9 @@ from typing import List, Tuple, Optional, Literal
 from datetime import datetime, timedelta
 import logging
 import os
+from fastapi import Depends
 
+from app.database import get_db
 from app.schemas.pdf import (
     PDFStatusResponse,
     PDFGenerateResponse,
@@ -244,7 +246,7 @@ class PDFService:
 # Dependency Function
 # =============================================================================
 
-def get_pdf_service(db: Session) -> PDFService:
+def get_pdf_service(db: Session = Depends(get_db)) -> PDFService:
     """Dependency for getting PDF service."""
     return PDFService(db)
 

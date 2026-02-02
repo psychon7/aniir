@@ -15,8 +15,11 @@ from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy import select, func, and_, or_, desc, asc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from fastapi import Depends
 
 from datetime import timedelta
+
+from app.database import get_db
 
 from app.models.invoice import ClientInvoice, ClientInvoiceLine
 from app.models.order import ClientOrder, ClientOrderLine
@@ -967,6 +970,6 @@ class InvoiceService:
         return invoice, order_reference
 
 
-def get_invoice_service(db: AsyncSession) -> InvoiceService:
+def get_invoice_service(db: AsyncSession = Depends(get_db)) -> InvoiceService:
     """Dependency to get InvoiceService instance."""
     return InvoiceService(db)

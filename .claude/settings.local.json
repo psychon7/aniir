@@ -42,7 +42,14 @@
       "Bash(docker exec:*)",
       "Bash(docker logs:*)",
       "Bash(git remote add:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: AXTECH ERP2025 Full Stack Application\n\nFeatures:\n- Backend: FastAPI with SQL Server, async services, comprehensive API\n- Frontend: React + Vite + TanStack Router + TailwindCSS\n- Database: SQL Server schema aligned with production\n- Entities: Clients, Suppliers, Products, Orders, Quotes, Invoices, Deliveries, Warehouse\n- DetailResponse schemas with validation_alias for DB-to-UI field mapping\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(npx:*)",
+      "Bash(npx @tanstack/router-cli generate:*)",
+      "Bash(docker build:*)"
     ]
   }
 }

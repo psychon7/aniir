@@ -17,7 +17,9 @@ from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from fastapi import Depends
 
+from app.database import get_db
 from app.models.invoice import ClientInvoice, ClientInvoiceLine
 from app.models.payment import Payment, PaymentAllocation
 from app.models.client import Client
@@ -1218,7 +1220,7 @@ class StatementService:
 # Factory Function
 # ==========================================================================
 
-def get_statement_service(db: AsyncSession) -> StatementService:
+def get_statement_service(db: AsyncSession = Depends(get_db)) -> StatementService:
     """
     Factory function to create StatementService instance.
 

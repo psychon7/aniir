@@ -3,7 +3,9 @@ from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
+from fastapi import Depends
 
+from app.database import get_db
 from app.repositories.accounting_repository import AccountingRepository
 from app.schemas.accounting import (
     ReceivablesAgingResponse,
@@ -267,6 +269,6 @@ class AccountingService:
 # Dependency Function
 # =============================================================================
 
-def get_accounting_service(db: Session) -> AccountingService:
+def get_accounting_service(db: Session = Depends(get_db)) -> AccountingService:
     """Dependency for getting accounting service."""
     return AccountingService(db)

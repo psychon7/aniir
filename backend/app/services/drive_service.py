@@ -5,7 +5,9 @@ from typing import Optional, List, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
+from fastapi import Depends
 
+from app.database import get_db
 from app.models.drive import DriveFile, DriveFolder
 from app.schemas.drive import DriveFileCreate, DriveFileUpdate, EntityType
 
@@ -48,7 +50,7 @@ class StorageError(DriveServiceError):
 # Dependency Function
 # =============================================================================
 
-def get_drive_service(db: Session) -> "DriveService":
+def get_drive_service(db: Session = Depends(get_db)) -> "DriveService":
     """Dependency for getting drive service."""
     return DriveService(db)
 

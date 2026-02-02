@@ -19,7 +19,9 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from sqlalchemy.exc import IntegrityError
+from fastapi import Depends
 
+from app.database import get_db
 from app.config import get_settings, Settings
 from app.integrations.shopify.exceptions import (
     ShopifyError,
@@ -668,6 +670,6 @@ class ShopifyOAuthService:
         ]
 
 
-def get_shopify_oauth_service(db: AsyncSession) -> ShopifyOAuthService:
+def get_shopify_oauth_service(db: AsyncSession = Depends(get_db)) -> ShopifyOAuthService:
     """Factory function to get ShopifyOAuthService instance."""
     return ShopifyOAuthService(db)

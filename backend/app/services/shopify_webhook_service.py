@@ -15,7 +15,9 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from sqlalchemy.exc import IntegrityError
+from fastapi import Depends
 
+from app.database import get_db
 from app.config import get_settings, Settings
 from app.models.integrations.shopify import ShopifyIntegration, ShopifyWebhook
 from app.integrations.shopify.exceptions import (
@@ -787,6 +789,6 @@ class ShopifyWebhookService:
         }
 
 
-def get_shopify_webhook_service(db: AsyncSession) -> ShopifyWebhookService:
+def get_shopify_webhook_service(db: AsyncSession = Depends(get_db)) -> ShopifyWebhookService:
     """Factory function to get ShopifyWebhookService instance."""
     return ShopifyWebhookService(db)

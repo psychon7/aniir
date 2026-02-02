@@ -20,7 +20,6 @@ from app.services.order_service import (
     OrderNotFoundError,
     OrderStatusError,
 )
-from app.models.order import ClientOrderStatusHistory
 from app.schemas.order import OrderDetailResponse
 
 
@@ -296,32 +295,13 @@ async def get_order_status_history(
     except OrderNotFoundError as exc:
         raise handle_order_error(exc)
 
-    # Get status history
-    stmt = select(ClientOrderStatusHistory).where(
-        ClientOrderStatusHistory.osh_ord_id == order_id
-    ).order_by(ClientOrderStatusHistory.osh_changed_at.desc())
-
-    result = await db.execute(stmt)
-    history_records = result.scalars().all()
-
-    history = []
-    for record in history_records:
-        history.append(StatusHistoryEntry(
-            id=record.osh_id,
-            order_id=record.osh_ord_id,
-            from_status_id=record.osh_from_status_id,
-            from_status_name=service._get_status_name(record.osh_from_status_id) if record.osh_from_status_id else None,
-            to_status_id=record.osh_to_status_id,
-            to_status_name=service._get_status_name(record.osh_to_status_id),
-            changed_at=record.osh_changed_at,
-            changed_by=record.osh_changed_by,
-            notes=record.osh_notes,
-        ))
-
+    # Note: Status history table doesn't exist in the database.
+    # Status changes are tracked in the internal_notes field.
+    # Return empty history for now.
     return StatusHistoryResponse(
         success=True,
         order_id=order_id,
-        history=history,
+        history=[],
     )
 
 

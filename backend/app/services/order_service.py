@@ -14,7 +14,9 @@ from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy import select, func, and_, or_, desc, asc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from fastapi import Depends
 
+from app.database import get_db
 from app.models.order import ClientOrder, ClientOrderLine
 from app.models.client import Client
 from app.models.society import Society
@@ -1167,6 +1169,6 @@ class OrderService:
         return order
 
 
-def get_order_service(db: AsyncSession) -> OrderService:
+def get_order_service(db: AsyncSession = Depends(get_db)) -> OrderService:
     """Dependency to get OrderService instance."""
     return OrderService(db)

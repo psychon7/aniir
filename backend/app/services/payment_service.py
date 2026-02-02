@@ -6,7 +6,9 @@ from sqlalchemy import func, desc
 from datetime import datetime
 from typing import Optional
 from decimal import Decimal
+from fastapi import Depends
 
+from app.database import get_db
 from app.models.payment import Payment
 from app.models.payment_mode import PaymentMode
 from app.schemas.payment import PaymentCreate, PaymentUpdate, PaymentResponse
@@ -177,6 +179,6 @@ class PaymentService:
         return payments, total
 
 
-def get_payment_service(db: Session) -> PaymentService:
+def get_payment_service(db: Session = Depends(get_db)) -> PaymentService:
     """Factory function to create PaymentService instance"""
     return PaymentService(db)

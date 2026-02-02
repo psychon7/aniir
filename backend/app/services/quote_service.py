@@ -20,6 +20,9 @@ from typing import Optional, List, Dict, Any
 import logging
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
+
+from app.database import get_db
 
 from app.models.costplan import CostPlan
 from app.models.client import Client
@@ -233,6 +236,6 @@ class QuoteService:
         return response_data
 
 
-def get_quote_service(db: AsyncSession) -> "QuoteService":
+def get_quote_service(db: AsyncSession = Depends(get_db)) -> "QuoteService":
     """Dependency to get QuoteService instance."""
     return QuoteService(db)

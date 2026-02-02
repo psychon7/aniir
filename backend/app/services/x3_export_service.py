@@ -23,7 +23,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 import httpx
 import logging
+from fastapi import Depends
 
+from app.database import get_db
 from app.models.invoice import ClientInvoice, ClientInvoiceLine
 from app.models.client import Client
 from app.models.payment import Payment
@@ -1561,6 +1563,6 @@ class X3ExportService:
 # Factory Function
 # ==========================================================================
 
-def get_x3_export_service(db: AsyncSession) -> X3ExportService:
+def get_x3_export_service(db: AsyncSession = Depends(get_db)) -> X3ExportService:
     """Dependency to get X3ExportService instance."""
     return X3ExportService(db)

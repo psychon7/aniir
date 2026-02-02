@@ -69,6 +69,50 @@ async def database_health_check(db: Session = Depends(get_db)):
         )
 
 
+@router.get("/health/env")
+async def env_check():
+    """Check environment variables (for debugging)."""
+    import os
+    import socket
+    
+    db_url = os.getenv("DATABASE_URL", "NOT SET")
+    # Mask password for security
+    if ":" in db_url and "@" in db_url:
+        parts = db_url.split("@")
+        if len(parts) == 2:
+            creds = parts[0].split("://")[1] if "://" in parts[0] else parts[0]
+            user = creds.split(":")[0] if ":" in creds else creds
+            db_url_masked = f"...://{user}:****@{parts[1]}"
+        else:
+            db_url_masked = "****"
+    else:
+        db_url_masked = db_url
+    
+    # Try to resolve/ping the DB server
+    db_host = "47.254.130.238"
+    db_port = 1433
+    can_connect = False
+    connect_error = None
+    
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5)
+        result = sock.connect_ex((db_host, db_port))
+        can_connect = (result == 0)
+        sock.close()
+    except Exception as e:
+        connect_error = str(e)
+    
+    return {
+        "database_url_masked": db_url_masked,
+        "db_host": db_host,
+        "db_port": db_port,
+        "can_reach_db_port": can_connect,
+        "connect_error": connect_error,
+        "environment": os.getenv("ENVIRONMENT", "NOT SET"),
+    }
+
+
 @router.get("/health/tables")
 async def tables_health_check(db: Session = Depends(get_db)):
     """

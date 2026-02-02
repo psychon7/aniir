@@ -18,10 +18,11 @@ from app.api.v1 import (
     currencies,
     client_types,
     lookups,
+    lookup,  # Frontend alias for lookups (singular /lookup/)
     warehouse,
     drive,
     accounting,
-    logistics,
+    # logistics,  # DISABLED: requires Shipment model that doesn't exist
     landed_cost,
     x3_export,
 )
@@ -57,10 +58,11 @@ api_router.include_router(projects.router)
 # Reference data
 api_router.include_router(currencies.router)
 api_router.include_router(lookups.router)
+api_router.include_router(lookup.router)  # Frontend alias (singular /lookup/)
 
 # Operations
 api_router.include_router(warehouse.router)
-api_router.include_router(logistics.router)
+# api_router.include_router(logistics.router)  # DISABLED: requires Shipment model
 api_router.include_router(landed_cost.router)
 api_router.include_router(accounting.router)
 
