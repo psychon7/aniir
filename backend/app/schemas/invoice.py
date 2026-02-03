@@ -87,28 +87,27 @@ class StatusSummary(BaseModel):
 
 
 class InvoiceResponse(BaseModel):
-    """Response schema for invoice"""
-    id: int
-    reference: str
-    client_id: int
-    order_id: Optional[int] = None
-    society_id: Optional[int] = None
-    status_id: Optional[int] = None
-    invoice_date: datetime
-    due_date: Optional[datetime] = None
-    total_ht: Decimal
-    total_vat: Decimal
-    total_ttc: Decimal
-    notes: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    """Response schema for invoice - maps from ClientInvoice model."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     
-    # Embedded relations
+    id: int = Field(..., validation_alias="cin_id")
+    reference: str = Field(..., validation_alias="cin_code")
+    client_id: int = Field(..., validation_alias="cli_id")
+    order_id: Optional[int] = Field(None, validation_alias="cod_id")
+    society_id: Optional[int] = Field(None, validation_alias="soc_id")
+    status_id: Optional[int] = Field(None, validation_alias="sta_id")
+    invoice_date: Optional[datetime] = Field(None, validation_alias="cin_d_invoice")
+    due_date: Optional[datetime] = Field(None, validation_alias="cin_d_term")
+    total_ht: Optional[Decimal] = Field(None, description="Total excluding tax")
+    total_vat: Optional[Decimal] = Field(None, description="Total VAT")
+    total_ttc: Optional[Decimal] = Field(None, description="Total including tax")
+    notes: Optional[str] = Field(None, validation_alias="cin_client_comment")
+    created_at: Optional[datetime] = Field(None, validation_alias="cin_d_creation")
+    updated_at: Optional[datetime] = Field(None, validation_alias="cin_d_update")
+    
+    # Embedded relations (optional)
     client: Optional[ClientSummary] = None
     status: Optional[StatusSummary] = None
-    
-    class Config:
-        from_attributes = True
 
 
 class InvoiceListResponse(BaseModel):

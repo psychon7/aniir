@@ -8,7 +8,7 @@ Provides REST API endpoints for:
 """
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services.product_service import (
@@ -17,7 +17,8 @@ from app.services.product_service import (
     ProductNotFoundError,
     ProductInstanceNotFoundError,
     ProductDuplicateReferenceError,
-    ProductInstanceDuplicateReferenceError
+    ProductInstanceDuplicateReferenceError,
+    get_product_service
 )
 from app.schemas.product import (
     ProductCreate, ProductUpdate,
@@ -31,15 +32,6 @@ from app.schemas.product import (
 )
 
 router = APIRouter(prefix="/products", tags=["Products"])
-
-
-# ==========================================================================
-# Dependency Injection
-# ==========================================================================
-
-async def get_product_service(db: AsyncSession = Depends(get_db)) -> ProductService:
-    """Get product service instance."""
-    return ProductService(db)
 
 
 # ==========================================================================
@@ -129,13 +121,16 @@ async def search_products(
     soc_id: Optional[int] = Query(None, description="Society ID"),
     min_price: Optional[float] = Query(None, ge=0, description="Minimum price"),
     max_price: Optional[float] = Query(None, ge=0, description="Maximum price"),
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(50, ge=1, le=100, description="Maximum records to return"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     sort_by: str = Query("prd_name", description="Sort field"),
     sort_order: str = Query("asc", description="Sort order (asc/desc)"),
     service: ProductService = Depends(get_product_service)
 ):
     """Search and list products with pagination."""
+    # Convert page/page_size to skip/limit for internal use
+    skip = (page - 1) * page_size
+    
     params = ProductSearchParams(
         search=search,
         pty_id=pty_id,
@@ -143,11 +138,27 @@ async def search_products(
         min_price=min_price,
         max_price=max_price,
         skip=skip,
-        limit=limit,
+        limit=page_size,
         sort_by=sort_by,
         sort_order=sort_order
     )
-    return await service.search_products(params)
+    
+    products, total = await service.search_products(params)
+    
+    # Build paginated response matching frontend format
+    items = [ProductListResponse.model_validate(p) for p in products]
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+    
+    return ProductListPaginatedResponse(
+        success=True,
+        data=items,
+        page=page,
+        pageSize=page_size,
+        totalCount=total,
+        totalPages=total_pages,
+        hasNextPage=page < total_pages,
+        hasPreviousPage=page > 1
+    )
 
 
 @router.get(

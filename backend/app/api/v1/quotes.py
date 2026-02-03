@@ -7,13 +7,17 @@ Provides REST API for:
 - Quote duplication
 - Quote to order conversion
 """
+import asyncio
 from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+from sqlalchemy import select, func, and_, desc, asc
+from pydantic import BaseModel, Field
 
 from app.database import get_db
+from app.models.costplan import CostPlan
 from app.services.quote_service import (
     QuoteService,
     QuoteServiceError,
@@ -36,14 +40,119 @@ from app.schemas.quote import (
     QuoteStatus
 )
 # Import QuoteDetailResponse from costplan schemas (maps to TM_CPL_Cost_Plan)
-from app.schemas.costplan import QuoteDetailResponse
+from app.schemas.costplan import QuoteDetailResponse, CostPlanResponse
 
 router = APIRouter(prefix="/quotes", tags=["Quotes"])
+
+
+# ==========================================================================
+# Paginated Response Schema
+# ==========================================================================
+
+
+class QuoteListPaginatedResponse(BaseModel):
+    """Paginated response for quote list - matches frontend PagedResponse format."""
+    success: bool = Field(default=True, description="Whether the operation was successful")
+    data: List[CostPlanResponse] = Field(default_factory=list, description="List of quotes")
+    page: int = Field(default=1, ge=1, description="Current page number (1-indexed)")
+    pageSize: int = Field(default=20, ge=1, le=100, description="Items per page")
+    totalCount: int = Field(default=0, ge=0, description="Total count of quotes")
+    totalPages: int = Field(default=0, ge=0, description="Total number of pages")
+    hasNextPage: bool = Field(default=False, description="Whether there is a next page")
+    hasPreviousPage: bool = Field(default=False, description="Whether there is a previous page")
+
+
+# ==========================================================================
+# Sync Database Helper
+# ==========================================================================
+
+
+def _sync_list_quotes(
+    db: Session,
+    page: int,
+    page_size: int,
+    search: Optional[str] = None,
+    client_id: Optional[int] = None,
+    sort_by: str = "cpl_d_create",
+    sort_order: str = "desc"
+):
+    """Sync function to list quotes with pagination."""
+    query = select(CostPlan)
+    count_query = select(func.count(CostPlan.cpl_id))
+    
+    conditions = []
+    
+    if search:
+        search_term = f"%{search}%"
+        conditions.append(CostPlan.cpl_code.ilike(search_term))
+    
+    if client_id:
+        conditions.append(CostPlan.cli_id == client_id)
+    
+    if conditions:
+        query = query.where(and_(*conditions))
+        count_query = count_query.where(and_(*conditions))
+    
+    # Get total count
+    total_result = db.execute(count_query)
+    total = total_result.scalar() or 0
+    
+    # Apply sorting
+    sort_column = getattr(CostPlan, sort_by, CostPlan.cpl_d_create)
+    if sort_order == "desc":
+        query = query.order_by(desc(sort_column))
+    else:
+        query = query.order_by(asc(sort_column))
+    
+    # Apply pagination
+    skip = (page - 1) * page_size
+    query = query.offset(skip).limit(page_size)
+    
+    result = db.execute(query)
+    quotes = list(result.scalars().all())
+    
+    return quotes, total
 
 
 # =====================
 # Quote Endpoints
 # =====================
+
+
+@router.get(
+    "",
+    response_model=QuoteListPaginatedResponse,
+    summary="List quotes with pagination",
+    description="Get a paginated list of quotes with optional filters."
+)
+async def list_quotes(
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
+    search: Optional[str] = Query(None, description="Search by quote code"),
+    client_id: Optional[int] = Query(None, description="Filter by client ID"),
+    sort_by: str = Query("cpl_d_create", description="Sort field"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
+    db: Session = Depends(get_db)
+):
+    """List quotes with pagination."""
+    quotes, total = await asyncio.to_thread(
+        _sync_list_quotes, db, page, page_size, search, client_id, sort_by, sort_order
+    )
+    
+    items = [CostPlanResponse.model_validate(q) for q in quotes]
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+    
+    return QuoteListPaginatedResponse(
+        success=True,
+        data=items,
+        page=page,
+        pageSize=page_size,
+        totalCount=total,
+        totalPages=total_pages,
+        hasNextPage=page < total_pages,
+        hasPreviousPage=page > 1
+    )
+
 
 @router.post(
     "",
@@ -65,9 +174,9 @@ async def create_quote(
 
 
 @router.get(
-    "",
+    "/search",
     response_model=QuoteListResponse,
-    summary="Search quotes",
+    summary="Search quotes (legacy)",
     description="Search and filter quotes with pagination."
 )
 async def search_quotes(
@@ -130,7 +239,7 @@ async def search_quotes(
 )
 async def get_quote(
     quote_id: int = Path(..., gt=0, description="Quote ID (cpl_id)"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get quote details with resolved lookup names."""
     service = get_quote_service(db)

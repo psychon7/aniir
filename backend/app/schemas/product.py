@@ -422,23 +422,15 @@ class ProductDetailResponse(BaseModel):
 # ==========================================================================
 
 class ProductListPaginatedResponse(BaseModel):
-    """Paginated response for product list."""
-    items: List[ProductListResponse] = Field(
-        ...,
-        description="List of products"
-    )
-    total: int = Field(
-        ...,
-        description="Total count of products"
-    )
-    skip: int = Field(
-        ...,
-        description="Number of items skipped"
-    )
-    limit: int = Field(
-        ...,
-        description="Maximum items returned"
-    )
+    """Paginated response for product list - matches frontend PagedResponse format."""
+    success: bool = Field(default=True, description="Whether the operation was successful")
+    data: List[ProductListResponse] = Field(default_factory=list, description="List of products")
+    page: int = Field(default=1, ge=1, description="Current page number (1-indexed)")
+    pageSize: int = Field(default=20, ge=1, le=100, description="Items per page")
+    totalCount: int = Field(default=0, ge=0, description="Total count of products")
+    totalPages: int = Field(default=0, ge=0, description="Total number of pages")
+    hasNextPage: bool = Field(default=False, description="Whether there is a next page")
+    hasPreviousPage: bool = Field(default=False, description="Whether there is a previous page")
 
 
 class ProductInstanceListPaginatedResponse(BaseModel):

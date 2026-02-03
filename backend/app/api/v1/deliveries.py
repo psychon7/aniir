@@ -7,12 +7,16 @@ Provides REST API endpoints for:
 - Delivery status management (ship, deliver)
 - Delivery search and lookup
 """
+import asyncio
 from typing import Optional, List
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+from sqlalchemy import select, func, and_, desc, asc
+from pydantic import BaseModel, Field
 
 from app.database import get_db
+from app.models.delivery_form import DeliveryForm
 from app.services.delivery_service import (
     DeliveryService,
     DeliveryServiceError,
@@ -39,10 +43,79 @@ router = APIRouter(prefix="/deliveries", tags=["Deliveries"])
 
 
 # ==========================================================================
+# Paginated Response Schema
+# ==========================================================================
+
+
+class DeliveryListPaginatedResponse(BaseModel):
+    """Paginated response for delivery list - matches frontend PagedResponse format."""
+    success: bool = Field(default=True, description="Whether the operation was successful")
+    data: List[DeliveryFormResponse] = Field(default_factory=list, description="List of deliveries")
+    page: int = Field(default=1, ge=1, description="Current page number (1-indexed)")
+    pageSize: int = Field(default=20, ge=1, le=100, description="Items per page")
+    totalCount: int = Field(default=0, ge=0, description="Total count of deliveries")
+    totalPages: int = Field(default=0, ge=0, description="Total number of pages")
+    hasNextPage: bool = Field(default=False, description="Whether there is a next page")
+    hasPreviousPage: bool = Field(default=False, description="Whether there is a previous page")
+
+
+# ==========================================================================
+# Sync Database Helper
+# ==========================================================================
+
+
+def _sync_list_deliveries(
+    db: Session,
+    page: int,
+    page_size: int,
+    search: Optional[str] = None,
+    client_id: Optional[int] = None,
+    sort_by: str = "dfo_d_creation",
+    sort_order: str = "desc"
+):
+    """Sync function to list deliveries with pagination."""
+    query = select(DeliveryForm)
+    count_query = select(func.count(DeliveryForm.dfo_id))
+    
+    conditions = []
+    
+    if search:
+        search_term = f"%{search}%"
+        conditions.append(DeliveryForm.dfo_code.ilike(search_term))
+    
+    if client_id:
+        conditions.append(DeliveryForm.cli_id == client_id)
+    
+    if conditions:
+        query = query.where(and_(*conditions))
+        count_query = count_query.where(and_(*conditions))
+    
+    # Get total count
+    total_result = db.execute(count_query)
+    total = total_result.scalar() or 0
+    
+    # Apply sorting
+    sort_column = getattr(DeliveryForm, sort_by, DeliveryForm.dfo_d_creation)
+    if sort_order == "desc":
+        query = query.order_by(desc(sort_column))
+    else:
+        query = query.order_by(asc(sort_column))
+    
+    # Apply pagination
+    skip = (page - 1) * page_size
+    query = query.offset(skip).limit(page_size)
+    
+    result = db.execute(query)
+    deliveries = list(result.scalars().all())
+    
+    return deliveries, total
+
+
+# ==========================================================================
 # Dependency Injection
 # ==========================================================================
 
-async def get_delivery_service(db: AsyncSession = Depends(get_db)) -> DeliveryService:
+def get_delivery_service(db: Session = Depends(get_db)) -> DeliveryService:
     """Get delivery service instance."""
     return DeliveryService(db)
 
@@ -123,7 +196,7 @@ async def create_delivery(
 
 @router.get(
     "",
-    response_model=DeliveryFormListPaginatedResponse,
+    response_model=DeliveryListPaginatedResponse,
     summary="Search and list delivery forms",
     description="""
     Search delivery forms with optional filters and pagination.
@@ -140,37 +213,31 @@ async def create_delivery(
 )
 async def search_deliveries(
     search: Optional[str] = Query(None, description="Search term"),
-    del_ord_id: Optional[int] = Query(None, description="Order ID"),
-    del_cli_id: Optional[int] = Query(None, description="Client ID"),
-    del_sta_id: Optional[int] = Query(None, description="Status ID"),
-    del_car_id: Optional[int] = Query(None, description="Carrier ID"),
-    date_from: Optional[datetime] = Query(None, description="Delivery date from"),
-    date_to: Optional[datetime] = Query(None, description="Delivery date to"),
-    is_shipped: Optional[bool] = Query(None, description="Filter by shipped status"),
-    is_delivered: Optional[bool] = Query(None, description="Filter by delivered status"),
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(50, ge=1, le=100, description="Maximum records to return"),
-    sort_by: str = Query("del_delivery_date", description="Sort field"),
-    sort_order: str = Query("desc", description="Sort order (asc/desc)"),
-    service: DeliveryService = Depends(get_delivery_service)
+    client_id: Optional[int] = Query(None, description="Client ID"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
+    sort_by: str = Query("dfo_d_creation", description="Sort field"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
+    db: Session = Depends(get_db)
 ):
     """Search and list delivery forms with pagination."""
-    params = DeliveryFormSearchParams(
-        search=search,
-        del_ord_id=del_ord_id,
-        del_cli_id=del_cli_id,
-        del_sta_id=del_sta_id,
-        del_car_id=del_car_id,
-        date_from=date_from,
-        date_to=date_to,
-        is_shipped=is_shipped,
-        is_delivered=is_delivered,
-        skip=skip,
-        limit=limit,
-        sort_by=sort_by,
-        sort_order=sort_order
+    deliveries, total = await asyncio.to_thread(
+        _sync_list_deliveries, db, page, page_size, search, client_id, sort_by, sort_order
     )
-    return await service.search_deliveries(params)
+    
+    items = [DeliveryFormResponse.model_validate(d) for d in deliveries]
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+    
+    return DeliveryListPaginatedResponse(
+        success=True,
+        data=items,
+        page=page,
+        pageSize=page_size,
+        totalCount=total,
+        totalPages=total_pages,
+        hasNextPage=page < total_pages,
+        hasPreviousPage=page > 1
+    )
 
 
 @router.get(

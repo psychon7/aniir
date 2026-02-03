@@ -9,16 +9,20 @@ Provides REST API endpoints for:
 - Invoice statistics
 - Invoice PDF preview/generation
 """
+import asyncio
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List
 from pathlib import Path as FilePath
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from fastapi.responses import HTMLResponse
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
+from sqlalchemy import select, func, and_, desc, asc
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from pydantic import BaseModel, Field
 
 from app.database import get_db
+from app.models.invoice import ClientInvoice
 from app.services.invoice_service import (
     InvoiceService,
     get_invoice_service,
@@ -50,6 +54,79 @@ from app.schemas.invoice import (
 )
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
+
+
+# ==========================================================================
+# Paginated Response Schema
+# ==========================================================================
+
+
+class InvoiceListPaginatedResponse(BaseModel):
+    """Paginated response for invoice list - matches frontend PagedResponse format."""
+    success: bool = Field(default=True, description="Whether the operation was successful")
+    data: List[InvoiceResponse] = Field(default_factory=list, description="List of invoices")
+    page: int = Field(default=1, ge=1, description="Current page number (1-indexed)")
+    pageSize: int = Field(default=20, ge=1, le=100, description="Items per page")
+    totalCount: int = Field(default=0, ge=0, description="Total count of invoices")
+    totalPages: int = Field(default=0, ge=0, description="Total number of pages")
+    hasNextPage: bool = Field(default=False, description="Whether there is a next page")
+    hasPreviousPage: bool = Field(default=False, description="Whether there is a previous page")
+
+
+# ==========================================================================
+# Sync Database Helper
+# ==========================================================================
+
+
+def _sync_list_invoices(
+    db: Session,
+    page: int,
+    page_size: int,
+    search: Optional[str] = None,
+    client_id: Optional[int] = None,
+    status_id: Optional[int] = None,
+    sort_by: str = "cin_d_creation",
+    sort_order: str = "desc"
+):
+    """Sync function to list invoices with pagination."""
+    query = select(ClientInvoice)
+    count_query = select(func.count(ClientInvoice.cin_id))
+    
+    conditions = []
+    
+    if search:
+        search_term = f"%{search}%"
+        conditions.append(ClientInvoice.cin_code.ilike(search_term))
+    
+    if client_id:
+        conditions.append(ClientInvoice.cli_id == client_id)
+    
+    if status_id:
+        conditions.append(ClientInvoice.sta_id == status_id)
+    
+    if conditions:
+        query = query.where(and_(*conditions))
+        count_query = count_query.where(and_(*conditions))
+    
+    # Get total count
+    total_result = db.execute(count_query)
+    total = total_result.scalar() or 0
+    
+    # Apply sorting
+    sort_column = getattr(ClientInvoice, sort_by, ClientInvoice.cin_d_creation)
+    if sort_order == "desc":
+        query = query.order_by(desc(sort_column))
+    else:
+        query = query.order_by(asc(sort_column))
+    
+    # Apply pagination
+    skip = (page - 1) * page_size
+    query = query.offset(skip).limit(page_size)
+    
+    result = db.execute(query)
+    invoices = list(result.scalars().all())
+    
+    return invoices, total
 
 
 # ==========================================================================
@@ -90,6 +167,43 @@ def handle_invoice_error(error: InvoiceServiceError) -> HTTPException:
 # Invoice CRUD Endpoints
 # ==========================================================================
 
+
+@router.get(
+    "",
+    response_model=InvoiceListPaginatedResponse,
+    summary="List invoices with pagination",
+    description="Get a paginated list of invoices with optional filters."
+)
+async def list_invoices(
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
+    search: Optional[str] = Query(None, description="Search by invoice code"),
+    client_id: Optional[int] = Query(None, description="Filter by client ID"),
+    status_id: Optional[int] = Query(None, description="Filter by status ID"),
+    sort_by: str = Query("cin_d_creation", description="Sort field"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
+    db: Session = Depends(get_db)
+):
+    """List invoices with pagination."""
+    invoices, total = await asyncio.to_thread(
+        _sync_list_invoices, db, page, page_size, search, client_id, status_id, sort_by, sort_order
+    )
+    
+    items = [InvoiceResponse.model_validate(inv) for inv in invoices]
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+    
+    return InvoiceListPaginatedResponse(
+        success=True,
+        data=items,
+        page=page,
+        pageSize=page_size,
+        totalCount=total,
+        totalPages=total_pages,
+        hasNextPage=page < total_pages,
+        hasPreviousPage=page > 1
+    )
+
+
 @router.post(
     "",
     response_model=InvoiceDetailResponse,
@@ -106,7 +220,7 @@ def handle_invoice_error(error: InvoiceServiceError) -> HTTPException:
 )
 async def create_invoice(
     data: InvoiceCreate,
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     # current_user_id: int = Depends(get_current_user_id)  # TODO: Add auth
 ):
     """Create a new invoice."""
@@ -144,7 +258,7 @@ async def create_invoice(
 async def create_invoice_from_order(
     order_id: int = Path(..., description="Order ID to create invoice from"),
     request: Optional[CreateInvoiceFromOrderRequest] = None,
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     # current_user_id: int = Depends(get_current_user_id)  # TODO: Add auth
 ):
     """Create an invoice from an existing order."""
@@ -202,7 +316,7 @@ async def search_invoices(
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     sort_by: str = Query("inv_created_at", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Search invoices with filters and pagination."""
     service = get_invoice_service(db)
@@ -245,7 +359,7 @@ async def search_invoices(
 )
 async def get_invoice(
     invoice_id: int = Path(..., description="Invoice ID"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get invoice by ID with resolved lookup names."""
     service = get_invoice_service(db)
@@ -268,7 +382,7 @@ async def get_invoice(
 )
 async def get_invoice_by_reference(
     reference: str = Path(..., description="Invoice reference"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get invoice by reference."""
     service = get_invoice_service(db)
@@ -297,7 +411,7 @@ async def get_invoice_by_reference(
 async def update_invoice(
     invoice_id: int = Path(..., description="Invoice ID"),
     data: InvoiceUpdate = ...,
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Update an invoice."""
     service = get_invoice_service(db)
@@ -325,7 +439,7 @@ async def update_invoice(
 )
 async def delete_invoice(
     invoice_id: int = Path(..., description="Invoice ID"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Delete an invoice."""
     service = get_invoice_service(db)
@@ -354,7 +468,7 @@ async def delete_invoice(
 async def add_invoice_line(
     invoice_id: int = Path(..., description="Invoice ID"),
     data: InvoiceLineCreate = ...,
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Add a line to an invoice."""
     service = get_invoice_service(db)
@@ -374,7 +488,7 @@ async def add_invoice_line(
 async def update_invoice_line(
     line_id: int = Path(..., description="Line ID"),
     data: InvoiceLineUpdate = ...,
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Update an invoice line."""
     service = get_invoice_service(db)
@@ -393,7 +507,7 @@ async def update_invoice_line(
 )
 async def delete_invoice_line(
     line_id: int = Path(..., description="Line ID"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Delete an invoice line."""
     service = get_invoice_service(db)
@@ -421,7 +535,7 @@ async def delete_invoice_line(
 async def send_invoice(
     invoice_id: int = Path(..., description="Invoice ID"),
     request: Optional[SendInvoiceRequest] = None,
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Send an invoice."""
     service = get_invoice_service(db)
@@ -456,7 +570,7 @@ async def send_invoice(
 async def void_invoice(
     invoice_id: int = Path(..., description="Invoice ID"),
     request: VoidInvoiceRequest = ...,
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Void an invoice."""
     service = get_invoice_service(db)
@@ -487,7 +601,7 @@ async def void_invoice(
 async def cancel_invoice(
     invoice_id: int = Path(..., description="Invoice ID"),
     reason: str = Query(..., min_length=5, description="Cancellation reason"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Cancel an invoice."""
     service = get_invoice_service(db)
@@ -517,7 +631,7 @@ async def cancel_invoice(
 async def record_payment(
     invoice_id: int = Path(..., description="Invoice ID"),
     request: RecordPaymentRequest = ...,
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Record a payment on an invoice."""
     service = get_invoice_service(db)
@@ -550,7 +664,7 @@ async def record_payment(
 )
 async def generate_pdf(
     invoice_id: int = Path(..., description="Invoice ID"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Generate PDF for an invoice."""
     service = get_invoice_service(db)
@@ -586,7 +700,7 @@ async def get_statistics(
     bu_id: Optional[int] = Query(None, description="Filter by business unit ID"),
     date_from: Optional[date] = Query(None, description="Date range start"),
     date_to: Optional[date] = Query(None, description="Date range end"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get invoice statistics."""
     service = get_invoice_service(db)
@@ -660,7 +774,7 @@ _jinja_env = Environment(
 )
 async def preview_invoice_html(
     invoice_id: int = Path(..., description="Invoice ID"),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get HTML preview of an invoice."""
     service = get_invoice_service(db)

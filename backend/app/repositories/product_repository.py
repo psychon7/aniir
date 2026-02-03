@@ -1,12 +1,12 @@
 """
 Repository for Product data access operations.
+Uses synchronous Session (pymssql with asyncio.to_thread for async compatibility).
 """
 from typing import Optional, List, Tuple
 from decimal import Decimal
 from datetime import datetime
 from sqlalchemy import select, func, and_, or_, update, delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.product import Product, ProductInstance
 from app.schemas.product import (
@@ -17,16 +17,16 @@ from app.schemas.product import (
 
 
 class ProductRepository:
-    """Repository for product related data operations."""
+    """Repository for product related data operations (sync version)."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
 
     # =====================
     # Product Operations
     # =====================
 
-    async def create_product(self, data: ProductCreate) -> Product:
+    def create_product(self, data: ProductCreate) -> Product:
         """Create a new product."""
         product = Product(
             soc_id=data.soc_id,
@@ -64,26 +64,26 @@ class ProductRepository:
         )
 
         self.db.add(product)
-        await self.db.flush()
-        await self.db.refresh(product)
+        self.db.flush()
+        self.db.refresh(product)
         return product
 
-    async def get_product(self, product_id: int) -> Optional[Product]:
+    def get_product(self, product_id: int) -> Optional[Product]:
         """Get a product by ID with instances."""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product)
             .options(selectinload(Product.instances))
             .where(Product.prd_id == product_id)
         )
         return result.scalar_one_or_none()
 
-    async def get_product_by_ref(
+    def get_product_by_ref(
         self,
         reference: str,
         soc_id: int
     ) -> Optional[Product]:
         """Get a product by reference code within a society."""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product)
             .where(
                 and_(
@@ -94,13 +94,13 @@ class ProductRepository:
         )
         return result.scalar_one_or_none()
 
-    async def get_product_by_code(
+    def get_product_by_code(
         self,
         code: str,
         soc_id: int
     ) -> Optional[Product]:
         """Get a product by code within a society."""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product)
             .where(
                 and_(
@@ -111,13 +111,13 @@ class ProductRepository:
         )
         return result.scalar_one_or_none()
 
-    async def update_product(
+    def update_product(
         self,
         product_id: int,
         data: ProductUpdate
     ) -> Optional[Product]:
         """Update a product."""
-        product = await self.get_product(product_id)
+        product = self.get_product(product_id)
         if not product:
             return None
 
@@ -127,21 +127,21 @@ class ProductRepository:
                 setattr(product, field, value)
 
         product.prd_d_update = datetime.utcnow()
-        await self.db.flush()
-        await self.db.refresh(product)
+        self.db.flush()
+        self.db.refresh(product)
         return product
 
-    async def delete_product(self, product_id: int) -> bool:
+    def delete_product(self, product_id: int) -> bool:
         """Delete a product and all related instances."""
-        product = await self.get_product(product_id)
+        product = self.get_product(product_id)
         if not product:
             return False
 
-        await self.db.delete(product)
-        await self.db.flush()
+        self.db.delete(product)
+        self.db.flush()
         return True
 
-    async def search_products(
+    def search_products(
         self,
         params: ProductSearchParams
     ) -> Tuple[List[Product], int]:
@@ -188,22 +188,22 @@ class ProductRepository:
         query = query.offset(params.skip).limit(params.limit)
 
         # Execute queries
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         products = list(result.scalars().all())
 
-        count_result = await self.db.execute(count_query)
+        count_result = self.db.execute(count_query)
         total = count_result.scalar_one()
 
         return products, total
 
-    async def get_products_by_society(
+    def get_products_by_society(
         self,
         soc_id: int,
         skip: int = 0,
         limit: int = 50
     ) -> List[Product]:
         """Get all products for a society."""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product)
             .where(Product.soc_id == soc_id)
             .order_by(Product.prd_name)
@@ -212,7 +212,7 @@ class ProductRepository:
         )
         return list(result.scalars().all())
 
-    async def get_products_by_type(
+    def get_products_by_type(
         self,
         pty_id: int,
         soc_id: int,
@@ -220,7 +220,7 @@ class ProductRepository:
         limit: int = 50
     ) -> List[Product]:
         """Get all products of a specific type."""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product)
             .where(
                 and_(
@@ -234,15 +234,15 @@ class ProductRepository:
         )
         return list(result.scalars().all())
 
-    async def count_products(self, soc_id: Optional[int] = None) -> int:
+    def count_products(self, soc_id: Optional[int] = None) -> int:
         """Count total products, optionally filtered by society."""
         query = select(func.count(Product.prd_id))
         if soc_id:
             query = query.where(Product.soc_id == soc_id)
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         return result.scalar_one()
 
-    async def check_reference_exists(
+    def check_reference_exists(
         self,
         reference: str,
         soc_id: int,
@@ -257,14 +257,14 @@ class ProductRepository:
         )
         if exclude_id:
             query = query.where(Product.prd_id != exclude_id)
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         return result.scalar_one() > 0
 
     # =====================
     # Product Instance Operations
     # =====================
 
-    async def create_instance(
+    def create_instance(
         self,
         data: ProductInstanceCreate
     ) -> ProductInstance:
@@ -280,26 +280,26 @@ class ProductRepository:
         )
 
         self.db.add(instance)
-        await self.db.flush()
-        await self.db.refresh(instance)
+        self.db.flush()
+        self.db.refresh(instance)
         return instance
 
-    async def get_instance(self, instance_id: int) -> Optional[ProductInstance]:
+    def get_instance(self, instance_id: int) -> Optional[ProductInstance]:
         """Get a product instance by ID."""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(ProductInstance)
             .options(selectinload(ProductInstance.product))
             .where(ProductInstance.pit_id == instance_id)
         )
         return result.scalar_one_or_none()
 
-    async def get_instance_by_ref(
+    def get_instance_by_ref(
         self,
         reference: str,
         product_id: int
     ) -> Optional[ProductInstance]:
         """Get a product instance by reference within a product."""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(ProductInstance)
             .where(
                 and_(
@@ -310,13 +310,13 @@ class ProductRepository:
         )
         return result.scalar_one_or_none()
 
-    async def update_instance(
+    def update_instance(
         self,
         instance_id: int,
         data: ProductInstanceUpdate
     ) -> Optional[ProductInstance]:
         """Update a product instance."""
-        instance = await self.get_instance(instance_id)
+        instance = self.get_instance(instance_id)
         if not instance:
             return None
 
@@ -325,41 +325,41 @@ class ProductRepository:
             if value is not None:
                 setattr(instance, field, value)
 
-        await self.db.flush()
-        await self.db.refresh(instance)
+        self.db.flush()
+        self.db.refresh(instance)
         return instance
 
-    async def delete_instance(self, instance_id: int) -> bool:
+    def delete_instance(self, instance_id: int) -> bool:
         """Delete a product instance."""
-        instance = await self.get_instance(instance_id)
+        instance = self.get_instance(instance_id)
         if not instance:
             return False
 
-        await self.db.delete(instance)
-        await self.db.flush()
+        self.db.delete(instance)
+        self.db.flush()
         return True
 
-    async def get_instances_by_product(
+    def get_instances_by_product(
         self,
         product_id: int
     ) -> List[ProductInstance]:
         """Get all instances for a product."""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(ProductInstance)
             .where(ProductInstance.prd_id == product_id)
             .order_by(ProductInstance.pit_ref)
         )
         return list(result.scalars().all())
 
-    async def count_instances(self, product_id: int) -> int:
+    def count_instances(self, product_id: int) -> int:
         """Count instances for a product."""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(func.count(ProductInstance.pit_id))
             .where(ProductInstance.prd_id == product_id)
         )
         return result.scalar_one()
 
-    async def check_instance_ref_exists(
+    def check_instance_ref_exists(
         self,
         reference: str,
         product_id: int,
@@ -374,14 +374,14 @@ class ProductRepository:
         )
         if exclude_id:
             query = query.where(ProductInstance.pit_id != exclude_id)
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         return result.scalar_one() > 0
 
     # =====================
     # Bulk Operations
     # =====================
 
-    async def bulk_create_instances(
+    def bulk_create_instances(
         self,
         product_id: int,
         instances_data: List[ProductInstanceCreate]
@@ -390,24 +390,24 @@ class ProductRepository:
         instances = []
         for data in instances_data:
             data.prd_id = product_id
-            instance = await self.create_instance(data)
+            instance = self.create_instance(data)
             instances.append(instance)
         return instances
 
-    async def delete_instances_by_product(self, product_id: int) -> int:
+    def delete_instances_by_product(self, product_id: int) -> int:
         """Delete all instances for a product."""
-        result = await self.db.execute(
+        result = self.db.execute(
             delete(ProductInstance)
             .where(ProductInstance.prd_id == product_id)
         )
-        await self.db.flush()
+        self.db.flush()
         return result.rowcount
 
     # =====================
     # Lookup Operations
     # =====================
 
-    async def get_product_lookup(
+    def get_product_lookup(
         self,
         soc_id: int,
         search: Optional[str] = None,
@@ -437,7 +437,7 @@ class ProductRepository:
 
         query = query.order_by(Product.prd_name).limit(limit)
 
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         rows = result.all()
 
         return [
@@ -452,7 +452,7 @@ class ProductRepository:
             for row in rows
         ]
 
-    async def get_instance_lookup(
+    def get_instance_lookup(
         self,
         product_id: int,
         search: Optional[str] = None,
@@ -479,7 +479,7 @@ class ProductRepository:
 
         query = query.order_by(ProductInstance.pit_ref).limit(limit)
 
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         rows = result.all()
 
         return [
