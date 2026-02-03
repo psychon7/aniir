@@ -103,6 +103,9 @@ class Supplier(Base):
     sup_login = Column("sup_login", String(500), nullable=True)
     sup_password = Column("sup_password", String(2000), nullable=True)
 
+    # Pricing relationships
+    product_prices = relationship("SupplierProductPrice", back_populates="supplier", lazy="selectin")
+
     # Property aliases for API compatibility
     @property
     def id(self):

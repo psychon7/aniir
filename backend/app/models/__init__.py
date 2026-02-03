@@ -27,6 +27,8 @@ from app.models.product_type import ProductType
 from app.models.category import Category
 from app.models.role import Role
 from app.models.society import Society
+from app.models.activity import Activity
+from app.models.brand import Brand
 
 # =============================================================================
 # Core Entity Tables (TM_* tables) - Import after reference tables
@@ -48,12 +50,36 @@ from app.models.order import ClientOrder, ClientOrderLine
 from app.models.costplan import CostPlan, CostPlanLine
 from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.models.shipment import ShippingReceiving, ShippingReceivingLine
+from app.models.purchase_intent import PurchaseIntent, PurchaseIntentLine
+from app.models.supplier_order import SupplierOrder, SupplierOrderLine
+from app.models.supplier_invoice import SupplierInvoice, SupplierInvoiceLine
 
 # =============================================================================
 # Contact Tables
 # =============================================================================
 from app.models.client_contact import ClientContact
 from app.models.supplier_contact import SupplierContact
+
+# =============================================================================
+# Pricing Tables
+# =============================================================================
+from app.models.client_product_price import ClientProductPrice
+from app.models.supplier_product_price import SupplierProductPrice
+
+# =============================================================================
+# Delegate Tables
+# =============================================================================
+from app.models.client_delegate import ClientDelegate
+
+# =============================================================================
+# Task/Calendar Tables
+# =============================================================================
+from app.models.task import Task, TaskType, TaskPriority, TaskStatus
+
+# =============================================================================
+# Product Attribute Tables
+# =============================================================================
+from app.models.product_attribute import ProductAttribute, ProductAttributeValue, AttributeDataType
 
 # =============================================================================
 # DISABLED Models - Tables do NOT exist in database
@@ -87,6 +113,7 @@ __all__ = [
     "Category",
     "Role",
     "Society",
+    "Activity",
     # Core entities
     "User",
     "Civility",
@@ -109,7 +136,27 @@ __all__ = [
     "DeliveryFormLine",
     "ShippingReceiving",
     "ShippingReceivingLine",
+    "PurchaseIntent",
+    "PurchaseIntentLine",
+    "SupplierOrder",
+    "SupplierOrderLine",
+    "SupplierInvoice",
+    "SupplierInvoiceLine",
     # Contacts
     "ClientContact",
     "SupplierContact",
+    # Pricing
+    "ClientProductPrice",
+    "SupplierProductPrice",
+    # Delegates
+    "ClientDelegate",
+    # Tasks/Calendar
+    "Task",
+    "TaskType",
+    "TaskPriority",
+    "TaskStatus",
+    # Product Attributes
+    "ProductAttribute",
+    "ProductAttributeValue",
+    "AttributeDataType",
 ]

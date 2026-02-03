@@ -247,6 +247,44 @@ class WarehouseLookup(BaseModel):
 
 
 # ==========================================================================
+# Activity Lookup Schemas
+# ==========================================================================
+
+class ActivityLookup(BaseModel):
+    """Activity lookup item for dropdowns."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., alias="act_id", description="Activity ID")
+    designation: str = Field(..., alias="act_designation", description="Activity name")
+    is_active: bool = Field(True, alias="act_isactive", description="Is active")
+
+    @computed_field
+    @property
+    def display_name(self) -> str:
+        """Get activity display name."""
+        return self.designation
+
+
+# ==========================================================================
+# Civility Lookup Schemas
+# ==========================================================================
+
+class CivilityLookup(BaseModel):
+    """Civility lookup item for dropdowns (Mr., Ms., Dr., etc.)."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., alias="civ_id", description="Civility ID")
+    designation: str = Field(..., alias="civ_designation", description="Civility title")
+    is_active: bool = Field(True, alias="civ_active", description="Is active")
+
+    @computed_field
+    @property
+    def display_name(self) -> str:
+        """Get civility display name."""
+        return self.designation
+
+
+# ==========================================================================
 # Response Wrapper Schemas
 # ==========================================================================
 
@@ -269,3 +307,5 @@ class AllLookupsResponse(BaseModel):
     payment_modes: List[PaymentModeLookup] = Field(default_factory=list, description="Payment mode lookups")
     payment_terms: List[PaymentTermLookup] = Field(default_factory=list, description="Payment term lookups")
     warehouses: List[WarehouseLookup] = Field(default_factory=list, description="Warehouse lookups")
+    activities: List[ActivityLookup] = Field(default_factory=list, description="Activity lookups")
+    civilities: List[CivilityLookup] = Field(default_factory=list, description="Civility lookups")

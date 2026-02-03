@@ -170,3 +170,6 @@ class Client(Base):
     # orders = relationship("Order", back_populates="client")
     # client_orders = relationship("ClientOrder", back_populates="client")
     # cost_plans = relationship("CostPlan", back_populates="client")
+
+    # Pricing relationships
+    product_prices = relationship("ClientProductPrice", back_populates="client", lazy="selectin")

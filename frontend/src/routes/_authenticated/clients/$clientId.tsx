@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardHeader, CardContent } from '@/components/ui/layout/Card'
@@ -10,6 +11,8 @@ import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
 import { ClientForm } from '@/components/features/clients/ClientForm'
 import { useClient, useUpdateClient, useDeleteClient, useClientContacts } from '@/hooks/useClients'
+import { useClientPrices } from '@/hooks/usePricing'
+import { useClientDelegates } from '@/hooks/useDelegates'
 import type { ClientCreateDto } from '@/types/client'
 
 export const Route = createFileRoute('/_authenticated/clients/$clientId')({
@@ -19,6 +22,7 @@ export const Route = createFileRoute('/_authenticated/clients/$clientId')({
 function ClientDetailPage() {
   const { clientId } = Route.useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { success, error: showError } = useToast()
 
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -26,6 +30,10 @@ function ClientDetailPage() {
 
   const { data: client, isLoading, error } = useClient(Number(clientId))
   const { data: contacts = [] } = useClientContacts(Number(clientId))
+  const { data: pricesData } = useClientPrices(Number(clientId), { page: 1, pageSize: 5, activeOnly: true })
+  const prices = pricesData?.data || []
+  const { data: delegatesData } = useClientDelegates(Number(clientId), { page: 1, pageSize: 5, activeOnly: true })
+  const delegates = delegatesData?.data || []
   const updateMutation = useUpdateClient()
   const deleteMutation = useDeleteClient()
 
@@ -183,16 +191,16 @@ function ClientDetailPage() {
           {/* Contacts */}
           <Card>
             <CardHeader
-              title="Contacts"
+              title={t('clients.contacts')}
               action={
                 <button className="text-sm text-primary hover:text-primary/80 transition-colors">
-                  + Add
+                  + {t('clients.addContact')}
                 </button>
               }
             />
             <CardContent>
               {contacts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No contacts added</p>
+                <p className="text-sm text-muted-foreground">{t('clients.noContacts', 'No contacts added')}</p>
               ) : (
                 <div className="space-y-4">
                   {contacts.map((contact) => (
@@ -206,7 +214,7 @@ function ClientDetailPage() {
                         <p className="text-sm font-medium text-foreground">
                           {contact.firstName} {contact.lastName}
                           {contact.isPrimary && (
-                            <span className="ml-2 text-xs text-primary">(Primary)</span>
+                            <span className="ml-2 text-xs text-primary">({t('common.primary', 'Primary')})</span>
                           )}
                         </p>
                         {contact.position && (
@@ -220,6 +228,108 @@ function ClientDetailPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Product Prices */}
+          <Card>
+            <CardHeader
+              title={t('pricing.productPrices')}
+              action={
+                <button className="text-sm text-primary hover:text-primary/80 transition-colors">
+                  + {t('pricing.addPrice')}
+                </button>
+              }
+            />
+            <CardContent>
+              {prices.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('pricing.noPricesFound')}</p>
+              ) : (
+                <div className="space-y-3">
+                  {prices.map((price) => (
+                    <div key={price.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {price.productName || `Product #${price.productId}`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {price.minQuantity && price.maxQuantity
+                            ? `${price.minQuantity} - ${price.maxQuantity} ${t('products.unit', 'units')}`
+                            : price.minQuantity
+                              ? `${t('pricing.minQuantity')}: ${price.minQuantity}`
+                              : t('pricing.noMinimum')}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-foreground">
+                          {price.currencyCode || '€'}{price.unitPrice.toFixed(2)}
+                        </p>
+                        {price.discountPercent && price.discountPercent > 0 && (
+                          <p className="text-xs text-green-600">-{price.discountPercent}%</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {pricesData && pricesData.total > 5 && (
+                    <button className="text-xs text-primary hover:underline w-full text-center pt-2">
+                      {t('common.viewAll', 'View all')} ({pricesData.total})
+                    </button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Delegates */}
+          <Card>
+            <CardHeader
+              title={t('delegates.title')}
+              action={
+                <button className="text-sm text-primary hover:text-primary/80 transition-colors">
+                  + {t('delegates.addDelegate')}
+                </button>
+              }
+            />
+            <CardContent>
+              {delegates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('delegates.noActiveDelegates')}</p>
+              ) : (
+                <div className="space-y-3">
+                  {delegates.map((delegate) => (
+                    <div key={delegate.id} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {delegate.companyName}
+                          {delegate.isPrimary && (
+                            <span className="ml-2 text-xs text-primary">({t('common.primary', 'Primary')})</span>
+                          )}
+                        </p>
+                        {delegate.contactName && (
+                          <p className="text-xs text-muted-foreground">{delegate.contactName}</p>
+                        )}
+                        {delegate.city && delegate.country && (
+                          <p className="text-xs text-muted-foreground">{delegate.city}, {delegate.country}</p>
+                        )}
+                        {delegate.delegateClientName && (
+                          <p className="text-xs text-blue-600">
+                            {t('delegates.linkedToClient')}: {delegate.delegateClientName}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {delegatesData && delegatesData.total > 5 && (
+                    <button className="text-xs text-primary hover:underline w-full text-center pt-2">
+                      {t('common.viewAll', 'View all')} ({delegatesData.total})
+                    </button>
+                  )}
                 </div>
               )}
             </CardContent>

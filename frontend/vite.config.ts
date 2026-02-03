@@ -7,7 +7,7 @@ import path from 'path'
 export default defineConfig({
   plugins: [
     react(),
-    TanStackRouterVite(),
+    // TanStackRouterVite(), // Temporarily disabled - causing infinite reload loop
   ],
   resolve: {
     alias: {

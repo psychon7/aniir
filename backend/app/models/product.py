@@ -99,6 +99,10 @@ class Product(Base):
     # Relationships
     instances = relationship("ProductInstance", back_populates="product", lazy="selectin")
 
+    # Pricing relationships
+    client_prices = relationship("ClientProductPrice", back_populates="product", lazy="selectin")
+    supplier_prices = relationship("SupplierProductPrice", back_populates="product", lazy="selectin")
+
     # Property aliases for API compatibility
     @property
     def id(self):

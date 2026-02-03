@@ -35,6 +35,8 @@ from app.schemas.lookup import (
     PaymentModeLookup,
     PaymentTermLookup,
     WarehouseLookup,
+    ActivityLookup,
+    CivilityLookup,
     AllLookupsResponse
 )
 
@@ -99,7 +101,9 @@ async def get_all_lookups(
             vat_rates=[VatRateLookup.model_validate(v) for v in data["vat_rates"]],
             payment_modes=[PaymentModeLookup.model_validate(pm) for pm in data["payment_modes"]],
             payment_terms=[PaymentTermLookup.model_validate(pt) for pt in data["payment_terms"]],
-            warehouses=[WarehouseLookup.model_validate(w) for w in data["warehouses"]]
+            warehouses=[WarehouseLookup.model_validate(w) for w in data["warehouses"]],
+            activities=[ActivityLookup.model_validate(a) for a in data["activities"]],
+            civilities=[CivilityLookup.model_validate(c) for c in data["civilities"]]
         )
     except LookupServiceError as e:
         raise handle_lookup_error(e)
@@ -419,5 +423,73 @@ async def get_warehouses(
             limit=limit
         )
         return [WarehouseLookup.model_validate(w) for w in warehouses]
+    except LookupServiceError as e:
+        raise handle_lookup_error(e)
+
+
+# ==========================================================================
+# Activity Endpoints
+# ==========================================================================
+
+@router.get(
+    "/activities",
+    response_model=List[ActivityLookup],
+    summary="Get activity lookups",
+    description="""
+    Get activities for dropdown/selection.
+
+    Activities categorize business sectors or types
+    (e.g., Manufacturing, Services, Retail).
+    Used for categorizing clients and other entities.
+    """
+)
+async def get_activities(
+    active_only: bool = Query(True, description="Only return active activities"),
+    search: Optional[str] = Query(None, description="Search term for filtering"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum records to return"),
+    service: LookupService = Depends(get_lookup_service)
+):
+    """Get activities for lookup."""
+    try:
+        activities = await service.get_activities(
+            active_only=active_only,
+            search=search,
+            limit=limit
+        )
+        return [ActivityLookup.model_validate(a) for a in activities]
+    except LookupServiceError as e:
+        raise handle_lookup_error(e)
+
+
+# ==========================================================================
+# Civility Endpoints
+# ==========================================================================
+
+@router.get(
+    "/civilities",
+    response_model=List[CivilityLookup],
+    summary="Get civility lookups",
+    description="""
+    Get civilities for dropdown/selection.
+
+    Civilities are formal titles used for addressing people
+    (e.g., Mr., Ms., Dr., Prof.).
+    Used for contacts and users.
+    """
+)
+async def get_civilities(
+    active_only: bool = Query(True, description="Only return active civilities"),
+    search: Optional[str] = Query(None, description="Search term for filtering"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum records to return"),
+    service: LookupService = Depends(get_lookup_service)
+):
+    """Get civilities for lookup."""
+    try:
+        civilities = await service.get_civilities(
+            active_only=active_only,
+            search=search,
+            limit=limit
+        )
+        return [CivilityLookup.model_validate(c) for c in civilities]
     except LookupServiceError as e:
         raise handle_lookup_error(e)

@@ -18,6 +18,13 @@ class InvoiceStatus(str, Enum):
     CANCELLED = "CANCELLED"
 
 
+class InvoiceType(str, Enum):
+    """Invoice type enum - distinguishes invoices from credit notes"""
+    INVOICE = "INVOICE"
+    CREDIT_NOTE = "CREDIT_NOTE"
+    PROFORMA = "PROFORMA"
+
+
 class InvoiceLineBase(BaseModel):
     """Base schema for invoice line"""
     line_number: int

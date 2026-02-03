@@ -1,78 +1,52 @@
 import { useState, useMemo } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { DataTable, Column } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/Badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
-import apiClient from '@/api/client'
+import { useShipments, useShipmentStatistics } from '@/hooks/useLogistics'
+import type { ShipmentListItem, ShipmentSearchParams } from '@/types/logistics'
 
 export const Route = createFileRoute('/_authenticated/logistics/')({
   component: LogisticsPage,
 })
 
-interface Shipment {
-  id: number
-  reference: string
-  deliveryReference: string
-  deliveryId: number
-  carrierName: string
-  carrierId: number
-  trackingNumber?: string
-  statusName: string
-  statusId: number
-  estimatedDelivery?: string
-  actualDelivery?: string
-  cost?: number
-  currency: string
-  createdAt: string
-}
-
-interface ShipmentSearchParams {
+interface LocalSearchParams {
   page: number
   pageSize: number
   search?: string
-  carrierId?: number
-  statusId?: number
+  carrier_id?: number
+  status_id?: number
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
 }
 
 function LogisticsPage() {
   const { t } = useTranslation()
-  const [searchParams, setSearchParams] = useState<ShipmentSearchParams>({
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useState<LocalSearchParams>({
     page: 1,
     pageSize: 10,
-    sortBy: 'createdAt',
+    sortBy: 'shp_created_at',
     sortOrder: 'desc',
   })
 
-  const { data: shipmentsData, isLoading } = useQuery({
-    queryKey: ['shipments', searchParams],
-    queryFn: async () => {
-      const params = new URLSearchParams()
-      params.append('page', searchParams.page.toString())
-      params.append('pageSize', searchParams.pageSize.toString())
-      if (searchParams.search) params.append('search', searchParams.search)
-      if (searchParams.carrierId) params.append('carrierId', searchParams.carrierId.toString())
-      if (searchParams.statusId) params.append('statusId', searchParams.statusId.toString())
-      if (searchParams.sortBy) params.append('sortBy', searchParams.sortBy)
-      if (searchParams.sortOrder) params.append('sortOrder', searchParams.sortOrder)
-      
-      const response = await apiClient.get(`/logistics/shipments?${params}`)
-      return response.data
-    },
-  })
+  // Build API params from local search params
+  const apiParams: ShipmentSearchParams = {
+    page: searchParams.page,
+    page_size: searchParams.pageSize,
+    reference: searchParams.search,
+    carrier_id: searchParams.carrier_id,
+    status_id: searchParams.status_id,
+    sort_by: searchParams.sortBy,
+    sort_order: searchParams.sortOrder,
+  }
 
-  const { data: statsData } = useQuery({
-    queryKey: ['logistics-stats'],
-    queryFn: async () => {
-      const response = await apiClient.get('/logistics/stats')
-      return response.data
-    },
-  })
+  // Use the new hooks
+  const { data: shipmentsData, isLoading } = useShipments(apiParams)
+  const { data: statsData } = useShipmentStatistics()
 
   const handleSearch = (search: string) => {
     setSearchParams((prev) => ({ ...prev, search, page: 1 }))
@@ -90,71 +64,84 @@ function LogisticsPage() {
     setSearchParams((prev) => ({ ...prev, sortBy, sortOrder }))
   }
 
-  const columns = useMemo<Column<Shipment>[]>(
+  const handleRowClick = (shipment: ShipmentListItem) => {
+    navigate({ to: '/logistics/$shipmentId', params: { shipmentId: String(shipment.shp_id) } })
+  }
+
+  const getStatusColor = (statusName: string | null): string => {
+    const colorMap: Record<string, string> = {
+      'pending': 'bg-gray-100 text-gray-800',
+      'in_transit': 'bg-blue-100 text-blue-800',
+      'delivered': 'bg-green-100 text-green-800',
+      'exception': 'bg-amber-100 text-amber-800',
+      'returned': 'bg-purple-100 text-purple-800',
+      'cancelled': 'bg-red-100 text-red-800',
+    }
+    return colorMap[statusName?.toLowerCase() || ''] || 'bg-gray-100 text-gray-800'
+  }
+
+  const columns = useMemo<Column<ShipmentListItem>[]>(
     () => [
       {
-        id: 'reference',
+        id: 'shp_reference',
         header: t('logistics.reference'),
-        accessorKey: 'reference',
+        accessorKey: 'shp_reference',
         sortable: true,
         cell: (row) => (
-          <span className="font-mono text-sm text-muted-foreground">{row.reference}</span>
+          <span className="font-mono text-sm font-medium">{row.shp_reference}</span>
         ),
       },
       {
-        id: 'deliveryReference',
-        header: t('logistics.delivery'),
-        accessorKey: 'deliveryReference',
-        sortable: true,
-        cell: (row) => (
-          <span className="font-mono text-sm">{row.deliveryReference}</span>
-        ),
-      },
-      {
-        id: 'carrierName',
+        id: 'carrier_name',
         header: t('logistics.carrier'),
-        accessorKey: 'carrierName',
+        accessorKey: 'carrier_name',
         sortable: true,
-        cell: (row) => <span className="font-medium">{row.carrierName}</span>,
+        cell: (row) => <span className="font-medium">{row.carrier_name || '-'}</span>,
       },
       {
-        id: 'trackingNumber',
+        id: 'shp_tracking_number',
         header: t('logistics.tracking'),
-        accessorKey: 'trackingNumber',
+        accessorKey: 'shp_tracking_number',
         sortable: false,
-        cell: (row) => row.trackingNumber ? (
-          <span className="font-mono text-sm text-primary">{row.trackingNumber}</span>
+        cell: (row) => row.shp_tracking_number ? (
+          <span className="font-mono text-sm text-primary">{row.shp_tracking_number}</span>
         ) : '-',
       },
       {
-        id: 'estimatedDelivery',
+        id: 'shp_destination_city',
+        header: t('logistics.destination'),
+        accessorKey: 'shp_destination_city',
+        sortable: true,
+        cell: (row) => row.shp_destination_city || '-',
+      },
+      {
+        id: 'shp_estimated_delivery',
         header: t('logistics.estDelivery'),
-        accessorKey: 'estimatedDelivery',
+        accessorKey: 'shp_estimated_delivery',
         sortable: true,
-        cell: (row) => row.estimatedDelivery ? new Date(row.estimatedDelivery).toLocaleDateString() : '-',
-      },
-      {
-        id: 'actualDelivery',
-        header: t('logistics.actualDelivery'),
-        accessorKey: 'actualDelivery',
-        sortable: true,
-        cell: (row) => row.actualDelivery ? new Date(row.actualDelivery).toLocaleDateString() : '-',
-      },
-      {
-        id: 'cost',
-        header: t('logistics.cost'),
-        accessorKey: 'cost',
-        sortable: true,
-        cell: (row) => row.cost 
-          ? new Intl.NumberFormat('en-US', { style: 'currency', currency: row.currency || 'USD' }).format(row.cost)
+        cell: (row) => row.shp_estimated_delivery
+          ? new Date(row.shp_estimated_delivery).toLocaleDateString()
           : '-',
       },
       {
-        id: 'statusName',
-        header: t('logistics.status'),
-        accessorKey: 'statusName',
+        id: 'shp_actual_delivery',
+        header: t('logistics.actualDelivery'),
+        accessorKey: 'shp_actual_delivery',
         sortable: true,
-        cell: (row) => <StatusBadge status={row.statusName} />,
+        cell: (row) => row.shp_actual_delivery
+          ? new Date(row.shp_actual_delivery).toLocaleDateString()
+          : '-',
+      },
+      {
+        id: 'status_name',
+        header: t('logistics.status'),
+        accessorKey: 'status_name',
+        sortable: true,
+        cell: (row) => (
+          <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(row.status_name)}`}>
+            {row.status_name || '-'}
+          </span>
+        ),
       },
     ],
     [t]
@@ -165,44 +152,51 @@ function LogisticsPage() {
       <PageHeader
         title={t('logistics.title')}
         description={t('logistics.manageDescription')}
+        actions={
+          <Link to="/logistics/new" className="btn-primary">
+            {t('logistics.newShipment')}
+          </Link>
+        }
       />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
-          <CardHeader title={t('logistics.activeShipments')} />
+          <CardHeader title={t('logistics.totalShipments')} />
           <CardContent>
-            <p className="text-3xl font-bold">{statsData?.activeShipments ?? '-'}</p>
+            <p className="text-3xl font-bold">{statsData?.total_shipments ?? '-'}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader title={t('logistics.inTransit')} />
           <CardContent>
-            <p className="text-3xl font-bold text-blue-600">{statsData?.inTransit ?? '-'}</p>
+            <p className="text-3xl font-bold text-blue-600">{statsData?.in_transit ?? '-'}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader title={t('logistics.deliveredToday')} />
+          <CardHeader title={t('logistics.delivered')} />
           <CardContent>
-            <p className="text-3xl font-bold text-green-600">{statsData?.deliveredToday ?? '-'}</p>
+            <p className="text-3xl font-bold text-green-600">{statsData?.delivered ?? '-'}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader title={t('logistics.delayed')} />
+          <CardHeader title={t('logistics.onTimeRate')} />
           <CardContent>
-            <p className="text-3xl font-bold text-destructive">{statsData?.delayed ?? '-'}</p>
+            <p className="text-3xl font-bold text-amber-600">
+              {statsData?.on_time_percentage != null ? `${statsData.on_time_percentage}%` : '-'}
+            </p>
           </CardContent>
         </Card>
       </div>
 
       <DataTable
         columns={columns}
-        data={shipmentsData?.data || shipmentsData?.items || []}
-        keyField="id"
+        data={shipmentsData?.items || []}
+        keyField="shp_id"
         isLoading={isLoading}
         page={searchParams.page}
         pageSize={searchParams.pageSize}
-        totalCount={shipmentsData?.totalCount || 0}
-        totalPages={shipmentsData?.totalPages || 1}
+        totalCount={shipmentsData?.total || 0}
+        totalPages={shipmentsData?.total_pages || 1}
         onPageChange={handlePageChange}
         onPageSizeChange={handlePageSizeChange}
         sortBy={searchParams.sortBy}
@@ -213,6 +207,7 @@ function LogisticsPage() {
         searchPlaceholder={t('logistics.searchShipments')}
         emptyMessage={t('logistics.noShipmentsFound')}
         emptyDescription={t('logistics.createFirst')}
+        onRowClick={handleRowClick}
       />
     </PageContainer>
   )

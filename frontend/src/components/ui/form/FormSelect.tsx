@@ -11,12 +11,19 @@ export interface FormSelectProps extends Omit<React.SelectHTMLAttributes<HTMLSel
   options: FormSelectOption[]
   placeholder?: string
   error?: boolean
+  label?: string
 }
 
 export const FormSelect = forwardRef<HTMLSelectElement, FormSelectProps>(
-  ({ className, options, placeholder, error, ...props }, ref) => {
+  ({ className, options, placeholder, error, label, ...props }, ref) => {
     return (
       <div className="relative">
+        {label && (
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            {label}
+            {props.required && <span className="text-destructive ml-1">*</span>}
+          </label>
+        )}
         <select
           ref={ref}
           className={cn(

@@ -48,6 +48,11 @@ class Civility(Base):
     """
     Civility reference table model (Mr., Ms., Dr., etc.).
     Maps to existing TR_CIV_Civility table.
+
+    Actual DB schema:
+      civ_id: int NOT NULL [PK]
+      civ_designation: nvarchar(200) NOT NULL
+      civ_active: bit NOT NULL
     """
     __tablename__ = "TR_CIV_Civility"
     __table_args__ = {'extend_existing': True}
@@ -60,8 +65,14 @@ class Civility(Base):
     )
     civ_designation: Mapped[str] = mapped_column(
         "civ_designation",
-        String(50),
+        String(200),
         nullable=False
+    )
+    civ_active: Mapped[bool] = mapped_column(
+        "civ_active",
+        Boolean,
+        nullable=False,
+        default=True
     )
 
     # Relationships
@@ -73,6 +84,16 @@ class Civility(Base):
 
     def __repr__(self) -> str:
         return f"<Civility(civ_id={self.civ_id}, designation='{self.civ_designation}')>"
+
+    @property
+    def display_name(self) -> str:
+        """Get civility's display name."""
+        return self.civ_designation
+
+    @property
+    def is_active(self) -> bool:
+        """Alias for civ_active for schema compatibility."""
+        return self.civ_active
 
 
 class User(Base):

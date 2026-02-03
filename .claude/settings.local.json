@@ -50,7 +50,10 @@
       "Bash(npx:*)",
       "Bash(npx @tanstack/router-cli generate:*)",
       "Bash(docker build:*)",
-      "WebFetch(domain:docs.hipocap.com)"
+      "WebFetch(domain:docs.hipocap.com)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run generate-routes:*)",
+      "Bash(npm run:*)"
     ]
   }
 }

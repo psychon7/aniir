@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardHeader, CardContent } from '@/components/ui/layout/Card'
@@ -10,6 +11,7 @@ import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
 import { SupplierForm } from '@/components/features/suppliers/SupplierForm'
 import { useSupplier, useUpdateSupplier, useDeleteSupplier, useSupplierContacts } from '@/hooks/useSuppliers'
+import { useSupplierPrices } from '@/hooks/usePricing'
 import type { SupplierCreateDto } from '@/types/supplier'
 
 export const Route = createFileRoute('/_authenticated/suppliers/$supplierId')({
@@ -19,6 +21,7 @@ export const Route = createFileRoute('/_authenticated/suppliers/$supplierId')({
 function SupplierDetailPage() {
   const { supplierId } = Route.useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { success, error: showError } = useToast()
 
   const [isFormOpen, setIsFormOpen] = useState(false)
@@ -26,6 +29,8 @@ function SupplierDetailPage() {
 
   const { data: supplier, isLoading, error } = useSupplier(Number(supplierId))
   const { data: contacts = [] } = useSupplierContacts(Number(supplierId))
+  const { data: pricesData } = useSupplierPrices(Number(supplierId), { page: 1, pageSize: 5, activeOnly: true })
+  const prices = pricesData?.data || []
   const updateMutation = useUpdateSupplier()
   const deleteMutation = useDeleteSupplier()
 
@@ -224,16 +229,16 @@ function SupplierDetailPage() {
           {/* Contacts */}
           <Card>
             <CardHeader
-              title="Contacts"
+              title={t('suppliers.contacts', 'Contacts')}
               action={
                 <button className="text-sm text-primary hover:text-primary/80 transition-colors">
-                  + Add
+                  + {t('common.add', 'Add')}
                 </button>
               }
             />
             <CardContent>
               {contacts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No contacts added</p>
+                <p className="text-sm text-muted-foreground">{t('suppliers.noContacts', 'No contacts added')}</p>
               ) : (
                 <div className="space-y-4">
                   {contacts.map((contact) => (
@@ -258,6 +263,59 @@ function SupplierDetailPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Product Prices */}
+          <Card>
+            <CardHeader
+              title={t('pricing.productPrices')}
+              action={
+                <button className="text-sm text-primary hover:text-primary/80 transition-colors">
+                  + {t('pricing.addPrice')}
+                </button>
+              }
+            />
+            <CardContent>
+              {prices.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('pricing.noPricesFound')}</p>
+              ) : (
+                <div className="space-y-3">
+                  {prices.map((price) => (
+                    <div key={price.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {price.productName || `Product #${price.productId}`}
+                          </p>
+                          {price.isPreferred && (
+                            <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">
+                              {t('pricing.preferred')}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {price.supplierRef && <span>{price.supplierRef} · </span>}
+                          {price.leadTimeDays ? `${price.leadTimeDays} ${t('pricing.days')}` : ''}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-foreground">
+                          {price.currencyCode || '€'}{price.unitCost.toFixed(2)}
+                        </p>
+                        {price.discountPercent && price.discountPercent > 0 && (
+                          <p className="text-xs text-green-600">-{price.discountPercent}%</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {pricesData && pricesData.total > 5 && (
+                    <button className="text-xs text-primary hover:underline w-full text-center pt-2">
+                      {t('common.viewAll', 'View all')} ({pricesData.total})
+                    </button>
+                  )}
                 </div>
               )}
             </CardContent>

@@ -16,7 +16,10 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedWarehouseIndexRouteImport } from './routes/_authenticated/warehouse/index'
 import { Route as AuthenticatedSupplyLotsIndexRouteImport } from './routes/_authenticated/supply-lots/index'
 import { Route as AuthenticatedSuppliersIndexRouteImport } from './routes/_authenticated/suppliers/index'
+import { Route as AuthenticatedSupplierOrdersIndexRouteImport } from './routes/_authenticated/supplier-orders/index'
+import { Route as AuthenticatedSupplierInvoicesIndexRouteImport } from './routes/_authenticated/supplier-invoices/index'
 import { Route as AuthenticatedQuotesIndexRouteImport } from './routes/_authenticated/quotes/index'
+import { Route as AuthenticatedPurchaseIntentsIndexRouteImport } from './routes/_authenticated/purchase-intents/index'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects/index'
 import { Route as AuthenticatedProductsIndexRouteImport } from './routes/_authenticated/products/index'
 import { Route as AuthenticatedOrdersIndexRouteImport } from './routes/_authenticated/orders/index'
@@ -26,29 +29,44 @@ import { Route as AuthenticatedDriveIndexRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDeliveriesIndexRouteImport } from './routes/_authenticated/deliveries/index'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat/index'
+import { Route as AuthenticatedCalendarIndexRouteImport } from './routes/_authenticated/calendar/index'
 import { Route as AuthenticatedBrandsIndexRouteImport } from './routes/_authenticated/brands/index'
 import { Route as AuthenticatedSupplyLotsLotIdRouteImport } from './routes/_authenticated/supply-lots/$lotId'
 import { Route as AuthenticatedSuppliersSupplierIdRouteImport } from './routes/_authenticated/suppliers/$supplierId'
+import { Route as AuthenticatedSupplierOrdersNewRouteImport } from './routes/_authenticated/supplier-orders/new'
+import { Route as AuthenticatedSupplierOrdersOrderIdRouteImport } from './routes/_authenticated/supplier-orders/$orderId'
+import { Route as AuthenticatedSupplierInvoicesNewRouteImport } from './routes/_authenticated/supplier-invoices/new'
+import { Route as AuthenticatedSupplierInvoicesInvoiceIdRouteImport } from './routes/_authenticated/supplier-invoices/$invoiceId'
 import { Route as AuthenticatedSettingsEmailLogsRouteImport } from './routes/_authenticated/settings/email-logs'
 import { Route as AuthenticatedQuotesNewRouteImport } from './routes/_authenticated/quotes/new'
 import { Route as AuthenticatedQuotesQuoteIdRouteImport } from './routes/_authenticated/quotes/$quoteId'
+import { Route as AuthenticatedPurchaseIntentsIntentIdRouteImport } from './routes/_authenticated/purchase-intents/$intentId'
 import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenticated/projects/new'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects/$projectId'
 import { Route as AuthenticatedProductsNewRouteImport } from './routes/_authenticated/products/new'
 import { Route as AuthenticatedProductsProductIdRouteImport } from './routes/_authenticated/products/$productId'
 import { Route as AuthenticatedOrdersNewRouteImport } from './routes/_authenticated/orders/new'
 import { Route as AuthenticatedOrdersOrderIdRouteImport } from './routes/_authenticated/orders/$orderId'
+import { Route as AuthenticatedLogisticsNewRouteImport } from './routes/_authenticated/logistics/new'
+import { Route as AuthenticatedLogisticsShipmentIdRouteImport } from './routes/_authenticated/logistics/$shipmentId'
 import { Route as AuthenticatedInvoicesNewRouteImport } from './routes/_authenticated/invoices/new'
 import { Route as AuthenticatedInvoicesInvoiceIdRouteImport } from './routes/_authenticated/invoices/$invoiceId'
 import { Route as AuthenticatedDeliveriesNewRouteImport } from './routes/_authenticated/deliveries/new'
 import { Route as AuthenticatedDeliveriesDeliveryIdRouteImport } from './routes/_authenticated/deliveries/$deliveryId'
 import { Route as AuthenticatedClientsClientIdRouteImport } from './routes/_authenticated/clients/$clientId'
+import { Route as AuthenticatedWarehouseMovementsIndexRouteImport } from './routes/_authenticated/warehouse/movements/index'
+import { Route as AuthenticatedSettingsUsersIndexRouteImport } from './routes/_authenticated/settings/users/index'
+import { Route as AuthenticatedSettingsImportIndexRouteImport } from './routes/_authenticated/settings/import/index'
 import { Route as AuthenticatedIntegrationsShopifyIndexRouteImport } from './routes/_authenticated/integrations/shopify/index'
 import { Route as AuthenticatedAccountingStatementsIndexRouteImport } from './routes/_authenticated/accounting/statements/index'
 import { Route as AuthenticatedAccountingReceivablesIndexRouteImport } from './routes/_authenticated/accounting/receivables/index'
 import { Route as AuthenticatedAccountingPaymentsIndexRouteImport } from './routes/_authenticated/accounting/payments/index'
 import { Route as AuthenticatedAccountingExportIndexRouteImport } from './routes/_authenticated/accounting/export/index'
 import { Route as AuthenticatedAccountingAgingIndexRouteImport } from './routes/_authenticated/accounting/aging/index'
+import { Route as AuthenticatedWarehouseMovementsNewRouteImport } from './routes/_authenticated/warehouse/movements/new'
+import { Route as AuthenticatedWarehouseMovementsMovementIdRouteImport } from './routes/_authenticated/warehouse/movements/$movementId'
+import { Route as AuthenticatedSettingsUsersNewRouteImport } from './routes/_authenticated/settings/users/new'
+import { Route as AuthenticatedSettingsUsersUserIdRouteImport } from './routes/_authenticated/settings/users/$userId'
 import { Route as AuthenticatedIntegrationsX3MappingsRouteImport } from './routes/_authenticated/integrations/x3/mappings'
 import { Route as AuthenticatedIntegrationsShopifyStoreIdRouteImport } from './routes/_authenticated/integrations/shopify/$storeId'
 
@@ -89,10 +107,28 @@ const AuthenticatedSuppliersIndexRoute =
     path: '/suppliers/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSupplierOrdersIndexRoute =
+  AuthenticatedSupplierOrdersIndexRouteImport.update({
+    id: '/supplier-orders/',
+    path: '/supplier-orders/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSupplierInvoicesIndexRoute =
+  AuthenticatedSupplierInvoicesIndexRouteImport.update({
+    id: '/supplier-invoices/',
+    path: '/supplier-invoices/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedQuotesIndexRoute =
   AuthenticatedQuotesIndexRouteImport.update({
     id: '/quotes/',
     path: '/quotes/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedPurchaseIntentsIndexRoute =
+  AuthenticatedPurchaseIntentsIndexRouteImport.update({
+    id: '/purchase-intents/',
+    path: '/purchase-intents/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedProjectsIndexRoute =
@@ -147,6 +183,12 @@ const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
   path: '/chat/',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCalendarIndexRoute =
+  AuthenticatedCalendarIndexRouteImport.update({
+    id: '/calendar/',
+    path: '/calendar/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedBrandsIndexRoute =
   AuthenticatedBrandsIndexRouteImport.update({
     id: '/brands/',
@@ -165,6 +207,30 @@ const AuthenticatedSuppliersSupplierIdRoute =
     path: '/suppliers/$supplierId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSupplierOrdersNewRoute =
+  AuthenticatedSupplierOrdersNewRouteImport.update({
+    id: '/supplier-orders/new',
+    path: '/supplier-orders/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSupplierOrdersOrderIdRoute =
+  AuthenticatedSupplierOrdersOrderIdRouteImport.update({
+    id: '/supplier-orders/$orderId',
+    path: '/supplier-orders/$orderId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSupplierInvoicesNewRoute =
+  AuthenticatedSupplierInvoicesNewRouteImport.update({
+    id: '/supplier-invoices/new',
+    path: '/supplier-invoices/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSupplierInvoicesInvoiceIdRoute =
+  AuthenticatedSupplierInvoicesInvoiceIdRouteImport.update({
+    id: '/supplier-invoices/$invoiceId',
+    path: '/supplier-invoices/$invoiceId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedSettingsEmailLogsRoute =
   AuthenticatedSettingsEmailLogsRouteImport.update({
     id: '/settings/email-logs',
@@ -180,6 +246,12 @@ const AuthenticatedQuotesQuoteIdRoute =
   AuthenticatedQuotesQuoteIdRouteImport.update({
     id: '/quotes/$quoteId',
     path: '/quotes/$quoteId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedPurchaseIntentsIntentIdRoute =
+  AuthenticatedPurchaseIntentsIntentIdRouteImport.update({
+    id: '/purchase-intents/$intentId',
+    path: '/purchase-intents/$intentId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedProjectsNewRoute =
@@ -217,6 +289,18 @@ const AuthenticatedOrdersOrderIdRoute =
     path: '/orders/$orderId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedLogisticsNewRoute =
+  AuthenticatedLogisticsNewRouteImport.update({
+    id: '/logistics/new',
+    path: '/logistics/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedLogisticsShipmentIdRoute =
+  AuthenticatedLogisticsShipmentIdRouteImport.update({
+    id: '/logistics/$shipmentId',
+    path: '/logistics/$shipmentId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedInvoicesNewRoute =
   AuthenticatedInvoicesNewRouteImport.update({
     id: '/invoices/new',
@@ -245,6 +329,24 @@ const AuthenticatedClientsClientIdRoute =
   AuthenticatedClientsClientIdRouteImport.update({
     id: '/clients/$clientId',
     path: '/clients/$clientId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedWarehouseMovementsIndexRoute =
+  AuthenticatedWarehouseMovementsIndexRouteImport.update({
+    id: '/warehouse/movements/',
+    path: '/warehouse/movements/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsUsersIndexRoute =
+  AuthenticatedSettingsUsersIndexRouteImport.update({
+    id: '/settings/users/',
+    path: '/settings/users/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsImportIndexRoute =
+  AuthenticatedSettingsImportIndexRouteImport.update({
+    id: '/settings/import/',
+    path: '/settings/import/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedIntegrationsShopifyIndexRoute =
@@ -283,6 +385,30 @@ const AuthenticatedAccountingAgingIndexRoute =
     path: '/accounting/aging/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedWarehouseMovementsNewRoute =
+  AuthenticatedWarehouseMovementsNewRouteImport.update({
+    id: '/warehouse/movements/new',
+    path: '/warehouse/movements/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedWarehouseMovementsMovementIdRoute =
+  AuthenticatedWarehouseMovementsMovementIdRouteImport.update({
+    id: '/warehouse/movements/$movementId',
+    path: '/warehouse/movements/$movementId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsUsersNewRoute =
+  AuthenticatedSettingsUsersNewRouteImport.update({
+    id: '/settings/users/new',
+    path: '/settings/users/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedSettingsUsersUserIdRoute =
+  AuthenticatedSettingsUsersUserIdRouteImport.update({
+    id: '/settings/users/$userId',
+    path: '/settings/users/$userId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedIntegrationsX3MappingsRoute =
   AuthenticatedIntegrationsX3MappingsRouteImport.update({
     id: '/integrations/x3/mappings',
@@ -305,18 +431,26 @@ export interface FileRoutesByFullPath {
   '/deliveries/new': typeof AuthenticatedDeliveriesNewRoute
   '/invoices/$invoiceId': typeof AuthenticatedInvoicesInvoiceIdRoute
   '/invoices/new': typeof AuthenticatedInvoicesNewRoute
+  '/logistics/$shipmentId': typeof AuthenticatedLogisticsShipmentIdRoute
+  '/logistics/new': typeof AuthenticatedLogisticsNewRoute
   '/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
   '/orders/new': typeof AuthenticatedOrdersNewRoute
   '/products/$productId': typeof AuthenticatedProductsProductIdRoute
   '/products/new': typeof AuthenticatedProductsNewRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/purchase-intents/$intentId': typeof AuthenticatedPurchaseIntentsIntentIdRoute
   '/quotes/$quoteId': typeof AuthenticatedQuotesQuoteIdRoute
   '/quotes/new': typeof AuthenticatedQuotesNewRoute
   '/settings/email-logs': typeof AuthenticatedSettingsEmailLogsRoute
+  '/supplier-invoices/$invoiceId': typeof AuthenticatedSupplierInvoicesInvoiceIdRoute
+  '/supplier-invoices/new': typeof AuthenticatedSupplierInvoicesNewRoute
+  '/supplier-orders/$orderId': typeof AuthenticatedSupplierOrdersOrderIdRoute
+  '/supplier-orders/new': typeof AuthenticatedSupplierOrdersNewRoute
   '/suppliers/$supplierId': typeof AuthenticatedSuppliersSupplierIdRoute
   '/supply-lots/$lotId': typeof AuthenticatedSupplyLotsLotIdRoute
   '/brands/': typeof AuthenticatedBrandsIndexRoute
+  '/calendar/': typeof AuthenticatedCalendarIndexRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
   '/deliveries/': typeof AuthenticatedDeliveriesIndexRoute
@@ -326,18 +460,28 @@ export interface FileRoutesByFullPath {
   '/orders/': typeof AuthenticatedOrdersIndexRoute
   '/products/': typeof AuthenticatedProductsIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
+  '/purchase-intents/': typeof AuthenticatedPurchaseIntentsIndexRoute
   '/quotes/': typeof AuthenticatedQuotesIndexRoute
+  '/supplier-invoices/': typeof AuthenticatedSupplierInvoicesIndexRoute
+  '/supplier-orders/': typeof AuthenticatedSupplierOrdersIndexRoute
   '/suppliers/': typeof AuthenticatedSuppliersIndexRoute
   '/supply-lots/': typeof AuthenticatedSupplyLotsIndexRoute
   '/warehouse/': typeof AuthenticatedWarehouseIndexRoute
   '/integrations/shopify/$storeId': typeof AuthenticatedIntegrationsShopifyStoreIdRoute
   '/integrations/x3/mappings': typeof AuthenticatedIntegrationsX3MappingsRoute
+  '/settings/users/$userId': typeof AuthenticatedSettingsUsersUserIdRoute
+  '/settings/users/new': typeof AuthenticatedSettingsUsersNewRoute
+  '/warehouse/movements/$movementId': typeof AuthenticatedWarehouseMovementsMovementIdRoute
+  '/warehouse/movements/new': typeof AuthenticatedWarehouseMovementsNewRoute
   '/accounting/aging/': typeof AuthenticatedAccountingAgingIndexRoute
   '/accounting/export/': typeof AuthenticatedAccountingExportIndexRoute
   '/accounting/payments/': typeof AuthenticatedAccountingPaymentsIndexRoute
   '/accounting/receivables/': typeof AuthenticatedAccountingReceivablesIndexRoute
   '/accounting/statements/': typeof AuthenticatedAccountingStatementsIndexRoute
   '/integrations/shopify/': typeof AuthenticatedIntegrationsShopifyIndexRoute
+  '/settings/import/': typeof AuthenticatedSettingsImportIndexRoute
+  '/settings/users/': typeof AuthenticatedSettingsUsersIndexRoute
+  '/warehouse/movements/': typeof AuthenticatedWarehouseMovementsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -348,18 +492,26 @@ export interface FileRoutesByTo {
   '/deliveries/new': typeof AuthenticatedDeliveriesNewRoute
   '/invoices/$invoiceId': typeof AuthenticatedInvoicesInvoiceIdRoute
   '/invoices/new': typeof AuthenticatedInvoicesNewRoute
+  '/logistics/$shipmentId': typeof AuthenticatedLogisticsShipmentIdRoute
+  '/logistics/new': typeof AuthenticatedLogisticsNewRoute
   '/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
   '/orders/new': typeof AuthenticatedOrdersNewRoute
   '/products/$productId': typeof AuthenticatedProductsProductIdRoute
   '/products/new': typeof AuthenticatedProductsNewRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/purchase-intents/$intentId': typeof AuthenticatedPurchaseIntentsIntentIdRoute
   '/quotes/$quoteId': typeof AuthenticatedQuotesQuoteIdRoute
   '/quotes/new': typeof AuthenticatedQuotesNewRoute
   '/settings/email-logs': typeof AuthenticatedSettingsEmailLogsRoute
+  '/supplier-invoices/$invoiceId': typeof AuthenticatedSupplierInvoicesInvoiceIdRoute
+  '/supplier-invoices/new': typeof AuthenticatedSupplierInvoicesNewRoute
+  '/supplier-orders/$orderId': typeof AuthenticatedSupplierOrdersOrderIdRoute
+  '/supplier-orders/new': typeof AuthenticatedSupplierOrdersNewRoute
   '/suppliers/$supplierId': typeof AuthenticatedSuppliersSupplierIdRoute
   '/supply-lots/$lotId': typeof AuthenticatedSupplyLotsLotIdRoute
   '/brands': typeof AuthenticatedBrandsIndexRoute
+  '/calendar': typeof AuthenticatedCalendarIndexRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
   '/deliveries': typeof AuthenticatedDeliveriesIndexRoute
@@ -369,18 +521,28 @@ export interface FileRoutesByTo {
   '/orders': typeof AuthenticatedOrdersIndexRoute
   '/products': typeof AuthenticatedProductsIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
+  '/purchase-intents': typeof AuthenticatedPurchaseIntentsIndexRoute
   '/quotes': typeof AuthenticatedQuotesIndexRoute
+  '/supplier-invoices': typeof AuthenticatedSupplierInvoicesIndexRoute
+  '/supplier-orders': typeof AuthenticatedSupplierOrdersIndexRoute
   '/suppliers': typeof AuthenticatedSuppliersIndexRoute
   '/supply-lots': typeof AuthenticatedSupplyLotsIndexRoute
   '/warehouse': typeof AuthenticatedWarehouseIndexRoute
   '/integrations/shopify/$storeId': typeof AuthenticatedIntegrationsShopifyStoreIdRoute
   '/integrations/x3/mappings': typeof AuthenticatedIntegrationsX3MappingsRoute
+  '/settings/users/$userId': typeof AuthenticatedSettingsUsersUserIdRoute
+  '/settings/users/new': typeof AuthenticatedSettingsUsersNewRoute
+  '/warehouse/movements/$movementId': typeof AuthenticatedWarehouseMovementsMovementIdRoute
+  '/warehouse/movements/new': typeof AuthenticatedWarehouseMovementsNewRoute
   '/accounting/aging': typeof AuthenticatedAccountingAgingIndexRoute
   '/accounting/export': typeof AuthenticatedAccountingExportIndexRoute
   '/accounting/payments': typeof AuthenticatedAccountingPaymentsIndexRoute
   '/accounting/receivables': typeof AuthenticatedAccountingReceivablesIndexRoute
   '/accounting/statements': typeof AuthenticatedAccountingStatementsIndexRoute
   '/integrations/shopify': typeof AuthenticatedIntegrationsShopifyIndexRoute
+  '/settings/import': typeof AuthenticatedSettingsImportIndexRoute
+  '/settings/users': typeof AuthenticatedSettingsUsersIndexRoute
+  '/warehouse/movements': typeof AuthenticatedWarehouseMovementsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -393,18 +555,26 @@ export interface FileRoutesById {
   '/_authenticated/deliveries/new': typeof AuthenticatedDeliveriesNewRoute
   '/_authenticated/invoices/$invoiceId': typeof AuthenticatedInvoicesInvoiceIdRoute
   '/_authenticated/invoices/new': typeof AuthenticatedInvoicesNewRoute
+  '/_authenticated/logistics/$shipmentId': typeof AuthenticatedLogisticsShipmentIdRoute
+  '/_authenticated/logistics/new': typeof AuthenticatedLogisticsNewRoute
   '/_authenticated/orders/$orderId': typeof AuthenticatedOrdersOrderIdRoute
   '/_authenticated/orders/new': typeof AuthenticatedOrdersNewRoute
   '/_authenticated/products/$productId': typeof AuthenticatedProductsProductIdRoute
   '/_authenticated/products/new': typeof AuthenticatedProductsNewRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/_authenticated/purchase-intents/$intentId': typeof AuthenticatedPurchaseIntentsIntentIdRoute
   '/_authenticated/quotes/$quoteId': typeof AuthenticatedQuotesQuoteIdRoute
   '/_authenticated/quotes/new': typeof AuthenticatedQuotesNewRoute
   '/_authenticated/settings/email-logs': typeof AuthenticatedSettingsEmailLogsRoute
+  '/_authenticated/supplier-invoices/$invoiceId': typeof AuthenticatedSupplierInvoicesInvoiceIdRoute
+  '/_authenticated/supplier-invoices/new': typeof AuthenticatedSupplierInvoicesNewRoute
+  '/_authenticated/supplier-orders/$orderId': typeof AuthenticatedSupplierOrdersOrderIdRoute
+  '/_authenticated/supplier-orders/new': typeof AuthenticatedSupplierOrdersNewRoute
   '/_authenticated/suppliers/$supplierId': typeof AuthenticatedSuppliersSupplierIdRoute
   '/_authenticated/supply-lots/$lotId': typeof AuthenticatedSupplyLotsLotIdRoute
   '/_authenticated/brands/': typeof AuthenticatedBrandsIndexRoute
+  '/_authenticated/calendar/': typeof AuthenticatedCalendarIndexRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
   '/_authenticated/deliveries/': typeof AuthenticatedDeliveriesIndexRoute
@@ -414,18 +584,28 @@ export interface FileRoutesById {
   '/_authenticated/orders/': typeof AuthenticatedOrdersIndexRoute
   '/_authenticated/products/': typeof AuthenticatedProductsIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
+  '/_authenticated/purchase-intents/': typeof AuthenticatedPurchaseIntentsIndexRoute
   '/_authenticated/quotes/': typeof AuthenticatedQuotesIndexRoute
+  '/_authenticated/supplier-invoices/': typeof AuthenticatedSupplierInvoicesIndexRoute
+  '/_authenticated/supplier-orders/': typeof AuthenticatedSupplierOrdersIndexRoute
   '/_authenticated/suppliers/': typeof AuthenticatedSuppliersIndexRoute
   '/_authenticated/supply-lots/': typeof AuthenticatedSupplyLotsIndexRoute
   '/_authenticated/warehouse/': typeof AuthenticatedWarehouseIndexRoute
   '/_authenticated/integrations/shopify/$storeId': typeof AuthenticatedIntegrationsShopifyStoreIdRoute
   '/_authenticated/integrations/x3/mappings': typeof AuthenticatedIntegrationsX3MappingsRoute
+  '/_authenticated/settings/users/$userId': typeof AuthenticatedSettingsUsersUserIdRoute
+  '/_authenticated/settings/users/new': typeof AuthenticatedSettingsUsersNewRoute
+  '/_authenticated/warehouse/movements/$movementId': typeof AuthenticatedWarehouseMovementsMovementIdRoute
+  '/_authenticated/warehouse/movements/new': typeof AuthenticatedWarehouseMovementsNewRoute
   '/_authenticated/accounting/aging/': typeof AuthenticatedAccountingAgingIndexRoute
   '/_authenticated/accounting/export/': typeof AuthenticatedAccountingExportIndexRoute
   '/_authenticated/accounting/payments/': typeof AuthenticatedAccountingPaymentsIndexRoute
   '/_authenticated/accounting/receivables/': typeof AuthenticatedAccountingReceivablesIndexRoute
   '/_authenticated/accounting/statements/': typeof AuthenticatedAccountingStatementsIndexRoute
   '/_authenticated/integrations/shopify/': typeof AuthenticatedIntegrationsShopifyIndexRoute
+  '/_authenticated/settings/import/': typeof AuthenticatedSettingsImportIndexRoute
+  '/_authenticated/settings/users/': typeof AuthenticatedSettingsUsersIndexRoute
+  '/_authenticated/warehouse/movements/': typeof AuthenticatedWarehouseMovementsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -438,18 +618,26 @@ export interface FileRouteTypes {
     | '/deliveries/new'
     | '/invoices/$invoiceId'
     | '/invoices/new'
+    | '/logistics/$shipmentId'
+    | '/logistics/new'
     | '/orders/$orderId'
     | '/orders/new'
     | '/products/$productId'
     | '/products/new'
     | '/projects/$projectId'
     | '/projects/new'
+    | '/purchase-intents/$intentId'
     | '/quotes/$quoteId'
     | '/quotes/new'
     | '/settings/email-logs'
+    | '/supplier-invoices/$invoiceId'
+    | '/supplier-invoices/new'
+    | '/supplier-orders/$orderId'
+    | '/supplier-orders/new'
     | '/suppliers/$supplierId'
     | '/supply-lots/$lotId'
     | '/brands/'
+    | '/calendar/'
     | '/chat/'
     | '/clients/'
     | '/deliveries/'
@@ -459,18 +647,28 @@ export interface FileRouteTypes {
     | '/orders/'
     | '/products/'
     | '/projects/'
+    | '/purchase-intents/'
     | '/quotes/'
+    | '/supplier-invoices/'
+    | '/supplier-orders/'
     | '/suppliers/'
     | '/supply-lots/'
     | '/warehouse/'
     | '/integrations/shopify/$storeId'
     | '/integrations/x3/mappings'
+    | '/settings/users/$userId'
+    | '/settings/users/new'
+    | '/warehouse/movements/$movementId'
+    | '/warehouse/movements/new'
     | '/accounting/aging/'
     | '/accounting/export/'
     | '/accounting/payments/'
     | '/accounting/receivables/'
     | '/accounting/statements/'
     | '/integrations/shopify/'
+    | '/settings/import/'
+    | '/settings/users/'
+    | '/warehouse/movements/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -481,18 +679,26 @@ export interface FileRouteTypes {
     | '/deliveries/new'
     | '/invoices/$invoiceId'
     | '/invoices/new'
+    | '/logistics/$shipmentId'
+    | '/logistics/new'
     | '/orders/$orderId'
     | '/orders/new'
     | '/products/$productId'
     | '/products/new'
     | '/projects/$projectId'
     | '/projects/new'
+    | '/purchase-intents/$intentId'
     | '/quotes/$quoteId'
     | '/quotes/new'
     | '/settings/email-logs'
+    | '/supplier-invoices/$invoiceId'
+    | '/supplier-invoices/new'
+    | '/supplier-orders/$orderId'
+    | '/supplier-orders/new'
     | '/suppliers/$supplierId'
     | '/supply-lots/$lotId'
     | '/brands'
+    | '/calendar'
     | '/chat'
     | '/clients'
     | '/deliveries'
@@ -502,18 +708,28 @@ export interface FileRouteTypes {
     | '/orders'
     | '/products'
     | '/projects'
+    | '/purchase-intents'
     | '/quotes'
+    | '/supplier-invoices'
+    | '/supplier-orders'
     | '/suppliers'
     | '/supply-lots'
     | '/warehouse'
     | '/integrations/shopify/$storeId'
     | '/integrations/x3/mappings'
+    | '/settings/users/$userId'
+    | '/settings/users/new'
+    | '/warehouse/movements/$movementId'
+    | '/warehouse/movements/new'
     | '/accounting/aging'
     | '/accounting/export'
     | '/accounting/payments'
     | '/accounting/receivables'
     | '/accounting/statements'
     | '/integrations/shopify'
+    | '/settings/import'
+    | '/settings/users'
+    | '/warehouse/movements'
   id:
     | '__root__'
     | '/'
@@ -525,18 +741,26 @@ export interface FileRouteTypes {
     | '/_authenticated/deliveries/new'
     | '/_authenticated/invoices/$invoiceId'
     | '/_authenticated/invoices/new'
+    | '/_authenticated/logistics/$shipmentId'
+    | '/_authenticated/logistics/new'
     | '/_authenticated/orders/$orderId'
     | '/_authenticated/orders/new'
     | '/_authenticated/products/$productId'
     | '/_authenticated/products/new'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/projects/new'
+    | '/_authenticated/purchase-intents/$intentId'
     | '/_authenticated/quotes/$quoteId'
     | '/_authenticated/quotes/new'
     | '/_authenticated/settings/email-logs'
+    | '/_authenticated/supplier-invoices/$invoiceId'
+    | '/_authenticated/supplier-invoices/new'
+    | '/_authenticated/supplier-orders/$orderId'
+    | '/_authenticated/supplier-orders/new'
     | '/_authenticated/suppliers/$supplierId'
     | '/_authenticated/supply-lots/$lotId'
     | '/_authenticated/brands/'
+    | '/_authenticated/calendar/'
     | '/_authenticated/chat/'
     | '/_authenticated/clients/'
     | '/_authenticated/deliveries/'
@@ -546,18 +770,28 @@ export interface FileRouteTypes {
     | '/_authenticated/orders/'
     | '/_authenticated/products/'
     | '/_authenticated/projects/'
+    | '/_authenticated/purchase-intents/'
     | '/_authenticated/quotes/'
+    | '/_authenticated/supplier-invoices/'
+    | '/_authenticated/supplier-orders/'
     | '/_authenticated/suppliers/'
     | '/_authenticated/supply-lots/'
     | '/_authenticated/warehouse/'
     | '/_authenticated/integrations/shopify/$storeId'
     | '/_authenticated/integrations/x3/mappings'
+    | '/_authenticated/settings/users/$userId'
+    | '/_authenticated/settings/users/new'
+    | '/_authenticated/warehouse/movements/$movementId'
+    | '/_authenticated/warehouse/movements/new'
     | '/_authenticated/accounting/aging/'
     | '/_authenticated/accounting/export/'
     | '/_authenticated/accounting/payments/'
     | '/_authenticated/accounting/receivables/'
     | '/_authenticated/accounting/statements/'
     | '/_authenticated/integrations/shopify/'
+    | '/_authenticated/settings/import/'
+    | '/_authenticated/settings/users/'
+    | '/_authenticated/warehouse/movements/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -617,11 +851,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSuppliersIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/supplier-orders/': {
+      id: '/_authenticated/supplier-orders/'
+      path: '/supplier-orders'
+      fullPath: '/supplier-orders/'
+      preLoaderRoute: typeof AuthenticatedSupplierOrdersIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/supplier-invoices/': {
+      id: '/_authenticated/supplier-invoices/'
+      path: '/supplier-invoices'
+      fullPath: '/supplier-invoices/'
+      preLoaderRoute: typeof AuthenticatedSupplierInvoicesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/quotes/': {
       id: '/_authenticated/quotes/'
       path: '/quotes'
       fullPath: '/quotes/'
       preLoaderRoute: typeof AuthenticatedQuotesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/purchase-intents/': {
+      id: '/_authenticated/purchase-intents/'
+      path: '/purchase-intents'
+      fullPath: '/purchase-intents/'
+      preLoaderRoute: typeof AuthenticatedPurchaseIntentsIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/projects/': {
@@ -687,6 +942,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/calendar/': {
+      id: '/_authenticated/calendar/'
+      path: '/calendar'
+      fullPath: '/calendar/'
+      preLoaderRoute: typeof AuthenticatedCalendarIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/brands/': {
       id: '/_authenticated/brands/'
       path: '/brands'
@@ -708,6 +970,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSuppliersSupplierIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/supplier-orders/new': {
+      id: '/_authenticated/supplier-orders/new'
+      path: '/supplier-orders/new'
+      fullPath: '/supplier-orders/new'
+      preLoaderRoute: typeof AuthenticatedSupplierOrdersNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/supplier-orders/$orderId': {
+      id: '/_authenticated/supplier-orders/$orderId'
+      path: '/supplier-orders/$orderId'
+      fullPath: '/supplier-orders/$orderId'
+      preLoaderRoute: typeof AuthenticatedSupplierOrdersOrderIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/supplier-invoices/new': {
+      id: '/_authenticated/supplier-invoices/new'
+      path: '/supplier-invoices/new'
+      fullPath: '/supplier-invoices/new'
+      preLoaderRoute: typeof AuthenticatedSupplierInvoicesNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/supplier-invoices/$invoiceId': {
+      id: '/_authenticated/supplier-invoices/$invoiceId'
+      path: '/supplier-invoices/$invoiceId'
+      fullPath: '/supplier-invoices/$invoiceId'
+      preLoaderRoute: typeof AuthenticatedSupplierInvoicesInvoiceIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/settings/email-logs': {
       id: '/_authenticated/settings/email-logs'
       path: '/settings/email-logs'
@@ -727,6 +1017,13 @@ declare module '@tanstack/react-router' {
       path: '/quotes/$quoteId'
       fullPath: '/quotes/$quoteId'
       preLoaderRoute: typeof AuthenticatedQuotesQuoteIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/purchase-intents/$intentId': {
+      id: '/_authenticated/purchase-intents/$intentId'
+      path: '/purchase-intents/$intentId'
+      fullPath: '/purchase-intents/$intentId'
+      preLoaderRoute: typeof AuthenticatedPurchaseIntentsIntentIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/projects/new': {
@@ -771,6 +1068,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrdersOrderIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/logistics/new': {
+      id: '/_authenticated/logistics/new'
+      path: '/logistics/new'
+      fullPath: '/logistics/new'
+      preLoaderRoute: typeof AuthenticatedLogisticsNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/logistics/$shipmentId': {
+      id: '/_authenticated/logistics/$shipmentId'
+      path: '/logistics/$shipmentId'
+      fullPath: '/logistics/$shipmentId'
+      preLoaderRoute: typeof AuthenticatedLogisticsShipmentIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/invoices/new': {
       id: '/_authenticated/invoices/new'
       path: '/invoices/new'
@@ -804,6 +1115,27 @@ declare module '@tanstack/react-router' {
       path: '/clients/$clientId'
       fullPath: '/clients/$clientId'
       preLoaderRoute: typeof AuthenticatedClientsClientIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/warehouse/movements/': {
+      id: '/_authenticated/warehouse/movements/'
+      path: '/warehouse/movements'
+      fullPath: '/warehouse/movements/'
+      preLoaderRoute: typeof AuthenticatedWarehouseMovementsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/users/': {
+      id: '/_authenticated/settings/users/'
+      path: '/settings/users'
+      fullPath: '/settings/users/'
+      preLoaderRoute: typeof AuthenticatedSettingsUsersIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/import/': {
+      id: '/_authenticated/settings/import/'
+      path: '/settings/import'
+      fullPath: '/settings/import/'
+      preLoaderRoute: typeof AuthenticatedSettingsImportIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/integrations/shopify/': {
@@ -848,6 +1180,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountingAgingIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/warehouse/movements/new': {
+      id: '/_authenticated/warehouse/movements/new'
+      path: '/warehouse/movements/new'
+      fullPath: '/warehouse/movements/new'
+      preLoaderRoute: typeof AuthenticatedWarehouseMovementsNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/warehouse/movements/$movementId': {
+      id: '/_authenticated/warehouse/movements/$movementId'
+      path: '/warehouse/movements/$movementId'
+      fullPath: '/warehouse/movements/$movementId'
+      preLoaderRoute: typeof AuthenticatedWarehouseMovementsMovementIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/users/new': {
+      id: '/_authenticated/settings/users/new'
+      path: '/settings/users/new'
+      fullPath: '/settings/users/new'
+      preLoaderRoute: typeof AuthenticatedSettingsUsersNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/settings/users/$userId': {
+      id: '/_authenticated/settings/users/$userId'
+      path: '/settings/users/$userId'
+      fullPath: '/settings/users/$userId'
+      preLoaderRoute: typeof AuthenticatedSettingsUsersUserIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/integrations/x3/mappings': {
       id: '/_authenticated/integrations/x3/mappings'
       path: '/integrations/x3/mappings'
@@ -872,18 +1232,26 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDeliveriesNewRoute: typeof AuthenticatedDeliveriesNewRoute
   AuthenticatedInvoicesInvoiceIdRoute: typeof AuthenticatedInvoicesInvoiceIdRoute
   AuthenticatedInvoicesNewRoute: typeof AuthenticatedInvoicesNewRoute
+  AuthenticatedLogisticsShipmentIdRoute: typeof AuthenticatedLogisticsShipmentIdRoute
+  AuthenticatedLogisticsNewRoute: typeof AuthenticatedLogisticsNewRoute
   AuthenticatedOrdersOrderIdRoute: typeof AuthenticatedOrdersOrderIdRoute
   AuthenticatedOrdersNewRoute: typeof AuthenticatedOrdersNewRoute
   AuthenticatedProductsProductIdRoute: typeof AuthenticatedProductsProductIdRoute
   AuthenticatedProductsNewRoute: typeof AuthenticatedProductsNewRoute
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
   AuthenticatedProjectsNewRoute: typeof AuthenticatedProjectsNewRoute
+  AuthenticatedPurchaseIntentsIntentIdRoute: typeof AuthenticatedPurchaseIntentsIntentIdRoute
   AuthenticatedQuotesQuoteIdRoute: typeof AuthenticatedQuotesQuoteIdRoute
   AuthenticatedQuotesNewRoute: typeof AuthenticatedQuotesNewRoute
   AuthenticatedSettingsEmailLogsRoute: typeof AuthenticatedSettingsEmailLogsRoute
+  AuthenticatedSupplierInvoicesInvoiceIdRoute: typeof AuthenticatedSupplierInvoicesInvoiceIdRoute
+  AuthenticatedSupplierInvoicesNewRoute: typeof AuthenticatedSupplierInvoicesNewRoute
+  AuthenticatedSupplierOrdersOrderIdRoute: typeof AuthenticatedSupplierOrdersOrderIdRoute
+  AuthenticatedSupplierOrdersNewRoute: typeof AuthenticatedSupplierOrdersNewRoute
   AuthenticatedSuppliersSupplierIdRoute: typeof AuthenticatedSuppliersSupplierIdRoute
   AuthenticatedSupplyLotsLotIdRoute: typeof AuthenticatedSupplyLotsLotIdRoute
   AuthenticatedBrandsIndexRoute: typeof AuthenticatedBrandsIndexRoute
+  AuthenticatedCalendarIndexRoute: typeof AuthenticatedCalendarIndexRoute
   AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
   AuthenticatedClientsIndexRoute: typeof AuthenticatedClientsIndexRoute
   AuthenticatedDeliveriesIndexRoute: typeof AuthenticatedDeliveriesIndexRoute
@@ -893,18 +1261,28 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOrdersIndexRoute: typeof AuthenticatedOrdersIndexRoute
   AuthenticatedProductsIndexRoute: typeof AuthenticatedProductsIndexRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
+  AuthenticatedPurchaseIntentsIndexRoute: typeof AuthenticatedPurchaseIntentsIndexRoute
   AuthenticatedQuotesIndexRoute: typeof AuthenticatedQuotesIndexRoute
+  AuthenticatedSupplierInvoicesIndexRoute: typeof AuthenticatedSupplierInvoicesIndexRoute
+  AuthenticatedSupplierOrdersIndexRoute: typeof AuthenticatedSupplierOrdersIndexRoute
   AuthenticatedSuppliersIndexRoute: typeof AuthenticatedSuppliersIndexRoute
   AuthenticatedSupplyLotsIndexRoute: typeof AuthenticatedSupplyLotsIndexRoute
   AuthenticatedWarehouseIndexRoute: typeof AuthenticatedWarehouseIndexRoute
   AuthenticatedIntegrationsShopifyStoreIdRoute: typeof AuthenticatedIntegrationsShopifyStoreIdRoute
   AuthenticatedIntegrationsX3MappingsRoute: typeof AuthenticatedIntegrationsX3MappingsRoute
+  AuthenticatedSettingsUsersUserIdRoute: typeof AuthenticatedSettingsUsersUserIdRoute
+  AuthenticatedSettingsUsersNewRoute: typeof AuthenticatedSettingsUsersNewRoute
+  AuthenticatedWarehouseMovementsMovementIdRoute: typeof AuthenticatedWarehouseMovementsMovementIdRoute
+  AuthenticatedWarehouseMovementsNewRoute: typeof AuthenticatedWarehouseMovementsNewRoute
   AuthenticatedAccountingAgingIndexRoute: typeof AuthenticatedAccountingAgingIndexRoute
   AuthenticatedAccountingExportIndexRoute: typeof AuthenticatedAccountingExportIndexRoute
   AuthenticatedAccountingPaymentsIndexRoute: typeof AuthenticatedAccountingPaymentsIndexRoute
   AuthenticatedAccountingReceivablesIndexRoute: typeof AuthenticatedAccountingReceivablesIndexRoute
   AuthenticatedAccountingStatementsIndexRoute: typeof AuthenticatedAccountingStatementsIndexRoute
   AuthenticatedIntegrationsShopifyIndexRoute: typeof AuthenticatedIntegrationsShopifyIndexRoute
+  AuthenticatedSettingsImportIndexRoute: typeof AuthenticatedSettingsImportIndexRoute
+  AuthenticatedSettingsUsersIndexRoute: typeof AuthenticatedSettingsUsersIndexRoute
+  AuthenticatedWarehouseMovementsIndexRoute: typeof AuthenticatedWarehouseMovementsIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -915,18 +1293,29 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDeliveriesNewRoute: AuthenticatedDeliveriesNewRoute,
   AuthenticatedInvoicesInvoiceIdRoute: AuthenticatedInvoicesInvoiceIdRoute,
   AuthenticatedInvoicesNewRoute: AuthenticatedInvoicesNewRoute,
+  AuthenticatedLogisticsShipmentIdRoute: AuthenticatedLogisticsShipmentIdRoute,
+  AuthenticatedLogisticsNewRoute: AuthenticatedLogisticsNewRoute,
   AuthenticatedOrdersOrderIdRoute: AuthenticatedOrdersOrderIdRoute,
   AuthenticatedOrdersNewRoute: AuthenticatedOrdersNewRoute,
   AuthenticatedProductsProductIdRoute: AuthenticatedProductsProductIdRoute,
   AuthenticatedProductsNewRoute: AuthenticatedProductsNewRoute,
   AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
   AuthenticatedProjectsNewRoute: AuthenticatedProjectsNewRoute,
+  AuthenticatedPurchaseIntentsIntentIdRoute:
+    AuthenticatedPurchaseIntentsIntentIdRoute,
   AuthenticatedQuotesQuoteIdRoute: AuthenticatedQuotesQuoteIdRoute,
   AuthenticatedQuotesNewRoute: AuthenticatedQuotesNewRoute,
   AuthenticatedSettingsEmailLogsRoute: AuthenticatedSettingsEmailLogsRoute,
+  AuthenticatedSupplierInvoicesInvoiceIdRoute:
+    AuthenticatedSupplierInvoicesInvoiceIdRoute,
+  AuthenticatedSupplierInvoicesNewRoute: AuthenticatedSupplierInvoicesNewRoute,
+  AuthenticatedSupplierOrdersOrderIdRoute:
+    AuthenticatedSupplierOrdersOrderIdRoute,
+  AuthenticatedSupplierOrdersNewRoute: AuthenticatedSupplierOrdersNewRoute,
   AuthenticatedSuppliersSupplierIdRoute: AuthenticatedSuppliersSupplierIdRoute,
   AuthenticatedSupplyLotsLotIdRoute: AuthenticatedSupplyLotsLotIdRoute,
   AuthenticatedBrandsIndexRoute: AuthenticatedBrandsIndexRoute,
+  AuthenticatedCalendarIndexRoute: AuthenticatedCalendarIndexRoute,
   AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
   AuthenticatedClientsIndexRoute: AuthenticatedClientsIndexRoute,
   AuthenticatedDeliveriesIndexRoute: AuthenticatedDeliveriesIndexRoute,
@@ -936,7 +1325,12 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOrdersIndexRoute: AuthenticatedOrdersIndexRoute,
   AuthenticatedProductsIndexRoute: AuthenticatedProductsIndexRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
+  AuthenticatedPurchaseIntentsIndexRoute:
+    AuthenticatedPurchaseIntentsIndexRoute,
   AuthenticatedQuotesIndexRoute: AuthenticatedQuotesIndexRoute,
+  AuthenticatedSupplierInvoicesIndexRoute:
+    AuthenticatedSupplierInvoicesIndexRoute,
+  AuthenticatedSupplierOrdersIndexRoute: AuthenticatedSupplierOrdersIndexRoute,
   AuthenticatedSuppliersIndexRoute: AuthenticatedSuppliersIndexRoute,
   AuthenticatedSupplyLotsIndexRoute: AuthenticatedSupplyLotsIndexRoute,
   AuthenticatedWarehouseIndexRoute: AuthenticatedWarehouseIndexRoute,
@@ -944,6 +1338,12 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedIntegrationsShopifyStoreIdRoute,
   AuthenticatedIntegrationsX3MappingsRoute:
     AuthenticatedIntegrationsX3MappingsRoute,
+  AuthenticatedSettingsUsersUserIdRoute: AuthenticatedSettingsUsersUserIdRoute,
+  AuthenticatedSettingsUsersNewRoute: AuthenticatedSettingsUsersNewRoute,
+  AuthenticatedWarehouseMovementsMovementIdRoute:
+    AuthenticatedWarehouseMovementsMovementIdRoute,
+  AuthenticatedWarehouseMovementsNewRoute:
+    AuthenticatedWarehouseMovementsNewRoute,
   AuthenticatedAccountingAgingIndexRoute:
     AuthenticatedAccountingAgingIndexRoute,
   AuthenticatedAccountingExportIndexRoute:
@@ -956,6 +1356,10 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
     AuthenticatedAccountingStatementsIndexRoute,
   AuthenticatedIntegrationsShopifyIndexRoute:
     AuthenticatedIntegrationsShopifyIndexRoute,
+  AuthenticatedSettingsImportIndexRoute: AuthenticatedSettingsImportIndexRoute,
+  AuthenticatedSettingsUsersIndexRoute: AuthenticatedSettingsUsersIndexRoute,
+  AuthenticatedWarehouseMovementsIndexRoute:
+    AuthenticatedWarehouseMovementsIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

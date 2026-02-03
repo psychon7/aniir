@@ -7,6 +7,8 @@ Contains:
 - retry: Exponential backoff retry utilities
 - jwt: JWT token creation and verification
 - password: Reusable password hashing helpers
+- reference_generator: Reference code generation for entities
+- cascade_validator: Delete validation with dependency checking
 """
 from app.utils.rate_limiter import (
     RateLimiter,
@@ -62,6 +64,22 @@ from app.utils.password import (
     verify_password,
     needs_rehash,
 )
+from app.utils.reference_generator import (
+    ENTITY_PREFIXES,
+    generate_reference,
+    generate_reference_with_prefix,
+    get_next_sequence,
+    validate_reference_format,
+    parse_reference,
+)
+from app.utils.cascade_validator import (
+    ENTITY_DEPENDENCIES,
+    validate_delete,
+    validate_delete_with_details,
+    get_dependent_ids,
+    get_supported_entity_types,
+    add_custom_dependency,
+)
 
 __all__ = [
     # Rate limiter
@@ -112,4 +130,18 @@ __all__ = [
     "hash_password",
     "verify_password",
     "needs_rehash",
+    # Reference generator
+    "ENTITY_PREFIXES",
+    "generate_reference",
+    "generate_reference_with_prefix",
+    "get_next_sequence",
+    "validate_reference_format",
+    "parse_reference",
+    # Cascade validator
+    "ENTITY_DEPENDENCIES",
+    "validate_delete",
+    "validate_delete_with_details",
+    "get_dependent_ids",
+    "get_supported_entity_types",
+    "add_custom_dependency",
 ]

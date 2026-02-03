@@ -27,6 +27,8 @@ from app.models.vat_rate import VatRate
 from app.models.payment_mode import PaymentMode
 from app.models.payment_term import PaymentTerm
 from app.models.warehouse import Warehouse
+from app.models.activity import Activity
+from app.models.user import Civility
 
 
 # ==========================================================================
@@ -541,6 +543,102 @@ class LookupService:
         )
 
     # ==========================================================================
+    # Activity Lookups
+    # ==========================================================================
+
+    def _sync_get_activities(
+        self,
+        active_only: bool = True,
+        search: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Activity]:
+        """Synchronous implementation of get_activities."""
+        query = select(Activity).order_by(Activity.act_designation).limit(limit)
+
+        filters = []
+        if active_only:
+            filters.append(Activity.act_isactive == True)
+        if search:
+            search_term = f"%{search}%"
+            filters.append(Activity.act_designation.ilike(search_term))
+
+        if filters:
+            query = query.where(*filters)
+
+        result = self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_activities(
+        self,
+        active_only: bool = True,
+        search: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Activity]:
+        """
+        Get activities for lookup.
+
+        Args:
+            active_only: If True, only return active activities.
+            search: Optional search term for filtering.
+            limit: Maximum number of records to return.
+
+        Returns:
+            List of Activity objects.
+        """
+        return await asyncio.to_thread(
+            self._sync_get_activities, active_only, search, limit
+        )
+
+    # ==========================================================================
+    # Civility Lookups
+    # ==========================================================================
+
+    def _sync_get_civilities(
+        self,
+        active_only: bool = True,
+        search: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Civility]:
+        """Synchronous implementation of get_civilities."""
+        query = select(Civility).order_by(Civility.civ_designation).limit(limit)
+
+        filters = []
+        if active_only:
+            filters.append(Civility.civ_active == True)
+        if search:
+            search_term = f"%{search}%"
+            filters.append(Civility.civ_designation.ilike(search_term))
+
+        if filters:
+            query = query.where(*filters)
+
+        result = self.db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_civilities(
+        self,
+        active_only: bool = True,
+        search: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Civility]:
+        """
+        Get civilities for lookup.
+
+        Civilities are titles like Mr., Ms., Dr., etc.
+
+        Args:
+            active_only: If True, only return active civilities.
+            search: Optional search term for filtering.
+            limit: Maximum number of records to return.
+
+        Returns:
+            List of Civility objects.
+        """
+        return await asyncio.to_thread(
+            self._sync_get_civilities, active_only, search, limit
+        )
+
+    # ==========================================================================
     # Aggregated Lookups
     # ==========================================================================
 
@@ -570,6 +668,8 @@ class LookupService:
             "payment_modes": await self.get_payment_modes(active_only=active_only),
             "payment_terms": await self.get_payment_terms(active_only=active_only),
             "warehouses": await self.get_warehouses(active_only=active_only),
+            "activities": await self.get_activities(active_only=active_only),
+            "civilities": await self.get_civilities(active_only=active_only),
         }
 
 

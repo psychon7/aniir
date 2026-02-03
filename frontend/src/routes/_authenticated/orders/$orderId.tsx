@@ -1,11 +1,13 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
 import { StatusBadge } from '@/components/ui/Badge'
 import { DocumentAttachments } from '@/components/attachments'
 import { AttachFileButton } from '@/components/attachments'
+import { useDeliveriesByOrder } from '@/hooks/useDeliveries'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/orders/$orderId')({
@@ -15,6 +17,7 @@ export const Route = createFileRoute('/_authenticated/orders/$orderId')({
 function OrderDetailPage() {
   const { orderId } = Route.useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', orderId],
@@ -23,6 +26,8 @@ function OrderDetailPage() {
       return response.data
     },
   })
+
+  const { data: deliveries = [] } = useDeliveriesByOrder(Number(orderId))
 
   if (isLoading) {
     return (
@@ -104,16 +109,16 @@ function OrderDetailPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Line Items" />
+            <CardHeader title={t('orders.lineItems')} />
             <CardContent>
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2 text-sm text-muted-foreground">Product</th>
-                    <th className="text-right py-2 text-sm text-muted-foreground">Qty</th>
-                    <th className="text-right py-2 text-sm text-muted-foreground">Delivered</th>
-                    <th className="text-right py-2 text-sm text-muted-foreground">Unit Price</th>
-                    <th className="text-right py-2 text-sm text-muted-foreground">Total</th>
+                    <th className="text-left py-2 text-sm text-muted-foreground">{t('orders.product')}</th>
+                    <th className="text-right py-2 text-sm text-muted-foreground">{t('orders.quantity')}</th>
+                    <th className="text-right py-2 text-sm text-muted-foreground">{t('orders.delivered')}</th>
+                    <th className="text-right py-2 text-sm text-muted-foreground">{t('orders.unitPrice')}</th>
+                    <th className="text-right py-2 text-sm text-muted-foreground">{t('orders.total')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -141,12 +146,54 @@ function OrderDetailPage() {
                   )) || (
                     <tr>
                       <td colSpan={5} className="text-center py-8 text-muted-foreground">
-                        No line items
+                        {t('orders.noLineItems')}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+            </CardContent>
+          </Card>
+
+          {/* Deliveries Section */}
+          <Card>
+            <CardHeader
+              title={t('deliveries.title')}
+              action={
+                <Link
+                  to="/deliveries/new"
+                  search={{ orderId: Number(orderId) }}
+                  className="text-sm text-primary hover:underline"
+                >
+                  {t('deliveries.newDelivery')}
+                </Link>
+              }
+            />
+            <CardContent>
+              {deliveries.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('deliveries.noDeliveriesFound')}</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {deliveries.map((delivery) => (
+                    <Link
+                      key={delivery.id}
+                      to="/deliveries/$deliveryId"
+                      params={{ deliveryId: String(delivery.id) }}
+                      className="block py-3 hover:bg-accent/50 -mx-4 px-4 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-mono text-sm">{delivery.reference}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {delivery.deliveryDate ? new Date(delivery.deliveryDate).toLocaleDateString() : t('common.pending')}
+                          </p>
+                        </div>
+                        <StatusBadge status={delivery.statusName || 'Draft'} />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
