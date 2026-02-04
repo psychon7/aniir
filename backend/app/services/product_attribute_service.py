@@ -10,7 +10,9 @@ from decimal import Decimal
 from typing import Optional, List, Tuple, Any
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import Session
+from fastapi import Depends
 
+from app.database import get_db
 from app.models.product_attribute import (
     ProductAttribute, ProductAttributeValue, AttributeDataType
 )
@@ -377,7 +379,7 @@ class ProductAttributeService:
 # =============================================================================
 
 
-def get_product_attribute_service(db: Session) -> ProductAttributeService:
+def get_product_attribute_service(db: Session = Depends(get_db)) -> ProductAttributeService:
     """Factory function for ProductAttributeService."""
     return ProductAttributeService(db)
 

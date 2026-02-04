@@ -13,6 +13,9 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
+from fastapi import Depends
+
+from app.database import get_db
 
 from app.models.product import Product
 from app.models.client import Client
@@ -545,6 +548,6 @@ async def async_execute_import(
 # Service Factory
 # ==========================================================================
 
-def get_import_service(db: Session) -> ImportService:
+def get_import_service(db: Session = Depends(get_db)) -> ImportService:
     """Factory function to get ImportService instance."""
     return ImportService(db)

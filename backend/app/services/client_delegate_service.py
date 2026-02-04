@@ -9,7 +9,9 @@ from datetime import datetime
 from typing import Optional, List, Tuple
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
+from fastapi import Depends
 
+from app.database import get_db
 from app.models.client_delegate import ClientDelegate
 from app.models.client import Client
 from app.schemas.client_delegate import (
@@ -272,6 +274,6 @@ class ClientDelegateService:
         return None
 
 
-def get_client_delegate_service(db: Session) -> ClientDelegateService:
+def get_client_delegate_service(db: Session = Depends(get_db)) -> ClientDelegateService:
     """Factory function for dependency injection."""
     return ClientDelegateService(db)

@@ -7,7 +7,9 @@ import asyncio
 from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_, or_, func
+from fastapi import Depends
 
+from app.database import get_db
 from app.models.brand import Brand
 from app.schemas.brand import BrandCreate, BrandUpdate, BrandLookupItem
 
@@ -238,6 +240,6 @@ async def async_delete_brand(service: BrandService, brand_id: int) -> None:
 # Service Factory
 # ==========================================================================
 
-def get_brand_service(db: Session) -> BrandService:
+def get_brand_service(db: Session = Depends(get_db)) -> BrandService:
     """Factory function to get BrandService instance."""
     return BrandService(db)

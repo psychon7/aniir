@@ -8,7 +8,9 @@ from datetime import datetime
 from typing import Optional, List, Tuple
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import Session, selectinload
+from fastapi import Depends
 
+from app.database import get_db
 from app.models.task import Task, TaskStatus, TaskPriority, TaskType
 from app.schemas.task import (
     TaskCreate, TaskUpdate, TaskResponse, TaskListResponse,
@@ -499,7 +501,7 @@ class TaskService:
 # =============================================================================
 
 
-def get_task_service(db: Session) -> TaskService:
+def get_task_service(db: Session = Depends(get_db)) -> TaskService:
     """Factory function for TaskService."""
     return TaskService(db)
 
