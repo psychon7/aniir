@@ -13,9 +13,9 @@ from datetime import datetime, date
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy import select, func, and_, or_, desc, asc
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, Session
 from fastapi import Depends
+from typing import Union
 
 from datetime import timedelta
 
@@ -120,7 +120,7 @@ class InvoiceService:
     STATUS_CANCELLED = 6
     STATUS_VOID = 7
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
 
     async def _generate_reference(self) -> str:
@@ -287,9 +287,9 @@ class InvoiceService:
 
         return invoice
 
-    async def get_invoice_detail(self, invoice_id: int) -> dict:
+    def _sync_get_invoice_detail(self, invoice_id: int) -> dict:
         """
-        Get invoice by ID with resolved lookup names.
+        Get invoice by ID with resolved lookup names (sync version).
         Returns a dict suitable for InvoiceDetailResponse.
         """
         # Get invoice with lines
@@ -297,7 +297,7 @@ class InvoiceService:
             selectinload(ClientInvoice.lines)
         ).where(ClientInvoice.cin_id == invoice_id)
 
-        result = await self.db.execute(stmt)
+        result = self.db.execute(stmt)
         invoice = result.scalar_one_or_none()
 
         if not invoice:
@@ -310,7 +310,7 @@ class InvoiceService:
         # Client
         if invoice.cli_id:
             stmt = select(Client).where(Client.cli_id == invoice.cli_id)
-            result = await self.db.execute(stmt)
+            result = self.db.execute(stmt)
             client = result.scalar_one_or_none()
             if client:
                 response_data["clientName"] = client.cli_company_name
@@ -318,7 +318,7 @@ class InvoiceService:
         # Order (if linked)
         if invoice.cod_id:
             stmt = select(ClientOrder).where(ClientOrder.cod_id == invoice.cod_id)
-            result = await self.db.execute(stmt)
+            result = self.db.execute(stmt)
             order = result.scalar_one_or_none()
             if order:
                 response_data["orderReference"] = order.cod_code
@@ -326,7 +326,7 @@ class InvoiceService:
         # Society
         if invoice.soc_id:
             stmt = select(Society).where(Society.soc_id == invoice.soc_id)
-            result = await self.db.execute(stmt)
+            result = self.db.execute(stmt)
             society = result.scalar_one_or_none()
             if society:
                 response_data["societyName"] = society.soc_society_name
@@ -334,7 +334,7 @@ class InvoiceService:
         # Project (if linked)
         if invoice.prj_id:
             stmt = select(Project).where(Project.prj_id == invoice.prj_id)
-            result = await self.db.execute(stmt)
+            result = self.db.execute(stmt)
             project = result.scalar_one_or_none()
             if project:
                 response_data["projectName"] = project.prj_name
@@ -342,7 +342,7 @@ class InvoiceService:
         # Currency
         if invoice.cur_id:
             stmt = select(Currency).where(Currency.cur_id == invoice.cur_id)
-            result = await self.db.execute(stmt)
+            result = self.db.execute(stmt)
             currency = result.scalar_one_or_none()
             if currency:
                 response_data["currencyCode"] = currency.cur_designation
@@ -351,7 +351,7 @@ class InvoiceService:
         # Payment Mode
         if invoice.pmo_id:
             stmt = select(PaymentMode).where(PaymentMode.pmo_id == invoice.pmo_id)
-            result = await self.db.execute(stmt)
+            result = self.db.execute(stmt)
             payment_mode = result.scalar_one_or_none()
             if payment_mode:
                 response_data["paymentModeName"] = payment_mode.pmo_designation
@@ -359,13 +359,21 @@ class InvoiceService:
         # Payment Condition (Term)
         if invoice.pco_id:
             stmt = select(PaymentTerm).where(PaymentTerm.pco_id == invoice.pco_id)
-            result = await self.db.execute(stmt)
+            result = self.db.execute(stmt)
             payment_term = result.scalar_one_or_none()
             if payment_term:
                 response_data["paymentConditionName"] = payment_term.pco_designation
                 response_data["paymentTermDays"] = payment_term.pco_numday + payment_term.pco_day_additional
 
         return response_data
+
+    async def get_invoice_detail(self, invoice_id: int) -> dict:
+        """
+        Get invoice by ID with resolved lookup names.
+        Returns a dict suitable for InvoiceDetailResponse.
+        """
+        import asyncio
+        return await asyncio.to_thread(self._sync_get_invoice_detail, invoice_id)
 
     async def update_invoice(
         self,
@@ -970,6 +978,6 @@ class InvoiceService:
         return invoice, order_reference
 
 
-def get_invoice_service(db: AsyncSession = Depends(get_db)) -> InvoiceService:
+def get_invoice_service(db: Session = Depends(get_db)) -> InvoiceService:
     """Dependency to get InvoiceService instance."""
     return InvoiceService(db)

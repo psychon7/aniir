@@ -99,14 +99,24 @@ class MigrationRunner:
         # Format: mssql+pymssql://user:pass@host:port/database?params
         url = self.settings.DATABASE_URL
         
+        logger.info(f"Parsing DATABASE_URL (masked): {url[:30]}...")
+        
         # Extract components
         # Remove driver prefix
         if url.startswith("mssql+pymssql://"):
             url = url[len("mssql+pymssql://"):]
+        elif url.startswith("mssql://"):
+            url = url[len("mssql://"):]
         
         # Split user:pass@host:port/database
+        if "/" not in url:
+            raise ValueError(f"DATABASE_URL missing database path separator '/'")
+        
         auth_host, db_params = url.split("/", 1)
         database = db_params.split("?")[0]
+        
+        if "@" not in auth_host:
+            raise ValueError(f"DATABASE_URL missing '@' separator between credentials and host")
         
         user_pass, host_port = auth_host.rsplit("@", 1)
         

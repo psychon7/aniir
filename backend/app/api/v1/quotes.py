@@ -98,7 +98,7 @@ def _sync_list_quotes(
     total = total_result.scalar() or 0
     
     # Apply sorting
-    sort_column = getattr(CostPlan, sort_by, CostPlan.cpl_d_create)
+    sort_column = getattr(CostPlan, sort_by, CostPlan.cpl_d_creation)
     if sort_order == "desc":
         query = query.order_by(desc(sort_column))
     else:

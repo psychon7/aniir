@@ -225,7 +225,27 @@ async def search_deliveries(
         _sync_list_deliveries, db, page, page_size, search, client_id, sort_by, sort_order
     )
     
-    items = [DeliveryFormResponse.model_validate(d) for d in deliveries]
+    # Map DeliveryForm model (dfo_* fields) to DeliveryFormResponse (del_* fields)
+    items = []
+    for d in deliveries:
+        item_data = {
+            "del_id": d.dfo_id,
+            "del_reference": d.dfo_code,
+            "del_ord_id": d.cod_id,
+            "del_cli_id": d.cli_id,
+            "del_delivery_date": d.dfo_d_delivery,
+            "del_sta_id": 1,  # Default status - no status field in model
+            "del_tracking_number": None,
+            "del_shipping_address": d.dfo_dlv_cco_address1,
+            "del_shipping_city": d.dfo_dlv_cco_city,
+            "del_shipping_postal_code": d.dfo_dlv_cco_postcode,
+            "del_shipping_country_id": None,
+            "del_notes": d.dfo_delivery_comment,
+            "del_created_at": d.dfo_d_creation,
+            "del_updated_at": d.dfo_d_update,
+            "del_created_by": d.usr_creator_id,
+        }
+        items.append(DeliveryFormResponse.model_validate(item_data))
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
     
     return DeliveryListPaginatedResponse(
