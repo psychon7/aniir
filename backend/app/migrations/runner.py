@@ -79,13 +79,19 @@ class MigrationRunner:
         
         # Default migrations directory
         if migrations_dir is None:
-            # Go up from backend/app/migrations to project root, then to database/migrations
-            project_root = Path(__file__).parent.parent.parent.parent
-            self.migrations_dir = project_root / "database" / "migrations"
+            # Try Docker path first (/app/migrations), then local development path
+            docker_path = Path("/app/migrations")
+            if docker_path.exists():
+                self.migrations_dir = docker_path
+            else:
+                # Local development: go up from backend/app/migrations to project root
+                project_root = Path(__file__).parent.parent.parent.parent
+                self.migrations_dir = project_root / "database" / "migrations"
         else:
             self.migrations_dir = migrations_dir
             
         logger.info(f"Migration runner initialized. Migrations dir: {self.migrations_dir}")
+        logger.info(f"Migrations dir exists: {self.migrations_dir.exists()}")
     
     def _get_connection(self):
         """Create a database connection using pymssql."""

@@ -53,6 +53,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY backend/app ./app
 
+# Copy database migrations for auto-migration on startup
+COPY database/migrations ./migrations
+
 # Copy frontend build from builder stage
 COPY --from=frontend-builder /app/frontend/dist /var/www/html
 
