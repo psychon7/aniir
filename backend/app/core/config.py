@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     EMAIL_FROM_NAME: str = "ECOLED ERP"
     ACCOUNTING_CC_EMAIL: Optional[str] = None
 
+    # Reference code generation (legacy compatibility)
+    CODE_TYPE: int = 2
+
     # Storage Provider: "local", "azure_blob", or "aws_s3"
     STORAGE_PROVIDER: str = "local"
 

@@ -21,6 +21,15 @@ export {
   resetMockClients,
 } from './clients'
 
+// Consignee handlers
+export {
+  getConsignees,
+  getConsigneeById,
+  createConsignee,
+  updateConsignee,
+  deleteConsignee,
+} from './consignees'
+
 // Payment handlers
 export {
   getPayments,
@@ -67,6 +76,7 @@ export {
   getClientStatuses,
   getBusinessUnits,
   getLanguages,
+  getCivilities,
   getSocieties,
   getProductCategories,
   getOrderStatuses,

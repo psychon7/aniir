@@ -152,6 +152,13 @@ class ShipmentResponse(BaseModel):
     shp_updated_at: Optional[datetime] = None
 
 
+class ShipmentListItemResponse(ShipmentResponse):
+    """Schema for shipment list items with related display fields."""
+    carrier_name: Optional[str] = None
+    status_name: Optional[str] = None
+    is_delivered: bool = False
+
+
 class ShipmentDetailResponse(ShipmentResponse):
     """Schema for shipment detail response with related entities."""
     # Related entity names (populated from joins)
@@ -207,7 +214,7 @@ class ShipmentSearchParams(BaseModel):
 
 class ShipmentListResponse(BaseModel):
     """Schema for paginated shipment list response."""
-    items: List[ShipmentResponse]
+    items: List[ShipmentListItemResponse]
     total: int
     page: int
     page_size: int
@@ -247,14 +254,29 @@ class TrackingEvent(BaseModel):
 
 class TrackingResponse(BaseModel):
     """Schema for tracking information response."""
-    shipment_id: int
-    reference: str
-    tracking_number: Optional[str] = None
+    shp_id: int
+    shp_reference: str
+    shp_tracking_number: Optional[str] = None
     carrier_name: Optional[str] = None
     current_status: str
-    estimated_delivery: Optional[datetime] = None
-    actual_delivery: Optional[datetime] = None
     events: List[TrackingEvent] = Field(default_factory=list)
+
+
+# ==========================================================================
+# Carrier Schemas
+# ==========================================================================
+
+class CarrierListItemResponse(BaseModel):
+    """Lightweight carrier list item."""
+    car_id: int
+    car_name: str
+    car_code: Optional[str] = None
+    car_is_active: bool
+
+
+class CarrierResponse(CarrierListItemResponse):
+    """Carrier detail response."""
+    car_tracking_url: Optional[str] = None
 
 
 # ==========================================================================

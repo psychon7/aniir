@@ -5,29 +5,48 @@ export interface Order {
   id: number
   reference: string
   clientId: number
-  clientName: string
-  clientReference: string
-  statusId: number
-  statusName: string
+  clientName?: string
+  clientReference?: string
+  statusId?: number
+  statusName?: string
   orderDate: string
+  requiredDate?: string
   expectedDeliveryDate?: string
   deliveryDate?: string
-  totalHT: number
-  totalTVA: number
-  totalTTC: number
-  currencyId: number
-  currencyCode: string
+  quoteReference?: string
+
+  // Totals (legacy + UI)
+  subtotal?: number
+  taxAmount?: number
+  totalAmount?: number
+  totalHT?: number
+  totalTVA?: number
+  totalTTC?: number
+
+  currencyId?: number
+  currencyCode?: string
+  currency?: string
+
+  discountAmount?: number
+  paidAmount?: number
+  paymentStatusName?: string
+
   paymentModeId?: number
   paymentModeName?: string
+
   shippingAddress?: string
   billingAddress?: string
   notes?: string
-  societyId: number
-  societyName: string
-  createdBy: number
-  createdByName: string
-  createdAt: string
-  updatedAt: string
+
+  societyId?: number
+  societyName?: string
+
+  createdBy?: number
+  createdByName?: string
+  createdAt?: string
+  updatedAt?: string
+
+  lines?: OrderLine[]
 }
 
 /**
@@ -36,12 +55,14 @@ export interface Order {
 export interface OrderLine {
   id: number
   orderId: number
-  productId: number
-  productReference: string
-  productName: string
+  productId?: number
+  productReference?: string
+  productName?: string
+  description?: string
   quantity: number
+  deliveredQuantity?: number
   unitPrice: number
-  discount: number
+  discount?: number
   lineTotal: number
   notes?: string
 }
@@ -85,6 +106,7 @@ export interface OrderUpdateDto extends Partial<Omit<OrderCreateDto, 'lines'>> {
 export interface OrderSearchParams {
   search?: string
   clientId?: number
+  projectId?: number
   statusId?: number
   societyId?: number
   dateFrom?: string
@@ -101,10 +123,10 @@ export interface OrderSearchParams {
 export interface OrderListItem {
   id: number
   reference: string
-  clientName: string
+  clientName?: string
   orderDate: string
-  statusId: number
-  statusName: string
-  totalTTC: number
-  currencyCode: string
+  expectedDeliveryDate?: string
+  statusName?: string
+  totalAmount?: number
+  currencyCode?: string
 }

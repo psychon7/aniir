@@ -28,6 +28,7 @@ import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedDriveIndexRouteImport } from './routes/_authenticated/drive/index'
 import { Route as AuthenticatedDeliveriesIndexRouteImport } from './routes/_authenticated/deliveries/index'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients/index'
+import { Route as AuthenticatedConsigneesIndexRouteImport } from './routes/_authenticated/consignees/index'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat/index'
 import { Route as AuthenticatedCalendarIndexRouteImport } from './routes/_authenticated/calendar/index'
 import { Route as AuthenticatedBrandsIndexRouteImport } from './routes/_authenticated/brands/index'
@@ -176,6 +177,12 @@ const AuthenticatedClientsIndexRoute =
   AuthenticatedClientsIndexRouteImport.update({
     id: '/clients/',
     path: '/clients/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedConsigneesIndexRoute =
+  AuthenticatedConsigneesIndexRouteImport.update({
+    id: '/consignees/',
+    path: '/consignees/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
@@ -453,6 +460,7 @@ export interface FileRoutesByFullPath {
   '/calendar/': typeof AuthenticatedCalendarIndexRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
+  '/consignees/': typeof AuthenticatedConsigneesIndexRoute
   '/deliveries/': typeof AuthenticatedDeliveriesIndexRoute
   '/drive/': typeof AuthenticatedDriveIndexRoute
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
@@ -514,6 +522,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof AuthenticatedCalendarIndexRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
+  '/consignees': typeof AuthenticatedConsigneesIndexRoute
   '/deliveries': typeof AuthenticatedDeliveriesIndexRoute
   '/drive': typeof AuthenticatedDriveIndexRoute
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
@@ -577,6 +586,7 @@ export interface FileRoutesById {
   '/_authenticated/calendar/': typeof AuthenticatedCalendarIndexRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
+  '/_authenticated/consignees/': typeof AuthenticatedConsigneesIndexRoute
   '/_authenticated/deliveries/': typeof AuthenticatedDeliveriesIndexRoute
   '/_authenticated/drive/': typeof AuthenticatedDriveIndexRoute
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
@@ -640,6 +650,7 @@ export interface FileRouteTypes {
     | '/calendar/'
     | '/chat/'
     | '/clients/'
+    | '/consignees/'
     | '/deliveries/'
     | '/drive/'
     | '/invoices/'
@@ -701,6 +712,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/chat'
     | '/clients'
+    | '/consignees'
     | '/deliveries'
     | '/drive'
     | '/invoices'
@@ -763,6 +775,7 @@ export interface FileRouteTypes {
     | '/_authenticated/calendar/'
     | '/_authenticated/chat/'
     | '/_authenticated/clients/'
+    | '/_authenticated/consignees/'
     | '/_authenticated/deliveries/'
     | '/_authenticated/drive/'
     | '/_authenticated/invoices/'
@@ -933,6 +946,13 @@ declare module '@tanstack/react-router' {
       path: '/clients'
       fullPath: '/clients/'
       preLoaderRoute: typeof AuthenticatedClientsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/consignees/': {
+      id: '/_authenticated/consignees/'
+      path: '/consignees'
+      fullPath: '/consignees/'
+      preLoaderRoute: typeof AuthenticatedConsigneesIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/chat/': {
@@ -1254,6 +1274,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedCalendarIndexRoute: typeof AuthenticatedCalendarIndexRoute
   AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
   AuthenticatedClientsIndexRoute: typeof AuthenticatedClientsIndexRoute
+  AuthenticatedConsigneesIndexRoute: typeof AuthenticatedConsigneesIndexRoute
   AuthenticatedDeliveriesIndexRoute: typeof AuthenticatedDeliveriesIndexRoute
   AuthenticatedDriveIndexRoute: typeof AuthenticatedDriveIndexRoute
   AuthenticatedInvoicesIndexRoute: typeof AuthenticatedInvoicesIndexRoute
@@ -1318,6 +1339,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedCalendarIndexRoute: AuthenticatedCalendarIndexRoute,
   AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
   AuthenticatedClientsIndexRoute: AuthenticatedClientsIndexRoute,
+  AuthenticatedConsigneesIndexRoute: AuthenticatedConsigneesIndexRoute,
   AuthenticatedDeliveriesIndexRoute: AuthenticatedDeliveriesIndexRoute,
   AuthenticatedDriveIndexRoute: AuthenticatedDriveIndexRoute,
   AuthenticatedInvoicesIndexRoute: AuthenticatedInvoicesIndexRoute,

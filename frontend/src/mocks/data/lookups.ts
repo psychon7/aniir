@@ -90,6 +90,15 @@ export const languages: KeyValue[] = [
   { key: 5, value: 'German', value2: 'de' },
 ]
 
+// Civilities
+export const civilities: KeyValue[] = [
+  { key: 1, value: 'Mr.' },
+  { key: 2, value: 'Mrs.' },
+  { key: 3, value: 'Ms.' },
+  { key: 4, value: 'Dr.' },
+  { key: 5, value: 'Company' },
+]
+
 // Societies (Companies/Business Entities)
 export const societies: KeyValue[] = [
   { key: 1, value: 'ECOLED EUROPE', value2: 'ECO' },

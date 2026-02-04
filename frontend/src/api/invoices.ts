@@ -35,25 +35,12 @@ export const invoicesApi = {
     if (params.isInvoiced !== undefined) queryParams.is_invoiced = params.isInvoiced
     if (params.keyProjectOnly !== undefined) queryParams.key_project_only = params.keyProjectOnly
     if (params.page) queryParams.page = params.page
-    if (params.pageSize) queryParams.page_size = params.pageSize
+    if (params.pageSize) queryParams.pageSize = params.pageSize
+    if (params.sortBy) queryParams.sort_by = params.sortBy
+    if (params.sortOrder) queryParams.sort_order = params.sortOrder
 
     const response = await apiClient.get('/invoices', { params: queryParams })
-    const data = response.data
-    const page = data.page || params.page || 1
-    const pageSize = data.page_size || params.pageSize || 20
-    const totalCount = data.total || 0
-    const totalPages = data.total_pages || Math.ceil(totalCount / pageSize)
-
-    return {
-      success: true,
-      data: data.items || [],
-      page,
-      pageSize,
-      totalCount,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPreviousPage: page > 1,
-    }
+    return response.data
   },
 
   /**
@@ -61,7 +48,23 @@ export const invoicesApi = {
    */
   async getById(id: number): Promise<Invoice> {
     const response = await apiClient.get(`/invoices/${id}`)
-    return response.data.data || response.data
+    return response.data
+  },
+
+  /**
+   * Get invoices by project
+   */
+  async getByProject(projectId: number): Promise<InvoiceListItem[]> {
+    const response = await apiClient.get(`/invoices/by-project/${projectId}`)
+    return response.data
+  },
+
+  /**
+   * Get invoices by quote
+   */
+  async getByQuote(quoteId: number): Promise<InvoiceListItem[]> {
+    const response = await apiClient.get(`/invoices/by-quote/${quoteId}`)
+    return response.data
   },
 
   /**
@@ -116,7 +119,7 @@ export const invoicesApi = {
    */
   async createFromOrder(orderId: number, options?: { includeAllLines?: boolean }): Promise<Invoice> {
     const response = await apiClient.post(`/invoices/from-order/${orderId}`, options || {})
-    return response.data.data || response.data
+    return response.data.invoice || response.data.data || response.data
   },
 
   // ==================== Invoice Lines ====================
@@ -145,7 +148,7 @@ export const invoicesApi = {
     lineId: number,
     line: InvoiceLineUpdateDto
   ): Promise<InvoiceLine> {
-    const response = await apiClient.put(`/invoices/${invoiceId}/lines/${lineId}`, line)
+    const response = await apiClient.put(`/invoices/lines/${lineId}`, line)
     return response.data.data || response.data
   },
 
@@ -153,7 +156,7 @@ export const invoicesApi = {
    * Delete an invoice line
    */
   async deleteLine(invoiceId: number, lineId: number): Promise<void> {
-    await apiClient.delete(`/invoices/${invoiceId}/lines/${lineId}`)
+    await apiClient.delete(`/invoices/lines/${lineId}`)
   },
 
   // ==================== Invoice Payments ====================

@@ -38,6 +38,11 @@ frontend/dist/
 frontend/build/
 backend/dist/
 
+# Legacy .NET build artifacts
+Legacy/**/obj/
+Legacy/**/bin/
+*.csprojAssemblyReference.cache
+
 # IDE and editors
 .idea/
 *.swp

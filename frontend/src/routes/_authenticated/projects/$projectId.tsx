@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
 import { StatusBadge } from '@/components/ui/Badge'
 import { useProject } from '@/hooks/useProjects'
 import { useQuotesByProject } from '@/hooks/useQuotes'
+import { useOrdersByProject } from '@/hooks/useOrders'
+import { useInvoicesByProject } from '@/hooks/useInvoices'
 
 export const Route = createFileRoute('/_authenticated/projects/$projectId')({
   component: ProjectDetailPage,
@@ -18,6 +20,8 @@ function ProjectDetailPage() {
 
   const { data: project, isLoading } = useProject(Number(projectId))
   const { data: quotes = [] } = useQuotesByProject(Number(projectId))
+  const { data: orders = [] } = useOrdersByProject(Number(projectId))
+  const { data: invoices = [] } = useInvoicesByProject(Number(projectId))
 
   if (isLoading) {
     return (
@@ -135,7 +139,7 @@ function ProjectDetailPage() {
                           <p className="text-xs text-muted-foreground">{quote.clientName}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-medium">{quote.totalNet?.toLocaleString()} €</p>
+                          <p className="font-medium">{quote.totalAmount?.toLocaleString()} €</p>
                           <StatusBadge status={quote.statusName || 'Draft'} />
                         </div>
                       </div>
@@ -144,6 +148,106 @@ function ProjectDetailPage() {
                   {quotes.length > 5 && (
                     <p className="text-sm text-muted-foreground pt-3">
                       {t('common.andMore', { count: quotes.length - 5 })}
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Orders Section */}
+          <Card>
+            <CardHeader
+              title={t('orders.title')}
+              action={
+                <Link
+                  to="/orders/new"
+                  search={{ projectId: Number(projectId) }}
+                  className="text-sm text-primary hover:underline"
+                >
+                  {t('orders.newOrder')}
+                </Link>
+              }
+            />
+            <CardContent>
+              {orders.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('orders.noOrdersFound')}</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {orders.slice(0, 5).map((order) => (
+                    <Link
+                      key={order.id}
+                      to="/orders/$orderId"
+                      params={{ orderId: String(order.id) }}
+                      className="block py-3 hover:bg-accent/50 -mx-4 px-4 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-mono text-sm">{order.reference}</p>
+                          <p className="text-xs text-muted-foreground">{order.clientName}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">
+                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currencyCode || 'EUR' }).format(order.totalAmount || 0)}
+                          </p>
+                          <StatusBadge status={order.statusName || 'Pending'} />
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                  {orders.length > 5 && (
+                    <p className="text-sm text-muted-foreground pt-3">
+                      {t('common.andMore', { count: orders.length - 5 })}
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Invoices Section */}
+          <Card>
+            <CardHeader
+              title={t('invoices.title')}
+              action={
+                <Link
+                  to="/invoices/new"
+                  search={{ projectId: Number(projectId) }}
+                  className="text-sm text-primary hover:underline"
+                >
+                  {t('invoices.newInvoice')}
+                </Link>
+              }
+            />
+            <CardContent>
+              {invoices.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('invoices.noInvoicesFound')}</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {invoices.slice(0, 5).map((invoice) => (
+                    <Link
+                      key={invoice.id}
+                      to="/invoices/$invoiceId"
+                      params={{ invoiceId: String(invoice.id) }}
+                      className="block py-3 hover:bg-accent/50 -mx-4 px-4 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-mono text-sm">{invoice.reference}</p>
+                          <p className="text-xs text-muted-foreground">{invoice.clientName}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">
+                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: invoice.currency || 'EUR' }).format(invoice.totalAmount || 0)}
+                          </p>
+                          <StatusBadge status={invoice.statusName || 'Pending'} />
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                  {invoices.length > 5 && (
+                    <p className="text-sm text-muted-foreground pt-3">
+                      {t('common.andMore', { count: invoices.length - 5 })}
                     </p>
                   )}
                 </div>

@@ -14,6 +14,7 @@ export const lookupKeys = {
   clientStatuses: () => [...lookupKeys.all, 'clientStatuses'] as const,
   businessUnits: () => [...lookupKeys.all, 'businessUnits'] as const,
   languages: () => [...lookupKeys.all, 'languages'] as const,
+  civilities: () => [...lookupKeys.all, 'civilities'] as const,
   societies: () => [...lookupKeys.all, 'societies'] as const,
   productCategories: () => [...lookupKeys.all, 'productCategories'] as const,
   orderStatuses: () => [...lookupKeys.all, 'orderStatuses'] as const,
@@ -96,6 +97,14 @@ export function useLanguages() {
   return useQuery({
     queryKey: lookupKeys.languages(),
     queryFn: lookupsApi.getLanguages,
+    ...lookupQueryOptions,
+  })
+}
+
+export function useCivilities() {
+  return useQuery({
+    queryKey: lookupKeys.civilities(),
+    queryFn: lookupsApi.getCivilities,
     ...lookupQueryOptions,
   })
 }

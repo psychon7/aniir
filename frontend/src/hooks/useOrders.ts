@@ -16,6 +16,8 @@ export const orderKeys = {
   detail: (id: number) => [...orderKeys.details(), id] as const,
   lines: (orderId: number) => [...orderKeys.detail(orderId), 'lines'] as const,
   line: (orderId: number, lineId: number) => [...orderKeys.lines(orderId), lineId] as const,
+  byProject: (projectId: number) => [...orderKeys.all, 'by-project', projectId] as const,
+  byQuote: (quoteId: number) => [...orderKeys.all, 'by-quote', quoteId] as const,
 }
 
 /**
@@ -48,6 +50,28 @@ export function useOrderLines(orderId: number) {
     queryKey: orderKeys.lines(orderId),
     queryFn: () => ordersApi.getLines(orderId),
     enabled: !!orderId,
+  })
+}
+
+/**
+ * Hook to fetch orders by project
+ */
+export function useOrdersByProject(projectId: number) {
+  return useQuery({
+    queryKey: orderKeys.byProject(projectId),
+    queryFn: () => ordersApi.getByProject(projectId),
+    enabled: !!projectId,
+  })
+}
+
+/**
+ * Hook to fetch orders by quote
+ */
+export function useOrdersByQuote(quoteId: number) {
+  return useQuery({
+    queryKey: orderKeys.byQuote(quoteId),
+    queryFn: () => ordersApi.getByQuote(quoteId),
+    enabled: !!quoteId,
   })
 }
 

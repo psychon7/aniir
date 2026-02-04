@@ -86,7 +86,11 @@ function DeliveryDetailPage() {
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">Scheduled Date</dt>
-                  <dd>{new Date(delivery.scheduledDate).toLocaleDateString()}</dd>
+                  <dd>
+                    {delivery.scheduledDate
+                      ? new Date(delivery.scheduledDate).toLocaleDateString()
+                      : '-'}
+                  </dd>
                 </div>
                 {delivery.deliveryDate && (
                   <div>
@@ -178,7 +182,9 @@ function DeliveryDetailPage() {
                   <div className="w-2 h-2 mt-2 rounded-full bg-green-500"></div>
                   <div>
                     <p className="font-medium">Created</p>
-                    <p className="text-sm text-muted-foreground">{new Date(delivery.createdAt).toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {delivery.createdAt ? new Date(delivery.createdAt).toLocaleString() : '-'}
+                    </p>
                   </div>
                 </div>
                 {delivery.shippedAt && (

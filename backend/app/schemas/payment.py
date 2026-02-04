@@ -1,95 +1,136 @@
 """
-Payment Pydantic schemas for request/response validation
+Payment schemas aligned to legacy tables:
+- TM_CPY_ClientInvoice_Payment (client invoice payments)
+- TR_SPR_SupplierOrder_Payment_Record (supplier order payment records)
 """
-from pydantic import BaseModel, Field, ConfigDict, field_validator
-from typing import Optional
+from __future__ import annotations
+
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
+from typing import Optional, List
+
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
-class PaymentModeResponse(BaseModel):
-    """Payment mode response schema"""
-    model_config = ConfigDict(from_attributes=True)
-    
-    id: int = Field(alias="Id")
-    code: str = Field(alias="Code")
-    name: str = Field(alias="Name")
-    is_active: bool = Field(alias="IsActive")
+class PaymentType(str, Enum):
+    CLIENT = "CLIENT"
+    SUPPLIER = "SUPPLIER"
 
 
-class PaymentBase(BaseModel):
-    """Base payment schema with common fields"""
-    pay_client_id: Optional[int] = Field(None, description="Client ID for client payments")
-    pay_supplier_id: Optional[int] = Field(None, description="Supplier ID for supplier payments")
-    pay_invoice_id: Optional[int] = Field(None, description="Client invoice ID")
-    pay_supplier_invoice_id: Optional[int] = Field(None, description="Supplier invoice ID")
-    pay_mode_id: int = Field(..., description="Payment mode ID")
-    pay_society_id: int = Field(..., description="Society ID")
-    pay_currency_id: int = Field(..., description="Currency ID")
-    pay_amount: Decimal = Field(..., gt=0, description="Payment amount (must be positive)")
-    pay_date: datetime = Field(..., description="Payment date")
-    pay_bank_reference: Optional[str] = Field(None, max_length=100, description="Bank reference")
-    pay_notes: Optional[str] = Field(None, description="Payment notes")
-    pay_type: str = Field("CLIENT", pattern="^(CLIENT|SUPPLIER)$", description="Payment type")
-    
-    @field_validator('pay_type')
+class PaymentCreate(BaseModel):
+    """
+    Create payment request.
+
+    Accepts frontend payload fields; unused fields are allowed for compatibility.
+    """
+
+    paymentType: PaymentType = PaymentType.CLIENT
+
+    clientId: Optional[int] = None
+    supplierId: Optional[int] = None
+    invoiceId: Optional[int] = None
+    supplierOrderId: Optional[int] = None
+    supplierOrderLineId: Optional[int] = None
+
+    amount: Decimal = Field(..., gt=0)
+    paymentDate: datetime
+
+    notes: Optional[str] = None
+    paymentCode: Optional[str] = None
+    filePath: Optional[str] = None
+    guid: Optional[str] = None
+
+    # Extra fields from UI forms (ignored by backend mapping)
+    currencyId: Optional[int] = None
+    paymentModeId: Optional[int] = None
+    statusId: Optional[int] = None
+    businessUnitId: Optional[int] = None
+    societyId: Optional[int] = None
+    bankAccount: Optional[str] = None
+    bankReference: Optional[str] = None
+    checkNumber: Optional[str] = None
+    transactionId: Optional[str] = None
+
+    model_config = ConfigDict(extra="allow")
+
+    @field_validator("paymentType")
     @classmethod
-    def validate_payment_type(cls, v: str) -> str:
-        if v not in ('CLIENT', 'SUPPLIER'):
-            raise ValueError('pay_type must be either CLIENT or SUPPLIER')
-        return v
-
-
-class PaymentCreate(PaymentBase):
-    """Schema for creating a new payment"""
-    
-    @field_validator('pay_client_id', 'pay_supplier_id')
-    @classmethod
-    def validate_entity_id(cls, v, info):
-        # Validation will be done in service layer based on pay_type
-        return v
+    def validate_payment_type(cls, value: PaymentType) -> PaymentType:
+        if value not in (PaymentType.CLIENT, PaymentType.SUPPLIER):
+            raise ValueError("paymentType must be CLIENT or SUPPLIER")
+        return value
 
 
 class PaymentUpdate(BaseModel):
-    """Schema for updating a payment"""
-    pay_mode_id: Optional[int] = None
-    pay_amount: Optional[Decimal] = Field(None, gt=0)
-    pay_date: Optional[datetime] = None
-    pay_bank_reference: Optional[str] = Field(None, max_length=100)
-    pay_notes: Optional[str] = None
+    paymentType: Optional[PaymentType] = None
+    amount: Optional[Decimal] = Field(default=None, gt=0)
+    paymentDate: Optional[datetime] = None
+    notes: Optional[str] = None
+    paymentCode: Optional[str] = None
+    filePath: Optional[str] = None
+    guid: Optional[str] = None
+
+    model_config = ConfigDict(extra="allow")
 
 
 class PaymentResponse(BaseModel):
-    """Payment response schema"""
-    model_config = ConfigDict(from_attributes=True)
-    
-    pay_id: int
-    pay_reference: str
-    pay_client_id: Optional[int] = None
-    pay_supplier_id: Optional[int] = None
-    pay_invoice_id: Optional[int] = None
-    pay_supplier_invoice_id: Optional[int] = None
-    pay_mode_id: int
-    pay_society_id: int
-    pay_currency_id: int
-    pay_amount: Decimal
-    pay_date: datetime
-    pay_bank_reference: Optional[str] = None
-    pay_notes: Optional[str] = None
-    pay_type: str
-    pay_created_at: datetime
-    pay_created_by: Optional[int] = None
-    pay_updated_at: Optional[datetime] = None
-    pay_updated_by: Optional[int] = None
-    
-    # Nested objects (optional, populated when joined)
-    payment_mode: Optional[PaymentModeResponse] = None
+    """Unified payment response for UI consumption."""
+
+    id: int
+    reference: str
+    paymentType: PaymentType
+
+    clientId: Optional[int] = None
+    clientName: Optional[str] = None
+    supplierId: Optional[int] = None
+    supplierName: Optional[str] = None
+
+    invoiceId: Optional[int] = None
+    invoiceReference: Optional[str] = None
+    supplierOrderId: Optional[int] = None
+    supplierOrderReference: Optional[str] = None
+
+    amount: Decimal
+    currencyId: Optional[int] = None
+    currencyCode: Optional[str] = None
+
+    paymentDate: datetime
+    paymentModeId: Optional[int] = None
+    paymentModeName: Optional[str] = None
+
+    statusId: Optional[int] = None
+    statusName: Optional[str] = None
+    businessUnitId: Optional[int] = None
+    businessUnitName: Optional[str] = None
+
+    societyId: Optional[int] = None
+    societyName: Optional[str] = None
+
+    bankAccount: Optional[str] = None
+    bankReference: Optional[str] = None
+    checkNumber: Optional[str] = None
+    transactionId: Optional[str] = None
+
+    notes: Optional[str] = None
+
+    createdAt: Optional[datetime] = None
+    updatedAt: Optional[datetime] = None
+    createdBy: Optional[str] = None
+    isReconciled: bool = False
 
 
-class PaymentListResponse(BaseModel):
-    """Paginated payment list response"""
-    items: list[PaymentResponse]
-    total: int
+class PaymentAPIResponse(BaseModel):
+    success: bool = True
+    data: PaymentResponse
+
+
+class PaymentListPaginatedResponse(BaseModel):
+    success: bool = True
+    data: List[PaymentResponse]
     page: int
-    page_size: int
-    total_pages: int
+    pageSize: int
+    totalCount: int
+    totalPages: int
+    hasNextPage: bool
+    hasPreviousPage: bool

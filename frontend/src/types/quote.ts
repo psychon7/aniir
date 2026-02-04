@@ -2,115 +2,74 @@
  * Quote entity representing a cost plan / quotation
  */
 export interface Quote {
-  id?: number  // Alias for cplId for convenience
-  cplId: number
-  fId: string
-  cplCode: string
-  cplName: string
-  clientCompanyName: string
-  cplClient?: Client
-  socId: number
-  prjId: number
-  prjFId: string
-  prjName: string
-  prjCode: string
-  vatId: number
-  cplDateCreation: string
-  cplDateUpdate: string
-  cstId: number
-  costPlanStatut: string
-  cliId: number
-  cliFId: string
-  pcoId: number
-  pmoId: number
-  cplDateValidity: string
-  cplDatePreDelivery?: string
-  cplHeaderText?: string
-  cplFooterText?: string
-  ccoIdInvoicing?: number
-  cplClientComment?: string
-  cplInterComment?: string
-  usrCreatorId: number
-  cplAmount?: number
-  cplAmountTtc?: number
-  cplPurchaseAmount?: number
-  cplMarginAmount?: number
-  cplInvoicedAmount?: number
-  costPlanLines?: QuoteLine[]
-  paymentMode?: string
-  paymentCondition?: string
-  creator?: User
-  cplDiscountPercentage?: number
-  cplDiscountAmount?: number
-  usrCom1?: number
-  usrCom2?: number
-  usrCom3?: number
-  usrCommercial1?: string
-  usrCommercial2?: string
-  usrCommercial3?: string
-  userComment?: string
-  userFlag?: string
-  cliAbbr?: string
-  currencySymbol?: string
-  cplFromSite: boolean
-  cplKeyProject: boolean
+  id: number
+  reference: string
+  name?: string
+
+  clientId?: number
+  clientName?: string
+  clientReference?: string
+
+  projectId?: number
+  projectCode?: string
+  projectName?: string
+
+  quoteDate: string
+  validUntil: string
+
+  statusId?: number
+  statusName?: string
+
+  currencyId?: number
+  currency?: string
+
+  subtotal?: number
+  taxAmount?: number
+  totalAmount?: number
+  discountAmount?: number
+
+  lines?: QuoteLine[]
+}
+
+/**
+ * Quote list item (summary view)
+ */
+export interface QuoteListItem {
+  id: number
+  reference: string
+  clientName?: string
+  quoteDate: string
+  validUntil: string
+  statusId?: number
+  statusName?: string
+  totalAmount?: number
 }
 
 /**
  * Quote line item
  */
 export interface QuoteLine {
-  clnId: number
-  cplId: number
-  cplFId: string
-  clnLevel1?: number
-  clnLevel2?: number
-  clnDescription?: string
-  prdId?: number
-  prdName?: string
-  prdFId?: string
-  pitId?: number
-  pitName?: string
-  pitFId?: string
-  clnPurchasePrice?: number
-  clnUnitPrice?: number
-  clnQuantity?: number
-  clnTotalPrice?: number
-  clnTotalCrudePrice?: number
-  vatId?: number
-  vatLabel?: string
-  ltpId: number
-  lineType?: string
-  vatRate: number
-  socId: number
-  clnPrdName?: string
-  prdImgPath?: string
-  clnDiscountPercentage?: number
-  clnDiscountAmount?: number
-  clnPriceWithDiscountHt?: number
-  clnMargin?: number
-  clnPrdDes?: string
-  isAcc: boolean
-  ptyId: number
-  pilId: number
-  solId: number
-  pinFId?: string
-  sodFId?: string
+  id: number
+  productId?: number
+  productReference?: string
+  productName?: string
+  description?: string
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+  vatRate?: number
+  discountAmount?: number
+  discountPercent?: number
 }
 
 /**
  * Quote general info / summary
  */
 export interface QuoteSummary {
-  cplId: number
-  fId: string
-  cplDiscountPercentage?: number
-  cplDiscountAmount?: number
-  totalAmountHt?: number
-  totalAmountTtc?: number
-  totalMargin?: number
-  totalPurchasePrice?: number
-  totalSalePrice?: number
+  subtotal?: number
+  taxAmount?: number
+  totalAmount?: number
+  discountAmount?: number
 }
 
 /**
@@ -257,6 +216,27 @@ export interface QuoteCommercialRequest {
  */
 export interface QuoteDuplicateRequest {
   sameProject?: boolean
+}
+
+/**
+ * Request payload for converting a quote to an order
+ */
+export interface QuoteConvertRequest {
+  includeAllLines?: boolean
+  lineIds?: number[]
+  orderDate?: string
+  notes?: string
+}
+
+/**
+ * Response payload for converting a quote to an order
+ */
+export interface QuoteConvertResponse {
+  quoteId: number
+  orderId: number
+  orderReference: string
+  convertedAt: string
+  linesConverted: number
 }
 
 /**

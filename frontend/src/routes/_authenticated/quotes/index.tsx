@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
 import { useQuotes, useDeleteQuote } from '@/hooks/useQuotes'
-import type { Quote, QuoteSearchParams } from '@/types/quote'
+import type { QuoteListItem, QuoteSearchParams } from '@/types/quote'
 
 export const Route = createFileRoute('/_authenticated/quotes/')({
   component: QuotesPage,
@@ -24,7 +24,7 @@ function QuotesPage() {
     pageSize: 10,
   })
 
-  const [deletingQuote, setDeletingQuote] = useState<Quote | null>(null)
+  const [deletingQuote, setDeletingQuote] = useState<QuoteListItem | null>(null)
 
   // Data fetching with hooks
   const { data: quotesData, isLoading } = useQuotes(searchParams)
@@ -46,14 +46,14 @@ function QuotesPage() {
     // Quote API doesn't support sorting in params, ignore for now
   }
 
-  const handleRowClick = (quote: Quote) => {
-    navigate({ to: '/quotes/$quoteId' as any, params: { quoteId: String(quote.cplId) } })
+  const handleRowClick = (quote: QuoteListItem) => {
+    navigate({ to: '/quotes/$quoteId' as any, params: { quoteId: String(quote.id) } })
   }
 
   const handleConfirmDelete = async () => {
     if (!deletingQuote) return
     try {
-      await deleteMutation.mutateAsync(deletingQuote.cplId)
+      await deleteMutation.mutateAsync(deletingQuote.id)
       success(t('quotes.deleteSuccess'), t('quotes.deleteSuccessMessage'))
       setDeletingQuote(null)
     } catch {
@@ -61,39 +61,39 @@ function QuotesPage() {
     }
   }
 
-  const columns = useMemo<Column<Quote>[]>(
+  const columns = useMemo<Column<QuoteListItem>[]>(
     () => [
       {
-        id: 'cplCode',
+        id: 'reference',
         header: t('quotes.reference'),
-        accessorKey: 'cplCode',
+        accessorKey: 'reference',
         sortable: false,
         cell: (row) => (
-          <span className="font-mono text-sm text-muted-foreground">{row.cplCode}</span>
+          <span className="font-mono text-sm text-muted-foreground">{row.reference}</span>
         ),
       },
       {
-        id: 'clientCompanyName',
+        id: 'clientName',
         header: t('quotes.client'),
-        accessorKey: 'clientCompanyName',
+        accessorKey: 'clientName',
         sortable: false,
-        cell: (row) => <span className="font-medium">{row.clientCompanyName}</span>,
+        cell: (row) => <span className="font-medium">{row.clientName}</span>,
       },
       {
-        id: 'cplDateCreation',
+        id: 'quoteDate',
         header: t('quotes.date'),
-        accessorKey: 'cplDateCreation',
+        accessorKey: 'quoteDate',
         sortable: false,
-        cell: (row) => new Date(row.cplDateCreation).toLocaleDateString(),
+        cell: (row) => new Date(row.quoteDate).toLocaleDateString(),
       },
       {
-        id: 'cplDateValidity',
+        id: 'validUntil',
         header: t('quotes.validUntil'),
-        accessorKey: 'cplDateValidity',
+        accessorKey: 'validUntil',
         sortable: false,
         cell: (row) => {
-          if (!row.cplDateValidity) return '-'
-          const date = new Date(row.cplDateValidity)
+          if (!row.validUntil) return '-'
+          const date = new Date(row.validUntil)
           const isExpired = date < new Date()
           return (
             <span className={isExpired ? 'text-destructive' : ''}>
@@ -103,22 +103,22 @@ function QuotesPage() {
         },
       },
       {
-        id: 'cplAmount',
+        id: 'totalAmount',
         header: t('quotes.amount'),
-        accessorKey: 'cplAmount',
+        accessorKey: 'totalAmount',
         sortable: false,
         cell: (row) => (
           <span className="font-medium">
-            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR' }).format(row.cplAmount || 0)}
+            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'EUR' }).format(row.totalAmount || 0)}
           </span>
         ),
       },
       {
-        id: 'costPlanStatut',
+        id: 'statusName',
         header: t('quotes.status'),
-        accessorKey: 'costPlanStatut',
+        accessorKey: 'statusName',
         sortable: false,
-        cell: (row) => <StatusBadge status={row.costPlanStatut} />,
+        cell: (row) => <StatusBadge status={row.statusName || 'Draft'} />,
       },
       {
         id: 'actions',
@@ -202,7 +202,7 @@ function QuotesPage() {
         isOpen={!!deletingQuote}
         onClose={() => setDeletingQuote(null)}
         onConfirm={handleConfirmDelete}
-        itemName={deletingQuote?.cplCode || 'this quote'}
+        itemName={deletingQuote?.reference || 'this quote'}
         isLoading={deleteMutation.isPending}
       />
     </PageContainer>

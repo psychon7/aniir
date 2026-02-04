@@ -9,6 +9,7 @@ import {
   clientStatuses,
   businessUnits,
   languages,
+  civilities,
   societies,
   productCategories,
   orderStatuses,
@@ -42,6 +43,7 @@ export const getClientTypes = () => getLookup(clientTypes)
 export const getClientStatuses = () => getLookup(clientStatuses)
 export const getBusinessUnits = () => getLookup(businessUnits)
 export const getLanguages = () => getLookup(languages)
+export const getCivilities = () => getLookup(civilities)
 export const getSocieties = () => getLookup(societies)
 export const getProductCategories = () => getLookup(productCategories)
 export const getOrderStatuses = () => getLookup(orderStatuses)
@@ -66,6 +68,7 @@ export async function getAllLookups(): Promise<
     clientStatuses: KeyValue[]
     businessUnits: KeyValue[]
     languages: KeyValue[]
+    civilities: KeyValue[]
     societies: KeyValue[]
     productCategories: KeyValue[]
     orderStatuses: KeyValue[]
@@ -87,6 +90,7 @@ export async function getAllLookups(): Promise<
       clientStatuses,
       businessUnits,
       languages,
+      civilities,
       societies,
       productCategories,
       orderStatuses,

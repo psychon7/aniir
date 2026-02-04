@@ -4,50 +4,48 @@
 export interface DeliveryForm {
   id: number
   reference: string
-  name?: string
-  
+
   // Client info
-  clientId: number
+  clientId?: number
   clientName?: string
-  
+
   // Order info
   orderId?: number
   orderReference?: string
-  
-  // Project info
-  projectId?: number
-  projectCode?: string
-  projectName?: string
-  
+
   // Dates
-  createdAt: string
-  updatedAt?: string
-  shipDate?: string
-  deliveryDate?: string
+  createdAt?: string
+  scheduledDate?: string
   expectedDeliveryDate?: string
-  
+  deliveryDate?: string
+
   // Status
-  statusId: number
   statusName?: string
   isShipped: boolean
   isDelivered: boolean
-  
+
+  // Shipping info
+  carrierName?: string
+  trackingNumber?: string
+  weight?: number
+  packages?: number
+  shippingAddress?: string
+
   // Address
   deliveryAddress?: string
   deliveryAddress2?: string
   deliveryCity?: string
   deliveryPostcode?: string
   deliveryCountry?: string
-  
+
   // Notes
   internalNotes?: string
   deliveryNotes?: string
-  
-  // Metadata
-  creatorId: number
-  creatorName?: string
-  societyId: number
-  
+
+  // Timeline
+  shippedAt?: string
+  deliveredAt?: string
+
   // Lines
   lines?: DeliveryLine[]
 }
@@ -60,15 +58,13 @@ export interface DeliveryLine {
   deliveryId: number
   productId?: number
   productName?: string
-  productDescription?: string
-  reference?: string
-  quantity: number
+  productReference?: string
+  description?: string
+  quantity?: number
   orderedQuantity?: number
   deliveredQuantity?: number
   unitPrice?: number
-  totalPrice?: number
-  notes?: string
-  lineNumber: number
+  lineTotal?: number
 }
 
 /**

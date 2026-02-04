@@ -1,162 +1,158 @@
 """
 Payments API Router.
 
-Provides REST API endpoints for:
-- Payment CRUD operations
-- Payment search and filtering
-- Payment statistics
+Uses legacy payment tables:
+- TM_CPY_ClientInvoice_Payment (client payments)
+- TR_SPR_SupplierOrder_Payment_Record (supplier payments)
 """
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+import csv
+import io
 
-from app.database import get_db
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
+
 from app.services.payment_service import PaymentService, get_payment_service
 from app.schemas.payment import (
     PaymentCreate,
     PaymentUpdate,
     PaymentResponse,
-    PaymentListResponse,
+    PaymentAPIResponse,
+    PaymentListPaginatedResponse,
+    PaymentType,
 )
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
 
-# ==========================================================================
-# CRUD Endpoints
-# ==========================================================================
-
 @router.post(
     "",
-    response_model=PaymentResponse,
+    response_model=PaymentAPIResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new payment",
-    description="Record a new payment for a client or supplier."
+    description="Record a new client or supplier payment."
 )
 async def create_payment(
     data: PaymentCreate,
-    service: PaymentService = Depends(get_payment_service)
+    service: PaymentService = Depends(get_payment_service),
 ):
-    """Create a new payment record."""
     payment = service.create_payment(data)
-    return payment
+    return PaymentAPIResponse(success=True, data=payment)
 
 
 @router.get(
     "",
-    response_model=PaymentListResponse,
+    response_model=PaymentListPaginatedResponse,
     summary="List payments",
     description="Get a paginated list of payments with optional filtering."
 )
 async def list_payments(
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    client_id: Optional[int] = Query(None, description="Filter by client ID"),
-    supplier_id: Optional[int] = Query(None, description="Filter by supplier ID"),
-    payment_type: Optional[str] = Query(None, pattern="^(CLIENT|SUPPLIER)$", description="Filter by payment type"),
-    society_id: Optional[int] = Query(None, description="Filter by society ID"),
-    date_from: Optional[datetime] = Query(None, description="Filter payments from this date"),
-    date_to: Optional[datetime] = Query(None, description="Filter payments until this date"),
-    service: PaymentService = Depends(get_payment_service)
+    page_size: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
+    search: Optional[str] = Query(None, description="Search by reference or invoice/order code"),
+    client_id: Optional[int] = Query(None, alias="clientId", description="Filter by client ID"),
+    supplier_id: Optional[int] = Query(None, alias="supplierId", description="Filter by supplier ID"),
+    invoice_id: Optional[int] = Query(None, alias="invoiceId", description="Filter by invoice ID"),
+    payment_type: Optional[PaymentType] = Query(None, alias="paymentType", description="Filter by payment type"),
+    payment_mode_id: Optional[int] = Query(None, alias="paymentModeId", description="Filter by payment mode"),
+    society_id: Optional[int] = Query(None, alias="societyId", description="Filter by society ID"),
+    date_from: Optional[datetime] = Query(None, alias="dateFrom", description="Payments from date"),
+    date_to: Optional[datetime] = Query(None, alias="dateTo", description="Payments to date"),
+    min_amount: Optional[Decimal] = Query(None, alias="minAmount", description="Minimum amount"),
+    max_amount: Optional[Decimal] = Query(None, alias="maxAmount", description="Maximum amount"),
+    sort_by: str = Query("paymentDate", alias="sortBy", description="Sort field"),
+    sort_order: str = Query("desc", alias="sortOrder", pattern="^(asc|desc)$", description="Sort order"),
+    service: PaymentService = Depends(get_payment_service),
 ):
-    """List payments with pagination and filtering."""
     payments, total = service.list_payments(
         page=page,
         page_size=page_size,
+        search=search,
         client_id=client_id,
         supplier_id=supplier_id,
+        invoice_id=invoice_id,
         payment_type=payment_type,
+        payment_mode_id=payment_mode_id,
         society_id=society_id,
         date_from=date_from,
-        date_to=date_to
+        date_to=date_to,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
-    total_pages = (total + page_size - 1) // page_size
-
-    return PaymentListResponse(
-        items=payments,
-        total=total,
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+    return PaymentListPaginatedResponse(
+        success=True,
+        data=payments,
         page=page,
-        page_size=page_size,
-        total_pages=total_pages
+        pageSize=page_size,
+        totalCount=total,
+        totalPages=total_pages,
+        hasNextPage=page < total_pages,
+        hasPreviousPage=page > 1,
     )
 
 
 @router.get(
     "/{payment_id}",
-    response_model=PaymentResponse,
+    response_model=PaymentAPIResponse,
     summary="Get payment by ID",
     description="Retrieve a single payment by its ID."
 )
 async def get_payment(
     payment_id: int,
-    service: PaymentService = Depends(get_payment_service)
+    service: PaymentService = Depends(get_payment_service),
 ):
-    """Get a payment by ID."""
     payment = service.get_payment_by_id(payment_id)
     if not payment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Payment with ID {payment_id} not found"
+            detail=f"Payment with ID {payment_id} not found",
         )
-    return payment
+    return PaymentAPIResponse(success=True, data=payment)
 
 
 @router.get(
     "/by-reference/{reference}",
-    response_model=PaymentResponse,
+    response_model=PaymentAPIResponse,
     summary="Get payment by reference",
-    description="Retrieve a single payment by its reference number."
+    description="Retrieve a single payment by its reference."
 )
 async def get_payment_by_reference(
     reference: str,
-    service: PaymentService = Depends(get_payment_service)
+    service: PaymentService = Depends(get_payment_service),
 ):
-    """Get a payment by reference."""
     payment = service.get_payment_by_reference(reference)
     if not payment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Payment with reference {reference} not found"
+            detail=f"Payment with reference {reference} not found",
         )
-    return payment
+    return PaymentAPIResponse(success=True, data=payment)
 
 
 @router.put(
     "/{payment_id}",
-    response_model=PaymentResponse,
+    response_model=PaymentAPIResponse,
     summary="Update a payment",
     description="Update an existing payment record."
 )
 async def update_payment(
     payment_id: int,
     data: PaymentUpdate,
-    db: Session = Depends(get_db),
-    service: PaymentService = Depends(get_payment_service)
+    service: PaymentService = Depends(get_payment_service),
 ):
-    """Update a payment."""
-    from app.models.payment import Payment
-
-    payment = service.get_payment_by_id(payment_id)
+    payment = service.update_payment(payment_id, data)
     if not payment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Payment with ID {payment_id} not found"
+            detail=f"Payment with ID {payment_id} not found",
         )
-
-    # Update fields
-    update_data = data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        if hasattr(payment, field):
-            setattr(payment, field, value)
-
-    payment.pay_updated_at = datetime.utcnow()
-
-    db.commit()
-    db.refresh(payment)
-
-    return payment
+    return PaymentAPIResponse(success=True, data=payment)
 
 
 @router.delete(
@@ -167,149 +163,89 @@ async def update_payment(
 )
 async def delete_payment(
     payment_id: int,
-    db: Session = Depends(get_db),
-    service: PaymentService = Depends(get_payment_service)
+    service: PaymentService = Depends(get_payment_service),
 ):
-    """Delete a payment."""
-    from app.models.payment import Payment
-
-    payment = service.get_payment_by_id(payment_id)
-    if not payment:
+    if not service.delete_payment(payment_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Payment with ID {payment_id} not found"
+            detail=f"Payment with ID {payment_id} not found",
         )
-
-    db.delete(payment)
-    db.commit()
-
     return None
 
 
-# ==========================================================================
-# Statistics Endpoints
-# ==========================================================================
-
 @router.get(
-    "/stats/summary",
-    summary="Get payment statistics",
-    description="Get summary statistics for payments."
+    "/export",
+    summary="Export payments to CSV",
+    description="Export payments to CSV with optional filters.",
 )
-async def get_payment_stats(
-    society_id: Optional[int] = Query(None, description="Filter by society ID"),
-    date_from: Optional[datetime] = Query(None, description="Start date for statistics"),
-    date_to: Optional[datetime] = Query(None, description="End date for statistics"),
-    db: Session = Depends(get_db)
+async def export_payments_csv(
+    search: Optional[str] = Query(None),
+    client_id: Optional[int] = Query(None, alias="clientId"),
+    supplier_id: Optional[int] = Query(None, alias="supplierId"),
+    invoice_id: Optional[int] = Query(None, alias="invoiceId"),
+    payment_type: Optional[PaymentType] = Query(None, alias="paymentType"),
+    payment_mode_id: Optional[int] = Query(None, alias="paymentModeId"),
+    society_id: Optional[int] = Query(None, alias="societyId"),
+    date_from: Optional[datetime] = Query(None, alias="dateFrom"),
+    date_to: Optional[datetime] = Query(None, alias="dateTo"),
+    min_amount: Optional[Decimal] = Query(None, alias="minAmount"),
+    max_amount: Optional[Decimal] = Query(None, alias="maxAmount"),
+    service: PaymentService = Depends(get_payment_service),
 ):
-    """Get payment statistics."""
-    from sqlalchemy import func
-    from app.models.payment import Payment
-
-    query = db.query(
-        func.count(Payment.pay_id).label('total_count'),
-        func.sum(Payment.pay_amount).label('total_amount'),
-    )
-
-    if society_id:
-        query = query.filter(Payment.pay_society_id == society_id)
-    if date_from:
-        query = query.filter(Payment.pay_date >= date_from)
-    if date_to:
-        query = query.filter(Payment.pay_date <= date_to)
-
-    result = query.first()
-
-    # Get breakdown by type
-    type_query = db.query(
-        Payment.pay_type,
-        func.count(Payment.pay_id).label('count'),
-        func.sum(Payment.pay_amount).label('amount'),
-    ).group_by(Payment.pay_type)
-
-    if society_id:
-        type_query = type_query.filter(Payment.pay_society_id == society_id)
-    if date_from:
-        type_query = type_query.filter(Payment.pay_date >= date_from)
-    if date_to:
-        type_query = type_query.filter(Payment.pay_date <= date_to)
-
-    type_breakdown = {
-        row.pay_type: {'count': row.count, 'amount': float(row.amount or 0)}
-        for row in type_query.all()
-    }
-
-    return {
-        'total_count': result.total_count or 0,
-        'total_amount': float(result.total_amount or 0),
-        'by_type': type_breakdown
-    }
-
-
-# ==========================================================================
-# Client Payment Endpoints
-# ==========================================================================
-
-@router.get(
-    "/client/{client_id}",
-    response_model=PaymentListResponse,
-    summary="Get payments for a client",
-    description="Get all payments for a specific client."
-)
-async def get_client_payments(
-    client_id: int,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    service: PaymentService = Depends(get_payment_service)
-):
-    """Get payments for a specific client."""
-    payments, total = service.list_payments(
-        page=page,
-        page_size=page_size,
+    payments, _ = service.list_payments(
+        page=1,
+        page_size=100000,
+        search=search,
         client_id=client_id,
-        payment_type="CLIENT"
-    )
-
-    total_pages = (total + page_size - 1) // page_size
-
-    return PaymentListResponse(
-        items=payments,
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages
-    )
-
-
-# ==========================================================================
-# Supplier Payment Endpoints
-# ==========================================================================
-
-@router.get(
-    "/supplier/{supplier_id}",
-    response_model=PaymentListResponse,
-    summary="Get payments for a supplier",
-    description="Get all payments for a specific supplier."
-)
-async def get_supplier_payments(
-    supplier_id: int,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    service: PaymentService = Depends(get_payment_service)
-):
-    """Get payments for a specific supplier."""
-    payments, total = service.list_payments(
-        page=page,
-        page_size=page_size,
         supplier_id=supplier_id,
-        payment_type="SUPPLIER"
+        invoice_id=invoice_id,
+        payment_type=payment_type,
+        payment_mode_id=payment_mode_id,
+        society_id=society_id,
+        date_from=date_from,
+        date_to=date_to,
+        min_amount=min_amount,
+        max_amount=max_amount,
+        sort_by="paymentDate",
+        sort_order="desc",
     )
 
-    total_pages = (total + page_size - 1) // page_size
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Reference",
+        "Type",
+        "Client/Supplier",
+        "Invoice",
+        "Supplier Order",
+        "Amount",
+        "Currency",
+        "Payment Date",
+        "Payment Mode",
+        "Status",
+        "Society",
+        "Notes",
+    ])
 
-    return PaymentListResponse(
-        items=payments,
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages
+    for p in payments:
+        writer.writerow([
+            p.reference,
+            p.paymentType.value if hasattr(p.paymentType, "value") else p.paymentType,
+            p.clientName or p.supplierName or "",
+            p.invoiceReference or "",
+            p.supplierOrderReference or "",
+            f"{p.amount}",
+            p.currencyCode or "",
+            p.paymentDate.isoformat() if p.paymentDate else "",
+            p.paymentModeName or "",
+            p.statusName or "",
+            p.societyName or "",
+            p.notes or "",
+        ])
+
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=payments-export.csv"},
     )

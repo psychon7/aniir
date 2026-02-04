@@ -10,6 +10,7 @@ import type {
   QuoteDiscountRequest,
   QuoteCommercialRequest,
   QuoteDuplicateRequest,
+  QuoteConvertRequest,
 } from '@/types/quote'
 
 // Query keys factory
@@ -171,8 +172,10 @@ export function useConvertQuoteToOrder() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: number) => quotesApi.convertToOrder(id),
-    onSuccess: (_, quoteId) => {
+    mutationFn: ({ id, request }: { id: number; request?: QuoteConvertRequest }) =>
+      quotesApi.convertToOrder(id, request),
+    onSuccess: (_, variables) => {
+      const quoteId = variables.id
       queryClient.invalidateQueries({ queryKey: quoteKeys.detail(quoteId) })
       queryClient.invalidateQueries({ queryKey: quoteKeys.lists() })
       queryClient.invalidateQueries({ queryKey: ['orders'] })

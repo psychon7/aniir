@@ -8,7 +8,7 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
 import { useOrders, useDeleteOrder } from '@/hooks/useOrders'
-import type { Order, OrderSearchParams } from '@/types/order'
+import type { OrderListItem, OrderSearchParams } from '@/types/order'
 
 export const Route = createFileRoute('/_authenticated/orders/')({
   component: OrdersPage,
@@ -24,7 +24,7 @@ function OrdersPage() {
     pageSize: 10,
   })
 
-  const [deletingOrder, setDeletingOrder] = useState<Order | null>(null)
+  const [deletingOrder, setDeletingOrder] = useState<OrderListItem | null>(null)
 
   // Data fetching with hooks
   const { data: ordersData, isLoading } = useOrders(searchParams)
@@ -46,7 +46,7 @@ function OrdersPage() {
     setSearchParams((prev) => ({ ...prev, sortBy, sortOrder }))
   }
 
-  const handleRowClick = (order: Order) => {
+  const handleRowClick = (order: OrderListItem) => {
     navigate({ to: '/orders/$orderId' as any, params: { orderId: String(order.id) } })
   }
 
@@ -61,7 +61,7 @@ function OrdersPage() {
     }
   }
 
-  const columns = useMemo<Column<Order>[]>(
+  const columns = useMemo<Column<OrderListItem>[]>(
     () => [
       {
         id: 'reference',
@@ -94,13 +94,13 @@ function OrdersPage() {
         cell: (row) => row.expectedDeliveryDate ? new Date(row.expectedDeliveryDate).toLocaleDateString() : '-',
       },
       {
-        id: 'totalTTC',
+        id: 'totalAmount',
         header: t('orders.amount'),
-        accessorKey: 'totalTTC',
+        accessorKey: 'totalAmount',
         sortable: true,
         cell: (row) => (
           <span className="font-medium">
-            {new Intl.NumberFormat('en-US', { style: 'currency', currency: row.currencyCode || 'EUR' }).format(row.totalTTC || 0)}
+            {new Intl.NumberFormat('en-US', { style: 'currency', currency: row.currencyCode || 'EUR' }).format(row.totalAmount || 0)}
           </span>
         ),
       },

@@ -3,13 +3,14 @@ import * as mockHandlers from '@/mocks/handlers'
 import { isMockEnabled } from '@/mocks/delay'
 import type {
   Order,
+  OrderListItem,
   OrderLine,
   OrderCreateDto,
   OrderUpdateDto,
   OrderSearchParams,
   OrderLineCreateDto,
 } from '@/types/order'
-import type { ApiResponse, PagedResponse } from '@/types/api'
+import type { PagedResponse } from '@/types/api'
 
 /**
  * DTO for updating an order line
@@ -30,12 +31,24 @@ export const ordersApi = {
   /**
    * Get paginated list of orders with optional filtering
    */
-  async getAll(params: OrderSearchParams = {}): Promise<PagedResponse<Order>> {
+  async getAll(params: OrderSearchParams = {}): Promise<PagedResponse<OrderListItem>> {
     if (isMockEnabled()) {
       return mockHandlers.getOrders(params)
     }
 
-    const response = await apiClient.get<PagedResponse<Order>>('/orders', { params })
+    const queryParams: Record<string, any> = {}
+    if (params.search) queryParams.search = params.search
+    if (params.clientId) queryParams.client_id = params.clientId
+    if (params.statusId) queryParams.status_id = params.statusId
+    if (params.societyId) queryParams.society_id = params.societyId
+    if (params.dateFrom) queryParams.date_from = params.dateFrom
+    if (params.dateTo) queryParams.date_to = params.dateTo
+    if (params.page) queryParams.page = params.page
+    if (params.pageSize) queryParams.pageSize = params.pageSize
+    if (params.sortBy) queryParams.sort_by = params.sortBy
+    if (params.sortOrder) queryParams.sort_order = params.sortOrder
+
+    const response = await apiClient.get<PagedResponse<Order>>('/orders', { params: queryParams })
     return response.data
   },
 
@@ -48,8 +61,34 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.get<ApiResponse<Order>>(`/orders/${id}`)
-    return response.data.data
+    const response = await apiClient.get<Order>(`/orders/${id}`)
+    return response.data
+  },
+
+  /**
+   * Get orders by project
+   */
+  async getByProject(projectId: number): Promise<OrderListItem[]> {
+    if (isMockEnabled()) {
+      const response = await mockHandlers.getOrders({ projectId })
+      return response.data
+    }
+
+    const response = await apiClient.get<OrderListItem[]>(`/orders/by-project/${projectId}`)
+    return response.data
+  },
+
+  /**
+   * Get orders by quote
+   */
+  async getByQuote(quoteId: number): Promise<OrderListItem[]> {
+    if (isMockEnabled()) {
+      const response = await mockHandlers.getOrders({})
+      return response.data.filter((o) => o.quoteReference)
+    }
+
+    const response = await apiClient.get<OrderListItem[]>(`/orders/by-quote/${quoteId}`)
+    return response.data
   },
 
   /**
@@ -61,8 +100,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.post<ApiResponse<Order>>('/orders', data)
-    return response.data.data
+    const response = await apiClient.post<Order>('/orders', data)
+    return response.data
   },
 
   /**
@@ -74,8 +113,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.put<ApiResponse<Order>>(`/orders/${data.id}`, data)
-    return response.data.data
+    const response = await apiClient.put<Order>(`/orders/${data.id}`, data)
+    return response.data
   },
 
   /**
@@ -100,8 +139,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.patch<ApiResponse<Order>>(`/orders/${id}/status`, { statusId })
-    return response.data.data
+    const response = await apiClient.patch<Order>(`/orders/${id}/status`, { statusId })
+    return response.data
   },
 
   /**
@@ -113,8 +152,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.post<ApiResponse<Order>>(`/orders/${id}/confirm`)
-    return response.data.data
+    const response = await apiClient.post<Order>(`/orders/${id}/confirm`)
+    return response.data
   },
 
   /**
@@ -126,8 +165,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.post<ApiResponse<Order>>(`/orders/${id}/cancel`, { reason })
-    return response.data.data
+    const response = await apiClient.post<Order>(`/orders/${id}/cancel`, { reason })
+    return response.data
   },
 
   /**
@@ -139,8 +178,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.post<ApiResponse<Order>>(`/orders/${id}/duplicate`)
-    return response.data.data
+    const response = await apiClient.post<Order>(`/orders/${id}/duplicate`)
+    return response.data
   },
 
   // ============================================
@@ -156,8 +195,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.get<ApiResponse<OrderLine[]>>(`/orders/${orderId}/lines`)
-    return response.data.data
+    const response = await apiClient.get<OrderLine[]>(`/orders/${orderId}/lines`)
+    return response.data
   },
 
   /**
@@ -169,10 +208,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.get<ApiResponse<OrderLine>>(
-      `/orders/${orderId}/lines/${lineId}`
-    )
-    return response.data.data
+    const response = await apiClient.get<OrderLine>(`/orders/${orderId}/lines/${lineId}`)
+    return response.data
   },
 
   /**
@@ -184,11 +221,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.post<ApiResponse<OrderLine>>(
-      `/orders/${orderId}/lines`,
-      line
-    )
-    return response.data.data
+    const response = await apiClient.post<OrderLine>(`/orders/${orderId}/lines`, line)
+    return response.data
   },
 
   /**
@@ -200,11 +234,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.post<ApiResponse<OrderLine[]>>(
-      `/orders/${orderId}/lines/batch`,
-      { lines }
-    )
-    return response.data.data
+    const response = await apiClient.post<OrderLine[]>(`/orders/${orderId}/lines/batch`, { lines })
+    return response.data
   },
 
   /**
@@ -216,11 +247,8 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.put<ApiResponse<OrderLine>>(
-      `/orders/${orderId}/lines/${line.id}`,
-      line
-    )
-    return response.data.data
+    const response = await apiClient.put<OrderLine>(`/orders/${orderId}/lines/${line.id}`, line)
+    return response.data
   },
 
   /**
@@ -281,7 +309,7 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.post<ApiResponse<Order>>(`/orders/${orderId}/recalculate`)
-    return response.data.data
+    const response = await apiClient.post<Order>(`/orders/${orderId}/recalculate`)
+    return response.data
   },
 }

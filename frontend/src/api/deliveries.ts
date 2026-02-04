@@ -32,27 +32,12 @@ export const deliveriesApi = {
     if (params.dateFrom) queryParams.date_from = params.dateFrom
     if (params.dateTo) queryParams.date_to = params.dateTo
     if (params.page) queryParams.page = params.page
-    if (params.pageSize) queryParams.page_size = params.pageSize
+    if (params.pageSize) queryParams.pageSize = params.pageSize
     if (params.sortBy) queryParams.sort_by = params.sortBy
     if (params.sortOrder) queryParams.sort_order = params.sortOrder
 
     const response = await apiClient.get('/deliveries', { params: queryParams })
-    const data = response.data
-    const page = data.page || params.page || 1
-    const pageSize = data.page_size || params.pageSize || 20
-    const totalCount = data.total || 0
-    const totalPages = data.total_pages || Math.ceil(totalCount / pageSize)
-
-    return {
-      success: true,
-      data: data.items || [],
-      page,
-      pageSize,
-      totalCount,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPreviousPage: page > 1,
-    }
+    return response.data
   },
 
   /**
@@ -136,7 +121,7 @@ export const deliveriesApi = {
     lineId: number,
     line: DeliveryLineUpdateDto
   ): Promise<DeliveryLine> {
-    const response = await apiClient.put(`/deliveries/${deliveryId}/lines/${lineId}`, line)
+    const response = await apiClient.put(`/deliveries/lines/${lineId}`, line)
     return response.data.data || response.data
   },
 
@@ -144,6 +129,6 @@ export const deliveriesApi = {
    * Delete a delivery line
    */
   async deleteLine(deliveryId: number, lineId: number): Promise<void> {
-    await apiClient.delete(`/deliveries/${deliveryId}/lines/${lineId}`)
+    await apiClient.delete(`/deliveries/lines/${lineId}`)
   },
 }

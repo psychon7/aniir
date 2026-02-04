@@ -73,3 +73,32 @@ class Warehouse(Base):
     def full_address(self) -> str:
         parts = [self.whs_address1, self.whs_address2, self.whs_city, self.whs_postcode, self.whs_country]
         return ", ".join(p for p in parts if p)
+
+    # Legacy schema compatibility (wh_* fields expected by Pydantic schemas)
+    @property
+    def wh_code(self) -> Optional[str]:
+        return self.whs_code
+
+    @property
+    def wh_name(self) -> str:
+        return self.whs_name
+
+    @property
+    def wh_address(self) -> Optional[str]:
+        return self.whs_address1
+
+    @property
+    def wh_city(self) -> Optional[str]:
+        return self.whs_city
+
+    @property
+    def wh_country_id(self) -> Optional[int]:
+        return None
+
+    @property
+    def wh_is_default(self) -> bool:
+        return False
+
+    @property
+    def wh_is_active(self) -> bool:
+        return True

@@ -11,6 +11,7 @@ from typing import Optional, List
 from decimal import Decimal
 import logging
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.warehouse_repository import (
@@ -18,6 +19,7 @@ from app.repositories.warehouse_repository import (
     StockRepository,
     StockMovementRepository
 )
+from app.models.warehouse import Warehouse
 from app.schemas.warehouse import (
     WarehouseCreate, WarehouseUpdate, WarehouseSearchParams,
     WarehouseResponse, WarehouseDetailResponse, WarehouseListResponse, WarehouseListPaginatedResponse,
@@ -439,10 +441,11 @@ class StockService:
 
         # Check for sufficient stock on negative adjustment
         if adjustment.adjustment_quantity < 0:
-            new_quantity = stock.stk_quantity + adjustment.adjustment_quantity
+            current_qty = stock.inv_quantity or Decimal("0")
+            new_quantity = current_qty + adjustment.adjustment_quantity
             if new_quantity < 0:
                 raise StockInsufficientError(
-                    f"Insufficient stock. Available: {stock.stk_quantity}, "
+                    f"Insufficient stock. Available: {current_qty}, "
                     f"Adjustment: {adjustment.adjustment_quantity}"
                 )
 
@@ -476,9 +479,11 @@ class StockService:
         if not stock:
             raise StockNotFoundError(f"Stock {stock_id} not found")
 
-        if stock.stk_quantity_available < quantity:
+        reserved = self._get_reserved_quantity(stock)
+        available = (stock.inv_quantity or Decimal("0")) - reserved
+        if available < quantity:
             raise StockInsufficientError(
-                f"Insufficient available stock. Available: {stock.stk_quantity_available}, "
+                f"Insufficient available stock. Available: {available}, "
                 f"Requested: {quantity}"
             )
 
@@ -628,32 +633,63 @@ class StockService:
 
     async def _stock_to_response(self, stock) -> StockResponse:
         """Convert stock model to response."""
+        reserved = self._get_reserved_quantity(stock)
+        quantity = stock.inv_quantity or Decimal("0")
+        available = quantity - reserved
+
+        warehouse_name = None
+        warehouse_code = None
+        whs_id = None
+        location = None
+        if stock.product_shelves:
+            shelf_link = stock.product_shelves[0]
+            whs_id = shelf_link.whs_id
+            if shelf_link.warehouse:
+                warehouse_name = shelf_link.warehouse.whs_name
+                warehouse_code = shelf_link.warehouse.whs_code
+            if shelf_link.shelf:
+                location = shelf_link.shelf.she_code
+
+        product_name = stock.prd_name
+        product_ref = stock.prd_ref
+        if stock.product:
+            product_name = stock.product.prd_name or product_name
+            product_ref = stock.product.prd_ref or product_ref
+
         return StockResponse(
-            stk_id=stock.stk_id,
-            soc_id=stock.soc_id,
-            prd_id=stock.prd_id,
+            stk_id=stock.inv_id,
+            soc_id=0,
+            prd_id=stock.prd_id or 0,
             pit_id=stock.pit_id,
-            whs_id=stock.whs_id,
-            stk_quantity=stock.stk_quantity,
-            stk_quantity_reserved=stock.stk_quantity_reserved,
-            stk_quantity_available=stock.stk_quantity_available,
-            stk_min_quantity=stock.stk_min_quantity,
-            stk_max_quantity=stock.stk_max_quantity,
-            stk_reorder_quantity=stock.stk_reorder_quantity,
-            stk_location=stock.stk_location,
-            stk_unit_cost=stock.stk_unit_cost,
-            stk_total_value=stock.stk_total_value,
-            stk_d_last_count=stock.stk_d_last_count,
-            stk_d_last_movement=stock.stk_d_last_movement,
-            stk_d_creation=stock.stk_d_creation,
-            stk_d_update=stock.stk_d_update,
-            stk_is_active=stock.stk_is_active,
-            stk_notes=stock.stk_notes,
-            product_name=stock.product.prd_name if stock.product else None,
-            product_ref=stock.product.prd_ref if stock.product else None,
-            warehouse_name=stock.warehouse.wh_name if stock.warehouse else None,
-            warehouse_code=stock.warehouse.wh_code if stock.warehouse else None
+            whs_id=whs_id,
+            stk_quantity=quantity,
+            stk_quantity_reserved=reserved,
+            stk_quantity_available=available,
+            stk_min_quantity=None,
+            stk_max_quantity=None,
+            stk_reorder_quantity=None,
+            stk_location=location,
+            stk_unit_cost=None,
+            stk_total_value=None,
+            stk_d_last_count=None,
+            stk_d_last_movement=None,
+            stk_d_creation=stock.inv_d_update,
+            stk_d_update=stock.inv_d_update,
+            stk_is_active=True,
+            stk_notes=stock.inv_description,
+            product_name=product_name,
+            product_ref=product_ref,
+            warehouse_name=warehouse_name,
+            warehouse_code=warehouse_code
         )
+
+    def _get_reserved_quantity(self, stock) -> Decimal:
+        reserved = Decimal("0")
+        if getattr(stock, "pre_inventory", None):
+            for item in stock.pre_inventory:
+                if item.piv_quantity is not None:
+                    reserved += Decimal(item.piv_quantity)
+        return reserved
 
 
 # ==========================================================================
@@ -757,7 +793,8 @@ class StockMovementService:
             raise StockMovementNotFoundError(f"Movement {movement_id} not found")
 
         # Don't allow updates to completed movements unless just updating status
-        if movement.stm_status == MovementStatus.COMPLETED.value:
+        status = self._get_movement_status(movement)
+        if status == MovementStatus.COMPLETED:
             if data.stm_status is None or data.stm_status == MovementStatus.COMPLETED:
                 raise StockMovementInvalidStatusError(
                     "Cannot modify a completed movement"
@@ -789,7 +826,8 @@ class StockMovementService:
         if not movement:
             raise StockMovementNotFoundError(f"Movement {movement_id} not found")
 
-        if movement.stm_status == MovementStatus.COMPLETED.value:
+        status = self._get_movement_status(movement)
+        if status == MovementStatus.COMPLETED:
             raise StockMovementInvalidStatusError("Movement is already completed")
 
         # Update status
@@ -825,7 +863,8 @@ class StockMovementService:
         if not movement:
             raise StockMovementNotFoundError(f"Movement {movement_id} not found")
 
-        if movement.stm_status == MovementStatus.COMPLETED.value:
+        status = self._get_movement_status(movement)
+        if status == MovementStatus.COMPLETED:
             raise StockMovementInvalidStatusError(
                 "Cannot cancel a completed movement"
             )
@@ -855,7 +894,8 @@ class StockMovementService:
         if not movement:
             raise StockMovementNotFoundError(f"Movement {movement_id} not found")
 
-        if movement.stm_status == MovementStatus.COMPLETED.value:
+        status = self._get_movement_status(movement)
+        if status == MovementStatus.COMPLETED:
             raise StockMovementInvalidStatusError(
                 "Cannot delete a completed movement"
             )
@@ -922,7 +962,8 @@ class StockMovementService:
         if not movement:
             raise StockMovementNotFoundError(f"Movement {movement_id} not found")
 
-        if movement.stm_status == MovementStatus.COMPLETED.value:
+        status = self._get_movement_status(movement)
+        if status == MovementStatus.COMPLETED:
             raise StockMovementInvalidStatusError(
                 "Cannot add lines to a completed movement"
             )
@@ -931,7 +972,7 @@ class StockMovementService:
         if not line:
             raise StockMovementNotFoundError(f"Movement {movement_id} not found")
 
-        return StockMovementLineResponse.model_validate(line)
+        return self._line_to_response(line)
 
     async def update_movement_line(
         self,
@@ -955,7 +996,7 @@ class StockMovementService:
         if not line:
             raise StockMovementLineNotFoundError(f"Line {line_id} not found")
 
-        return StockMovementLineResponse.model_validate(line)
+        return self._line_to_response(line)
 
     async def delete_movement_line(self, line_id: int) -> bool:
         """
@@ -975,6 +1016,50 @@ class StockMovementService:
             raise StockMovementLineNotFoundError(f"Line {line_id} not found")
         return True
 
+    def _get_movement_status(self, movement) -> MovementStatus:
+        return self.repository._infer_movement_status(movement)
+
+    def _get_movement_type(self, movement) -> MovementType:
+        return self.repository._infer_movement_type(movement)
+
+    def _get_clean_description(self, movement) -> Optional[str]:
+        description, _, _ = self.repository._extract_meta(movement.srv_description)
+        return description
+
+    async def _get_warehouse_name(self, whs_id: Optional[int]) -> Optional[str]:
+        if not whs_id:
+            return None
+        result = await self.db.execute(
+            select(Warehouse.whs_name).where(Warehouse.whs_id == whs_id)
+        )
+        return result.scalar_one_or_none()
+
+    def _line_to_response(self, line) -> StockMovementLineResponse:
+        quantity = line.srl_quantity or Decimal("0")
+        return StockMovementLineResponse(
+            sml_id=line.srl_id,
+            sml_stm_id=line.srv_id,
+            sml_prd_id=line.prd_id,
+            sml_pit_id=line.pit_id,
+            sml_prd_ref=line.srl_prd_ref,
+            sml_prd_name=line.srl_prd_name,
+            sml_description=line.srl_description,
+            sml_quantity=quantity,
+            sml_quantity_actual=line.srl_quantity_real,
+            sml_uom_id=None,
+            sml_unit_price=line.srl_unit_price,
+            sml_unit_cost=None,
+            sml_location=None,
+            sml_batch_number=None,
+            sml_serial_number=None,
+            sml_expiry_date=None,
+            sml_is_damaged=False,
+            sml_damage_notes=None,
+            sml_total_price=line.srl_total_price,
+            sml_total_cost=None,
+            sml_created_at=None,
+        )
+
     async def _movement_to_response(
         self,
         movement
@@ -982,42 +1067,62 @@ class StockMovementService:
         """Convert movement model to response."""
         lines = []
         if movement.lines:
-            lines = [
-                StockMovementLineResponse.model_validate(line)
-                for line in movement.lines
-            ]
+            lines = [self._line_to_response(line) for line in movement.lines]
+
+        whs_id = movement.lines[0].whs_id if movement.lines else None
+        warehouse_name = await self._get_warehouse_name(whs_id)
+
+        total_quantity = movement.srv_total_quantity
+        if total_quantity is None:
+            total_quantity = sum((line.srl_quantity or Decimal("0")) for line in movement.lines) if movement.lines else Decimal("0")
+
+        total_real = movement.srv_total_real
+        if total_real is None and movement.lines:
+            real_sum = Decimal("0")
+            has_real = False
+            for line in movement.lines:
+                if line.srl_quantity_real is not None:
+                    real_sum += line.srl_quantity_real
+                    has_real = True
+            total_real = real_sum if has_real else None
+
+        total_value = sum((line.srl_total_price or Decimal("0")) for line in movement.lines) if movement.lines else Decimal("0")
+
+        movement_type = self._get_movement_type(movement)
+        movement_status = self._get_movement_status(movement)
+        description = self._get_clean_description(movement)
 
         return StockMovementWithLinesResponse(
-            stm_id=movement.stm_id,
-            stm_reference=movement.stm_reference,
-            stm_type=MovementType(movement.stm_type),
-            stm_status=MovementStatus(movement.stm_status),
-            stm_date=movement.stm_date,
-            stm_description=movement.stm_description,
-            stm_whs_id=movement.stm_whs_id,
-            stm_whs_destination_id=movement.stm_whs_destination_id,
-            stm_cli_id=movement.stm_cli_id,
-            stm_sup_id=movement.stm_sup_id,
-            stm_external_party=movement.stm_external_party,
-            stm_is_loan=movement.stm_is_loan,
-            stm_loan_return_date=movement.stm_loan_return_date,
-            stm_is_return=movement.stm_is_return,
-            stm_return_reason=movement.stm_return_reason,
-            stm_source_document=movement.stm_source_document,
-            stm_tracking_number=movement.stm_tracking_number,
-            stm_carrier=movement.stm_carrier,
-            stm_notes=movement.stm_notes,
-            stm_soc_id=movement.stm_soc_id,
-            stm_total_quantity=movement.stm_total_quantity,
-            stm_total_quantity_actual=movement.stm_total_quantity_actual,
-            stm_total_value=movement.stm_total_value,
-            stm_total_lines=movement.stm_total_lines,
-            stm_is_valid=movement.stm_is_valid,
-            stm_validated_at=movement.stm_validated_at,
-            stm_created_at=movement.stm_created_at,
-            stm_updated_at=movement.stm_updated_at,
-            warehouse_name=movement.warehouse.wh_name if movement.warehouse else None,
-            destination_warehouse_name=movement.destination_warehouse.wh_name if movement.destination_warehouse else None,
-            client_name=movement.client.cli_name if movement.client else None,
+            stm_id=movement.srv_id,
+            stm_reference=movement.srv_code,
+            stm_type=movement_type,
+            stm_status=movement_status,
+            stm_date=movement.srv_time,
+            stm_description=description,
+            stm_whs_id=whs_id,
+            stm_whs_destination_id=None,
+            stm_cli_id=None,
+            stm_sup_id=None,
+            stm_external_party=movement.srv_client,
+            stm_is_loan=movement.srv_is_lend,
+            stm_loan_return_date=movement.srv_d_lend_return_pre,
+            stm_is_return=bool(movement.srv_is_return_client or movement.srv_is_return_supplier),
+            stm_return_reason=None,
+            stm_source_document=None,
+            stm_tracking_number=None,
+            stm_carrier=None,
+            stm_notes=None,
+            stm_soc_id=None,
+            stm_total_quantity=total_quantity or Decimal("0"),
+            stm_total_quantity_actual=total_real,
+            stm_total_value=total_value or Decimal("0"),
+            stm_total_lines=len(lines),
+            stm_is_valid=movement.srv_valid,
+            stm_validated_at=None,
+            stm_created_at=movement.srv_time,
+            stm_updated_at=None,
+            warehouse_name=warehouse_name,
+            destination_warehouse_name=None,
+            client_name=movement.srv_client,
             lines=lines
         )

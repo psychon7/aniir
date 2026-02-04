@@ -29,6 +29,7 @@ from app.models.role import Role
 from app.models.society import Society
 from app.models.activity import Activity
 from app.models.brand import Brand
+from app.models.cost_plan_status import CostPlanStatus
 
 # =============================================================================
 # Core Entity Tables (TM_* tables) - Import after reference tables
@@ -50,6 +51,8 @@ from app.models.order import ClientOrder, ClientOrderLine
 from app.models.costplan import CostPlan, CostPlanLine
 from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.models.shipment import ShippingReceiving, ShippingReceivingLine
+from app.models.logistics import Logistic, LogisticLine, LogisticSupplierInvoice
+from app.models.inventory import Inventory, InventoryRecord, PreInventory, ProductShelves, Shelf
 from app.models.purchase_intent import PurchaseIntent, PurchaseIntentLine
 from app.models.supplier_order import SupplierOrder, SupplierOrderLine
 from app.models.supplier_invoice import SupplierInvoice, SupplierInvoiceLine
@@ -59,6 +62,7 @@ from app.models.supplier_invoice import SupplierInvoice, SupplierInvoiceLine
 # =============================================================================
 from app.models.client_contact import ClientContact
 from app.models.supplier_contact import SupplierContact
+from app.models.consignee import Consignee
 
 # =============================================================================
 # Pricing Tables
@@ -80,6 +84,8 @@ from app.models.task import Task, TaskType, TaskPriority, TaskStatus
 # Product Attribute Tables
 # =============================================================================
 from app.models.product_attribute import ProductAttribute, ProductAttributeValue, AttributeDataType
+from app.models.document_attachment import DocumentAttachment
+from app.models.supplier_order_payment_record import SupplierOrderPaymentRecord
 
 # =============================================================================
 # DISABLED Models - Tables do NOT exist in database
@@ -114,6 +120,7 @@ __all__ = [
     "Role",
     "Society",
     "Activity",
+    "CostPlanStatus",
     # Core entities
     "User",
     "Civility",
@@ -136,6 +143,16 @@ __all__ = [
     "DeliveryFormLine",
     "ShippingReceiving",
     "ShippingReceivingLine",
+    "Logistic",
+    "LogisticLine",
+    "LogisticSupplierInvoice",
+    "Inventory",
+    "InventoryRecord",
+    "PreInventory",
+    "ProductShelves",
+    "Shelf",
+    "DocumentAttachment",
+    "SupplierOrderPaymentRecord",
     "PurchaseIntent",
     "PurchaseIntentLine",
     "SupplierOrder",
@@ -145,6 +162,7 @@ __all__ = [
     # Contacts
     "ClientContact",
     "SupplierContact",
+    "Consignee",
     # Pricing
     "ClientProductPrice",
     "SupplierProductPrice",

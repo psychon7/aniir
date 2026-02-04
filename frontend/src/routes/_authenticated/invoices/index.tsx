@@ -71,7 +71,7 @@ function InvoicesPage() {
         accessorKey: 'reference',
         sortable: true,
         cell: (row) => (
-          <span className="font-mono text-sm text-muted-foreground">{row.reference || row.cin_code || '-'}</span>
+          <span className="font-mono text-sm text-muted-foreground">{row.reference || '-'}</span>
         ),
       },
       {
@@ -87,7 +87,7 @@ function InvoicesPage() {
         accessorKey: 'invoiceDate',
         sortable: true,
         cell: (row) => {
-          const date = row.invoiceDate || row.cin_date
+          const date = row.invoiceDate
           return date ? new Date(date).toLocaleDateString() : '-'
         },
       },
@@ -97,10 +97,10 @@ function InvoicesPage() {
         accessorKey: 'dueDate',
         sortable: true,
         cell: (row) => {
-          const dueDate = row.dueDate || row.cin_due_date
+          const dueDate = row.dueDate
           if (!dueDate) return '-'
           const date = new Date(dueDate)
-          const isPaid = row.statusName === 'Paid' || row.cin_is_paid
+          const isPaid = row.statusName === 'Paid'
           const isOverdue = date < new Date() && !isPaid
           return (
             <span className={isOverdue ? 'text-destructive font-medium' : ''}>
@@ -115,7 +115,7 @@ function InvoicesPage() {
         accessorKey: 'totalAmount',
         sortable: true,
         cell: (row) => {
-          const amount = row.totalAmount || row.cin_total || 0
+          const amount = row.totalAmount || 0
           const currency = row.currency || 'EUR'
           return (
             <span className="font-medium">
@@ -130,7 +130,7 @@ function InvoicesPage() {
         accessorKey: 'paidAmount',
         sortable: false,
         cell: (row) => {
-          const total = row.totalAmount || row.cin_total || 0
+          const total = row.totalAmount || 0
           const paid = row.paidAmount || 0
           const balance = total - paid
           const currency = row.currency || 'EUR'
@@ -146,7 +146,7 @@ function InvoicesPage() {
         header: t('invoices.status'),
         accessorKey: 'statusName',
         sortable: true,
-        cell: (row) => <StatusBadge status={row.statusName || (row.cin_is_paid ? 'Paid' : 'Pending')} />,
+        cell: (row) => <StatusBadge status={row.statusName || 'Pending'} />,
       },
       {
         id: 'actions',
@@ -232,7 +232,7 @@ function InvoicesPage() {
         isOpen={!!deletingInvoice}
         onClose={() => setDeletingInvoice(null)}
         onConfirm={handleDelete}
-        itemName={deletingInvoice?.reference || deletingInvoice?.cin_code || 'this invoice'}
+        itemName={deletingInvoice?.reference || 'this invoice'}
         isLoading={deleteMutation.isPending}
       />
     </PageContainer>

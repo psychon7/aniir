@@ -34,6 +34,8 @@ from app.schemas.shipment import (
     BulkStatusUpdateRequest, BulkStatusUpdateResponse,
     # Tracking
     TrackingResponse,
+    # Carriers
+    CarrierListItemResponse, CarrierResponse,
     # Response schemas
     ShipmentAPIResponse, ShipmentErrorResponse
 )
@@ -216,6 +218,24 @@ async def get_shipment_by_reference(
         raise handle_shipment_error(e)
 
 
+@router.get(
+    "/shipments/by-reference/{reference}",
+    response_model=ShipmentDetailResponse,
+    summary="Get shipment by reference (alias)",
+    description="Get a shipment by its reference number.",
+    responses={
+        200: {"description": "Shipment found"},
+        404: {"model": ShipmentErrorResponse, "description": "Shipment not found"}
+    }
+)
+async def get_shipment_by_reference_alias(
+    reference: str = Path(..., description="Shipment reference"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Alias for shipment lookup by reference."""
+    return await get_shipment_by_reference(reference=reference, db=db)
+
+
 @router.put(
     "/shipments/{shipment_id}",
     response_model=ShipmentDetailResponse,
@@ -293,9 +313,16 @@ async def delete_shipment(
     - Delivered and Cancelled are terminal states
     """
 )
+@router.patch(
+    "/shipments/{shipment_id}/status",
+    response_model=ShipmentDetailResponse,
+    summary="Update shipment status (alias)",
+    description="Update the status of a shipment."
+)
 async def update_shipment_status(
     shipment_id: int = Path(..., description="Shipment ID"),
     status_id: int = Query(..., description="New status ID"),
+    notes: Optional[str] = Query(None, description="Optional status notes"),
     actual_delivery: Optional[datetime] = Query(None, description="Actual delivery date (auto-set for delivered)"),
     db: AsyncSession = Depends(get_db)
 ):
@@ -308,6 +335,25 @@ async def update_shipment_status(
             status_id,
             actual_delivery
         )
+        return service._to_detail_response(shipment)
+    except ShipmentServiceError as e:
+        raise handle_shipment_error(e)
+
+
+@router.post(
+    "/shipments/{shipment_id}/delivered",
+    response_model=ShipmentDetailResponse,
+    summary="Mark shipment as delivered",
+    description="Mark a shipment as delivered and optionally set the actual delivery date."
+)
+async def mark_shipment_delivered(
+    shipment_id: int = Path(..., description="Shipment ID"),
+    actual_delivery: Optional[datetime] = Query(None, description="Actual delivery date"),
+    db: AsyncSession = Depends(get_db)
+):
+    service = get_shipment_service(db)
+    try:
+        shipment = await service.update_status(shipment_id, ShipmentService.STATUS_DELIVERED, actual_delivery)
         return service._to_detail_response(shipment)
     except ShipmentServiceError as e:
         raise handle_shipment_error(e)
@@ -372,6 +418,19 @@ async def track_by_tracking_number(
         return await service.track_by_tracking_number(tracking_number)
     except ShipmentServiceError as e:
         raise handle_shipment_error(e)
+
+
+@router.get(
+    "/tracking/{tracking_number}",
+    response_model=TrackingResponse,
+    summary="Track by tracking number (alias)",
+    description="Get tracking information using the carrier tracking number."
+)
+async def track_by_tracking_number_alias(
+    tracking_number: str = Path(..., description="Carrier tracking number"),
+    db: AsyncSession = Depends(get_db)
+):
+    return await track_by_tracking_number(tracking_number=tracking_number, db=db)
 
 
 # ==========================================================================
@@ -444,17 +503,33 @@ async def get_shipments_by_status(
 # ==========================================================================
 
 @router.get(
-    "/stats/summary",
+    "/statistics",
     response_model=dict,
     summary="Get shipment statistics",
     description="Get overall shipment statistics with optional date filters."
 )
 async def get_statistics(
+    from_date: Optional[datetime] = Query(None, description="Start date for statistics"),
+    to_date: Optional[datetime] = Query(None, description="End date for statistics"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get shipment statistics (frontend-friendly)."""
+    service = get_shipment_service(db)
+    return await service.get_statistics(from_date, to_date)
+
+
+@router.get(
+    "/stats/summary",
+    response_model=dict,
+    summary="Get shipment statistics (legacy)",
+    description="Get overall shipment statistics with optional date filters."
+)
+async def get_statistics_legacy(
     start_date: Optional[datetime] = Query(None, description="Start date for statistics"),
     end_date: Optional[datetime] = Query(None, description="End date for statistics"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get shipment statistics."""
+    """Get shipment statistics (legacy wrapper)."""
     service = get_shipment_service(db)
     stats = await service.get_statistics(start_date, end_date)
     return {
@@ -512,3 +587,35 @@ async def get_shipment_statuses():
         {"id": 5, "value": "RETURNED", "label": "Returned", "description": "Shipment was returned"},
         {"id": 6, "value": "CANCELLED", "label": "Cancelled", "description": "Shipment was cancelled"}
     ]
+
+
+# ==========================================================================
+# Carrier Endpoints
+# ==========================================================================
+
+@router.get(
+    "/carriers",
+    response_model=List[CarrierListItemResponse],
+    summary="Get carriers",
+    description="Get list of available carriers (mapped to suppliers)."
+)
+async def get_carriers(
+    active_only: bool = Query(True, description="Only return active carriers"),
+    db: AsyncSession = Depends(get_db)
+):
+    service = get_shipment_service(db)
+    return await service.get_carriers(active_only)
+
+
+@router.get(
+    "/carriers/{carrier_id}",
+    response_model=CarrierResponse,
+    summary="Get carrier details",
+    description="Get carrier details by ID."
+)
+async def get_carrier(
+    carrier_id: int = Path(..., description="Carrier ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    service = get_shipment_service(db)
+    return await service.get_carrier(carrier_id)

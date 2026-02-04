@@ -89,6 +89,15 @@ export const lookupsApi = {
     return response.data.data
   },
 
+  async getCivilities(): Promise<KeyValue[]> {
+    if (isMockEnabled()) {
+      const response = await mockHandlers.getCivilities()
+      return response.data
+    }
+    const response = await apiClient.get<ApiResponse<KeyValue[]>>('/lookup/civilities')
+    return response.data.data
+  },
+
   async getSocieties(): Promise<KeyValue[]> {
     if (isMockEnabled()) {
       const response = await mockHandlers.getSocieties()
@@ -203,6 +212,7 @@ export const lookupsApi = {
     clientStatuses: KeyValue[]
     businessUnits: KeyValue[]
     languages: KeyValue[]
+    civilities: KeyValue[]
     societies: KeyValue[]
     productCategories: KeyValue[]
     orderStatuses: KeyValue[]
@@ -224,6 +234,7 @@ export const lookupsApi = {
         clientStatuses: KeyValue[]
         businessUnits: KeyValue[]
         languages: KeyValue[]
+        civilities: KeyValue[]
         societies: KeyValue[]
         productCategories: KeyValue[]
         orderStatuses: KeyValue[]

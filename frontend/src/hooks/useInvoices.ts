@@ -19,6 +19,8 @@ export const invoiceKeys = {
   lines: (invoiceId: number) => [...invoiceKeys.detail(invoiceId), 'lines'] as const,
   payments: (invoiceId: number) => [...invoiceKeys.detail(invoiceId), 'payments'] as const,
   financialInfo: (id: number) => [...invoiceKeys.detail(id), 'financial-info'] as const,
+  byProject: (projectId: number) => [...invoiceKeys.all, 'by-project', projectId] as const,
+  byQuote: (quoteId: number) => [...invoiceKeys.all, 'by-quote', quoteId] as const,
 }
 
 /**
@@ -73,6 +75,28 @@ export function useInvoiceFinancialInfo(id: number) {
     queryKey: invoiceKeys.financialInfo(id),
     queryFn: () => invoicesApi.getFinancialInfo(id),
     enabled: !!id,
+  })
+}
+
+/**
+ * Hook to fetch invoices by project
+ */
+export function useInvoicesByProject(projectId: number) {
+  return useQuery({
+    queryKey: invoiceKeys.byProject(projectId),
+    queryFn: () => invoicesApi.getByProject(projectId),
+    enabled: !!projectId,
+  })
+}
+
+/**
+ * Hook to fetch invoices by quote
+ */
+export function useInvoicesByQuote(quoteId: number) {
+  return useQuery({
+    queryKey: invoiceKeys.byQuote(quoteId),
+    queryFn: () => invoicesApi.getByQuote(quoteId),
+    enabled: !!quoteId,
   })
 }
 

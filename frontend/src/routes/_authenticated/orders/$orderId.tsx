@@ -8,6 +8,8 @@ import { StatusBadge } from '@/components/ui/Badge'
 import { DocumentAttachments } from '@/components/attachments'
 import { AttachFileButton } from '@/components/attachments'
 import { useDeliveriesByOrder } from '@/hooks/useDeliveries'
+import { useCreateInvoiceFromOrder } from '@/hooks/useInvoices'
+import { useToast } from '@/components/ui/feedback/Toast'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/orders/$orderId')({
@@ -18,6 +20,7 @@ function OrderDetailPage() {
   const { orderId } = Route.useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { success, error: showError } = useToast()
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', orderId],
@@ -28,6 +31,7 @@ function OrderDetailPage() {
   })
 
   const { data: deliveries = [] } = useDeliveriesByOrder(Number(orderId))
+  const createInvoiceMutation = useCreateInvoiceFromOrder()
 
   if (isLoading) {
     return (
@@ -63,8 +67,28 @@ function OrderDetailPage() {
         entityId={parseInt(orderId, 10)}
         variant="outline"
       />
-      <button className="btn-secondary">Create Delivery</button>
-      <button className="btn-primary">Create Invoice</button>
+      <button
+        className="btn-secondary"
+        onClick={() => navigate({ to: '/deliveries/new' as any, search: { orderId: Number(orderId) } })}
+      >
+        Create Delivery
+      </button>
+      <button
+        className="btn-primary"
+        onClick={async () => {
+          try {
+            const invoice = await createInvoiceMutation.mutateAsync({ orderId: Number(orderId) })
+            if (invoice?.id) {
+              success(t('common.success'), t('invoices.invoiceCreated'))
+              navigate({ to: '/invoices/$invoiceId' as any, params: { invoiceId: String(invoice.id) } })
+            }
+          } catch {
+            showError(t('common.error'), t('common.errorOccurred'))
+          }
+        }}
+      >
+        Create Invoice
+      </button>
     </div>
   )
 
