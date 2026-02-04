@@ -103,8 +103,8 @@ class Supplier(Base):
     sup_login = Column("sup_login", String(500), nullable=True)
     sup_password = Column("sup_password", String(2000), nullable=True)
 
-    # Pricing relationships
-    product_prices = relationship("SupplierProductPrice", back_populates="supplier", lazy="selectin")
+    # Pricing relationships - lazy="dynamic" to avoid auto-loading (table may not exist yet)
+    product_prices = relationship("SupplierProductPrice", back_populates="supplier", lazy="dynamic")
 
     # Property aliases for API compatibility
     @property

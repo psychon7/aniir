@@ -171,5 +171,5 @@ class Client(Base):
     # client_orders = relationship("ClientOrder", back_populates="client")
     # cost_plans = relationship("CostPlan", back_populates="client")
 
-    # Pricing relationships
-    product_prices = relationship("ClientProductPrice", back_populates="client", lazy="selectin")
+    # Pricing relationships - lazy="dynamic" to avoid auto-loading (table may not exist yet)
+    product_prices = relationship("ClientProductPrice", back_populates="client", lazy="dynamic")
