@@ -27,7 +27,7 @@ class ClientProductPrice(Base):
     cpp_id: Mapped[int] = mapped_column("cpp_id", Integer, primary_key=True, autoincrement=True)
 
     # Foreign keys
-    cpp_cli_id: Mapped[int] = mapped_column("cpp_cli_id", Integer, ForeignKey("TM_CLI_Client.cli_id"), nullable=False)
+    cpp_cli_id: Mapped[int] = mapped_column("cpp_cli_id", Integer, ForeignKey("TM_CLI_CLient.cli_id"), nullable=False)
     cpp_prd_id: Mapped[int] = mapped_column("cpp_prd_id", Integer, ForeignKey("TM_PRD_Product.prd_id"), nullable=False)
     cpp_soc_id: Mapped[Optional[int]] = mapped_column("cpp_soc_id", Integer, nullable=True)
 
