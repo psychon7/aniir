@@ -138,10 +138,47 @@ async def list_quotes(
     quotes, total = await asyncio.to_thread(
         _sync_list_quotes, db, page, page_size, search, client_id, sort_by, sort_order
     )
-    
-    items = [CostPlanResponse.model_validate(q) for q in quotes]
+
+    # Manually build response items from model - CostPlanResponse schema doesn't align with model fields
+    items = []
+    for q in quotes:
+        items.append({
+            "cp_id": q.cpl_id,
+            "cp_reference": q.cpl_code,
+            "cp_cli_id": q.cli_id,
+            "cp_date": q.cpl_d_creation,
+            "cp_valid_until": q.cpl_d_validity,
+            "cp_sta_id": q.cst_id,
+            "cp_cur_id": 1,  # TODO: Add currency support to model
+            "cp_shipping_address": None,
+            "cp_shipping_city": None,
+            "cp_shipping_postal_code": None,
+            "cp_shipping_country_id": None,
+            "cp_billing_address": None,
+            "cp_billing_city": None,
+            "cp_billing_postal_code": None,
+            "cp_billing_country_id": None,
+            "cp_discount": q.cpl_discount_percentage,
+            "cp_notes": q.cpl_client_comment,
+            "cp_internal_notes": q.cpl_inter_comment,
+            "cp_terms_conditions": None,
+            "cp_bu_id": None,
+            "cp_soc_id": q.soc_id,
+            "cp_sub_total": Decimal("0"),
+            "cp_total_vat": Decimal("0"),
+            "cp_total_amount": Decimal("0"),
+            "cp_pdf_url": None,
+            "cp_pdf_generated_at": None,
+            "cp_converted_to_order": False,
+            "cp_ord_id": None,
+            "cp_converted_at": None,
+            "cp_created_by": q.usr_creator_id,
+            "cp_created_at": q.cpl_d_creation,
+            "cp_updated_at": q.cpl_d_update,
+        })
+
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
-    
+
     return QuoteListPaginatedResponse(
         success=True,
         data=items,
