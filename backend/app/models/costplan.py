@@ -107,9 +107,9 @@ class CostPlan(Base):
     cpl_name: Mapped[Optional[str]] = mapped_column("cpl_name", String(1000), nullable=True)
 
     # Commercial users
-    usr_com_1: Mapped[Optional[int]] = mapped_column("usr_com_1", Integer, ForeignKey("TM_USR_User.usr_id"), nullable=True)
-    usr_com_2: Mapped[Optional[int]] = mapped_column("usr_com_2", Integer, ForeignKey("TM_USR_User.usr_id"), nullable=True)
-    usr_com_3: Mapped[Optional[int]] = mapped_column("usr_com_3", Integer, ForeignKey("TM_USR_User.usr_id"), nullable=True)
+    usr_com_1: Mapped[Optional[int]] = mapped_column("usr_commercial1", Integer, ForeignKey("TM_USR_User.usr_id"), nullable=True)
+    usr_com_2: Mapped[Optional[int]] = mapped_column("usr_commercial2", Integer, ForeignKey("TM_USR_User.usr_id"), nullable=True)
+    usr_com_3: Mapped[Optional[int]] = mapped_column("usr_commercial3", Integer, ForeignKey("TM_USR_User.usr_id"), nullable=True)
 
     # Key project flag
     cpl_key_project: Mapped[Optional[bool]] = mapped_column("cpl_key_project", Boolean, nullable=True)
