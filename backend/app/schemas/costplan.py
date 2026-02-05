@@ -226,7 +226,6 @@ class QuoteDetailResponse(BaseModel):
     updatedAt: datetime = Field(..., validation_alias="cpl_d_update", description="Last update timestamp")
     validityDate: datetime = Field(..., validation_alias="cpl_d_validity", description="Validity date")
     preDeliveryDate: Optional[datetime] = Field(None, validation_alias="cpl_d_pre_delivery", description="Pre-delivery date")
-    endWorkDate: Optional[datetime] = Field(None, validation_alias="cpl_d_end_work", description="End of work date")
 
     # Foreign key IDs
     clientId: int = Field(..., validation_alias="cli_id", description="Client ID")

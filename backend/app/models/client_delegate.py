@@ -26,8 +26,8 @@ class ClientDelegate(Base):
     cdl_id: Mapped[int] = mapped_column("cdl_id", Integer, primary_key=True, autoincrement=True)
 
     # Foreign keys
-    cdl_cli_id: Mapped[int] = mapped_column("cdl_cli_id", Integer, ForeignKey("TM_CLI_CLient.cli_id"), nullable=False)
-    cdl_delegate_cli_id: Mapped[Optional[int]] = mapped_column("cdl_delegate_cli_id", Integer, ForeignKey("TM_CLI_CLient.cli_id"), nullable=True)
+    cdl_cli_id: Mapped[int] = mapped_column("cli_id", Integer, ForeignKey("TM_CLI_CLient.cli_id"), nullable=False)
+    cdl_delegate_cli_id: Mapped[Optional[int]] = mapped_column("cli_delegate_id", Integer, ForeignKey("TM_CLI_CLient.cli_id"), nullable=True)
 
     # Delegate information (when delegate is not an existing client)
     cdl_company_name: Mapped[Optional[str]] = mapped_column("cdl_company_name", String(250), nullable=True)

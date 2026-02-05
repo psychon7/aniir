@@ -12,6 +12,7 @@ from app.api.v1 import (
     auth,
     users,
     clients,
+    consignees,  # ENABLED: Consignee Management
     # client_types,
     suppliers,
     supplier_orders,
@@ -75,6 +76,7 @@ api_router.include_router(users.router)
 # Core Business Entities
 # -----------------------------------------------------------------------------
 api_router.include_router(clients.router)
+api_router.include_router(consignees.router)  # ENABLED: Consignee Management
 # api_router.include_router(client_types.router)
 api_router.include_router(suppliers.router)
 api_router.include_router(products.router)

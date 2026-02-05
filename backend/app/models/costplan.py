@@ -50,7 +50,6 @@ class CostPlan(Base):
       soc_id: int NOT NULL -> TR_SOC_Society.soc_id
       cpl_discount_percentage: decimal NULL
       cpl_discount_amount: decimal NULL
-      cpl_d_end_work: datetime NULL
       cpl_file: nvarchar(2000) NULL
       cpl_name: nvarchar(1000) NULL
       usr_com_1: int NULL -> TM_USR_User.usr_id
@@ -71,7 +70,6 @@ class CostPlan(Base):
     cpl_d_update: Mapped[datetime] = mapped_column("cpl_d_update", DateTime, nullable=False)
     cpl_d_validity: Mapped[datetime] = mapped_column("cpl_d_validity", DateTime, nullable=False)
     cpl_d_pre_delivery: Mapped[Optional[datetime]] = mapped_column("cpl_d_pre_delivery", DateTime, nullable=True)
-    cpl_d_end_work: Mapped[Optional[datetime]] = mapped_column("cpl_d_end_work", DateTime, nullable=True)
 
     # Status
     cst_id: Mapped[int] = mapped_column("cst_id", Integer, ForeignKey("TM_CST_Cost_Status.cst_id"), nullable=False)
