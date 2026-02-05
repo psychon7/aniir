@@ -167,7 +167,7 @@ def _sync_list_orders(
 ):
     """Sync function to list orders with pagination."""
     query = select(ClientOrder)
-    count_query = select(func.count(ClientOrder.ord_id))
+    count_query = select(func.count(ClientOrder.cod_id))
     
     conditions = []
     
@@ -362,7 +362,7 @@ async def update_order_status(
 
         return UpdateOrderStatusResponse(
             success=True,
-            order_id=order.ord_id,
+            order_id=order.cod_id,
             old_status_id=old_status,
             old_status_name=service._get_status_name(old_status),
             new_status_id=order.ord_sta_id,

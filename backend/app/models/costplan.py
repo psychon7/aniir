@@ -50,7 +50,6 @@ class CostPlan(Base):
       soc_id: int NOT NULL -> TR_SOC_Society.soc_id
       cpl_discount_percentage: decimal NULL
       cpl_discount_amount: decimal NULL
-      cpl_file: nvarchar(2000) NULL
       cpl_name: nvarchar(1000) NULL
       usr_com_1: int NULL -> TM_USR_User.usr_id
       usr_com_2: int NULL -> TM_USR_User.usr_id
@@ -103,9 +102,6 @@ class CostPlan(Base):
     # Discounts
     cpl_discount_percentage: Mapped[Optional[Decimal]] = mapped_column("cpl_discount_percentage", Numeric(18, 2), nullable=True)
     cpl_discount_amount: Mapped[Optional[Decimal]] = mapped_column("cpl_discount_amount", Numeric(18, 2), nullable=True)
-
-    # File attachment
-    cpl_file: Mapped[Optional[str]] = mapped_column("cpl_file", String(2000), nullable=True)
 
     # Name
     cpl_name: Mapped[Optional[str]] = mapped_column("cpl_name", String(1000), nullable=True)
