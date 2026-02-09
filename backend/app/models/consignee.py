@@ -84,7 +84,7 @@ class Consignee(Base):
     con_d_update: Mapped[datetime] = mapped_column("con_d_update", DateTime, nullable=False)
 
     con_comment: Mapped[Optional[str]] = mapped_column("con_comment", Text, nullable=True)
-    con_cmu_id: Mapped[Optional[int]] = mapped_column("con_cmu_id", Integer, nullable=True)
+    # con_cmu_id removed: column does not exist in production DB (legacy EDMX artifact)
     con_company_name: Mapped[Optional[str]] = mapped_column("con_company_name", String(200), nullable=True)
 
     civility: Mapped[Optional["Civility"]] = relationship("Civility", lazy="joined")

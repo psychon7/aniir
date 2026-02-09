@@ -220,3 +220,46 @@ async def tables_health_check(db: Session = Depends(get_db)):
         "total_records": total_records,
         "tables": results
     }
+
+
+# =============================================================================
+# Migration Endpoints
+# =============================================================================
+
+@router.get("/health/migrations")
+async def migration_status():
+    """Check database migration status."""
+    try:
+        from app.migrations.runner import MigrationRunner
+        runner = MigrationRunner()
+        return runner.get_migration_status()
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+
+
+@router.post("/admin/run-migrations")
+async def run_migrations():
+    """Manually trigger pending migrations (admin only)."""
+    try:
+        from app.migrations.runner import MigrationRunner
+        runner = MigrationRunner()
+        successful, failed = runner.run_pending_migrations()
+        return {
+            "status": "completed",
+            "successful": successful,
+            "failed": failed,
+            "migrations_dir": str(runner.migrations_dir),
+            "migrations_dir_exists": runner.migrations_dir.exists()
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }

@@ -26,6 +26,7 @@ from app.models.country import Country
 from app.models.language import Language
 from app.models.society import Society
 from app.models.business_unit import BusinessUnit
+from app.models.user import Civility
 
 router = APIRouter(prefix="/lookup", tags=["Lookup (Frontend Alias)"])
 
@@ -334,6 +335,28 @@ async def get_active_carriers(
 ):
     """Get active carriers - frontend alias endpoint."""
     return wrap_response([])
+
+
+# ==========================================================================
+# Civilities
+# ==========================================================================
+
+@router.get("/civilities", summary="Get civilities for dropdown")
+async def get_civilities(
+    db: Session = Depends(get_db)
+):
+    """Get civilities (Mr., Ms., Dr., etc.) - frontend alias endpoint."""
+    try:
+        result = db.execute(
+            select(Civility)
+            .where(Civility.civ_active == True)
+            .order_by(Civility.civ_designation)
+            .limit(100)
+        )
+        civilities = result.scalars().all()
+        return wrap_response([{"id": c.civ_id, "name": c.civ_designation} for c in civilities])
+    except Exception as e:
+        return wrap_response([])
 
 
 # ==========================================================================

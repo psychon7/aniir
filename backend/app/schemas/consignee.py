@@ -41,7 +41,6 @@ class ConsigneeBase(BaseModel):
     soc_id: Optional[int] = Field(None, description="Society ID")
 
     con_comment: Optional[str] = Field(None, description="Comment")
-    con_cmu_id: Optional[int] = Field(None, description="Commune ID")
     con_company_name: Optional[str] = Field(None, max_length=200, description="Company name")
 
 
@@ -81,7 +80,6 @@ class ConsigneeUpdate(BaseModel):
     soc_id: Optional[int] = None
 
     con_comment: Optional[str] = None
-    con_cmu_id: Optional[int] = None
     con_company_name: Optional[str] = Field(None, max_length=200)
 
 
