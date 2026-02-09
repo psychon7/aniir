@@ -45,6 +45,7 @@ from app.api.v1 import (
 # =============================================================================
 from app.api.v1.endpoints import (
     chat,  # ENABLED: Wave 1 Quick Win
+    chat_threads,  # ENABLED: Chat threads/DM system
     health,
     i18n,
     email,  # ENABLED: Wave 1 Quick Win
@@ -118,6 +119,7 @@ api_router.include_router(projects.router)
 # Communication & Files
 # -----------------------------------------------------------------------------
 api_router.include_router(chat.router)  # ENABLED: Wave 1 Quick Win
+api_router.include_router(chat_threads.router)  # ENABLED: Chat threads/DM system
 api_router.include_router(drive.router)  # ENABLED: Wave 1 Quick Win
 api_router.include_router(attachments.router, prefix="/attachments", tags=["Attachments"])
 
