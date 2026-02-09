@@ -53,7 +53,8 @@
       "WebFetch(domain:docs.hipocap.com)",
       "Bash(npm run lint:*)",
       "Bash(npm run generate-routes:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(cat:*)"
     ]
   }
 }
