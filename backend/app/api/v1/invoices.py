@@ -186,6 +186,39 @@ def handle_invoice_error(error: InvoiceServiceError) -> HTTPException:
 
 
 # ==========================================================================
+# Currency designation to ISO 4217 code mapping
+# ==========================================================================
+
+_CURRENCY_ISO_MAP = {
+    "EURO": "EUR",
+    "DOLLAR": "USD",
+    "DIRHAM": "MAD",
+    "LIVRE": "GBP",
+    "FRANC": "CHF",
+    "YEN": "JPY",
+    "YUAN": "CNY",
+    "ROUPIE": "INR",
+    "REAL": "BRL",
+    "COURONNE": "SEK",
+    "DINAR": "TND",
+    "RAND": "ZAR",
+    "DOLLAR CANADIEN": "CAD",
+    "DOLLAR AUSTRALIEN": "AUD",
+}
+
+
+def _to_iso_currency(designation: Optional[str]) -> str:
+    """Convert currency designation (e.g. 'EURO') to ISO 4217 code (e.g. 'EUR')."""
+    if not designation:
+        return "EUR"
+    upper = designation.strip().upper()
+    # Check if it's already a valid 3-letter code
+    if len(upper) == 3 and upper.isalpha():
+        return upper
+    return _CURRENCY_ISO_MAP.get(upper, "EUR")
+
+
+# ==========================================================================
 # Invoice CRUD Endpoints
 # ==========================================================================
 
@@ -231,7 +264,7 @@ async def list_invoices(
             "dueDate": row.cin_d_term.isoformat() if row.cin_d_term else None,
             "totalAmount": 0,  # TODO: compute from invoice lines
             "paidAmount": 0,
-            "currency": row.currency_code or "EUR",
+            "currency": _to_iso_currency(row.currency_code),
             "statusName": status_name,
             "name": row.cin_name,
         })
