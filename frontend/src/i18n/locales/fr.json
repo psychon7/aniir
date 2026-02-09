@@ -1455,7 +1455,10 @@
     "attachFile": "Joindre un fichier",
     "fileTooLarge": "Le fichier est trop volumineux. Taille maximale : 10 Mo.",
     "uploadFailed": "Échec du téléchargement du fichier",
-    "directMessage": "Message direct"
+    "directMessage": "Message direct",
+    "searchConversations": "Rechercher des conversations...",
+    "searchMessages": "Rechercher dans les messages...",
+    "clearSearch": "Effacer la recherche"
   },
   "shopify": {
     "title": "Intégrations Shopify",

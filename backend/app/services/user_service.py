@@ -525,13 +525,17 @@ class UserService:
 
     async def get_users_lookup(
         self,
-        active_only: bool = True
+        active_only: bool = True,
+        search: Optional[str] = None,
+        limit: int = 50
     ) -> List[User]:
         """
         Get users for dropdown/lookup.
 
         Args:
             active_only: Only return active users.
+            search: Optional search query for name, login, or email.
+            limit: Maximum number of results to return.
 
         Returns:
             List of User objects (lightweight).
@@ -540,6 +544,19 @@ class UserService:
 
         if active_only:
             query = query.where(User.usr_is_actived == True)
+
+        if search:
+            search_term = f"%{search}%"
+            query = query.where(
+                or_(
+                    User.usr_login.ilike(search_term),
+                    User.usr_firstname.ilike(search_term),
+                    User.usr_lastname.ilike(search_term),
+                    User.usr_email.ilike(search_term),
+                )
+            )
+
+        query = query.limit(limit)
 
         result = await self.db.execute(query)
         return list(result.scalars().all())

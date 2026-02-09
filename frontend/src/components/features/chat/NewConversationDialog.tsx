@@ -3,18 +3,40 @@ import { useTranslation } from 'react-i18next'
 import apiClient from '@/api/client'
 import { debounce } from '@/lib/utils'
 
+// API response matches backend UserLookup schema
+interface UserLookupResponse {
+  usr_id: number
+  usr_login: string
+  usr_firstname: string | null
+  usr_lastname: string | null
+  usr_is_actived: boolean
+  display_name: string
+}
+
+// Normalized user for internal use
 interface User {
   id: number
   username: string
+  displayName: string
   firstName: string
   lastName: string
-  email: string
 }
 
 interface NewConversationDialogProps {
   isOpen: boolean
   onClose: () => void
   onThreadCreated: (threadId: number) => void
+}
+
+// Transform API response to normalized User
+function normalizeUser(apiUser: UserLookupResponse): User {
+  return {
+    id: apiUser.usr_id,
+    username: apiUser.usr_login,
+    displayName: apiUser.display_name,
+    firstName: apiUser.usr_firstname || '',
+    lastName: apiUser.usr_lastname || '',
+  }
 }
 
 export function NewConversationDialog({
@@ -56,10 +78,11 @@ export function NewConversationDialog({
         const response = await apiClient.get('/users/lookup', {
           params: { q: query, limit: 10 },
         })
-        const data = response.data?.data || response.data || []
-        // Filter out already selected users
-        const filtered = data.filter(
-          (u: User) => !selectedUsers.some((s) => s.id === u.id)
+        const data: UserLookupResponse[] = response.data?.data || response.data || []
+        // Normalize and filter out already selected users
+        const normalized = data.map(normalizeUser)
+        const filtered = normalized.filter(
+          (u) => !selectedUsers.some((s) => s.id === u.id)
         )
         setUsers(filtered)
       } catch (err) {
@@ -165,7 +188,7 @@ export function NewConversationDialog({
                   key={user.id}
                   className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-sm"
                 >
-                  {user.firstName} {user.lastName}
+                  {user.displayName || user.username}
                   <button
                     onClick={() => handleRemoveUser(user.id)}
                     className="p-0.5 hover:bg-primary/20 rounded-full"
@@ -191,7 +214,7 @@ export function NewConversationDialog({
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
                 placeholder={t('chat.groupNamePlaceholder')}
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background"
               />
             </div>
           )}
@@ -208,7 +231,7 @@ export function NewConversationDialog({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('chat.searchPlaceholder')}
-              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background"
             />
           </div>
 
@@ -226,13 +249,11 @@ export function NewConversationDialog({
                   className="w-full p-3 text-left hover:bg-accent transition-colors flex items-center gap-3"
                 >
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                    {(user.firstName?.[0] || user.username[0]).toUpperCase()}
+                    {(user.displayName?.[0] || user.username[0]).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-medium">
-                      {user.firstName} {user.lastName}
-                    </p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                    <p className="font-medium">{user.displayName || user.username}</p>
+                    <p className="text-sm text-muted-foreground">@{user.username}</p>
                   </div>
                 </button>
               ))}

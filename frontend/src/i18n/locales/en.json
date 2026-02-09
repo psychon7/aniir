@@ -1457,7 +1457,10 @@
     "attachFile": "Attach file",
     "fileTooLarge": "File is too large. Maximum size is 10MB.",
     "uploadFailed": "Failed to upload file",
-    "directMessage": "Direct Message"
+    "directMessage": "Direct Message",
+    "searchConversations": "Search conversations...",
+    "searchMessages": "Search in messages...",
+    "clearSearch": "Clear search"
   },
   "shopify": {
     "title": "Shopify Integrations",

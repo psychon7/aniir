@@ -76,15 +76,18 @@ def handle_user_error(error: UserServiceError) -> HTTPException:
     Get a lightweight list of users for dropdown/lookup components.
 
     Returns only essential fields: ID, login, name, and active status.
+    Supports optional search query to filter by name, login, or email.
     """
 )
 async def get_users_lookup(
+    q: Optional[str] = Query(None, max_length=100, description="Search query (name, login, or email)"),
     active_only: bool = Query(True, description="Only return active users"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum results to return"),
     service: UserService = Depends(get_user_service),
     current_user: User = Depends(get_current_user)
 ):
-    """Get users for dropdown/lookup."""
-    users = await service.get_users_lookup(active_only=active_only)
+    """Get users for dropdown/lookup with optional search."""
+    users = await service.get_users_lookup(active_only=active_only, search=q, limit=limit)
     return [UserLookup.model_validate(u) for u in users]
 
 

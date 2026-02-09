@@ -1293,7 +1293,10 @@
     "attachFile": "附加文件",
     "fileTooLarge": "文件过大。最大大小为10MB。",
     "uploadFailed": "文件上传失败",
-    "directMessage": "私信"
+    "directMessage": "私信",
+    "searchConversations": "搜索对话...",
+    "searchMessages": "在消息中搜索...",
+    "clearSearch": "清除搜索"
   },
   "shopify": {
     "title": "Shopify集成",
