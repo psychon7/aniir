@@ -6,6 +6,9 @@ Note: True async (aioodbc) requires ODBC Driver 17 for SQL Server 2008 compatibi
 ODBC Driver 18 requires TLS 1.2+ which older SQL Server versions don't support.
 """
 import os
+import asyncio
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -43,6 +46,69 @@ SessionLocal = sessionmaker(
     autoflush=False,
     bind=engine
 )
+
+
+# =============================================================================
+# Async Session Wrapper (for compatibility with async code)
+# =============================================================================
+
+class AsyncSessionWrapper:
+    """
+    Wrapper to make synchronous SQLAlchemy session work in async context.
+    Uses asyncio.to_thread() for blocking operations.
+    """
+    def __init__(self, sync_session: Session):
+        self._session = sync_session
+
+    async def execute(self, statement, *args, **kwargs):
+        """Execute a statement asynchronously."""
+        return await asyncio.to_thread(self._session.execute, statement, *args, **kwargs)
+
+    async def get(self, entity, ident, *args, **kwargs):
+        """Get an entity by primary key asynchronously."""
+        return await asyncio.to_thread(self._session.get, entity, ident, *args, **kwargs)
+
+    async def commit(self):
+        """Commit the transaction asynchronously."""
+        return await asyncio.to_thread(self._session.commit)
+
+    async def rollback(self):
+        """Rollback the transaction asynchronously."""
+        return await asyncio.to_thread(self._session.rollback)
+
+    async def refresh(self, instance, *args, **kwargs):
+        """Refresh an instance asynchronously."""
+        return await asyncio.to_thread(self._session.refresh, instance, *args, **kwargs)
+
+    async def close(self):
+        """Close the session."""
+        return await asyncio.to_thread(self._session.close)
+
+    def add(self, instance):
+        """Add an instance (sync, no I/O)."""
+        self._session.add(instance)
+
+    def delete(self, instance):
+        """Delete an instance (sync, no I/O)."""
+        self._session.delete(instance)
+
+
+@asynccontextmanager
+async def async_session_maker() -> AsyncGenerator[AsyncSessionWrapper, None]:
+    """
+    Async context manager for database sessions.
+    Wraps synchronous session for async compatibility.
+    
+    Usage:
+        async with async_session_maker() as session:
+            result = await session.execute(query)
+    """
+    session = SessionLocal()
+    wrapper = AsyncSessionWrapper(session)
+    try:
+        yield wrapper
+    finally:
+        await wrapper.close()
 
 
 # =============================================================================

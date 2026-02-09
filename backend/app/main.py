@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import api_router
 from app.config import settings
+from app.websocket import socket_app
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,9 @@ app.add_middleware(
 
 # Include API router (already has /api/v1 prefix)
 app.include_router(api_router)
+
+# Mount Socket.IO for real-time chat
+app.mount("/ws", socket_app)
 
 
 @app.get("/health")

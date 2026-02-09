@@ -6,15 +6,14 @@ Provides functionality for:
 - User search and filtering
 - Password hashing for user creation/update
 """
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 from datetime import datetime
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from fastapi import Depends
 from passlib.context import CryptContext
 
-from app.database import get_db
+from app.database import SessionLocal, AsyncSessionWrapper
 from app.models.user import User, Civility
 from app.models.role import Role
 from app.models.society import Society
@@ -121,12 +120,12 @@ class UserService:
     Handles CRUD operations, search, and password management for users.
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Union[AsyncSession, AsyncSessionWrapper]):
         """
         Initialize the user service.
 
         Args:
-            db: Database session for operations.
+            db: Database session for operations (async or wrapped sync).
         """
         self.db = db
 
@@ -608,16 +607,16 @@ class UserService:
 # Dependency Injection
 # ==========================================================================
 
-async def get_user_service(
-    db: AsyncSession = Depends(get_db)
-) -> UserService:
+async def get_user_service() -> UserService:
     """
     Dependency to get UserService instance.
 
-    Args:
-        db: Database session from dependency.
+    Creates a new async-compatible database session wrapper.
 
     Returns:
-        UserService instance.
+        UserService instance with async session wrapper.
     """
-    return UserService(db)
+    # Create sync session and wrap it for async compatibility
+    sync_session = SessionLocal()
+    async_wrapper = AsyncSessionWrapper(sync_session)
+    return UserService(async_wrapper)

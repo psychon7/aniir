@@ -27,13 +27,6 @@ import type {
 // Socket.IO instance (singleton)
 let socket: Socket | null = null
 
-// Reconnection state to prevent flooding
-let reconnectAttempts = 0
-let reconnectTimeout: ReturnType<typeof setTimeout> | null = null
-const MAX_RECONNECT_ATTEMPTS = 5
-const BASE_RECONNECT_DELAY = 2000
-const MAX_RECONNECT_DELAY = 30000
-
 // Get the WebSocket URL from environment or use default
 const getSocketUrl = () => {
   const baseUrl = import.meta.env.VITE_API_URL || window.location.origin
@@ -63,37 +56,23 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return
     }
 
-    // Check if we've exceeded max reconnect attempts
-    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.warn('WebSocket: Max reconnection attempts reached. Use manual reconnect.')
-      set({ 
-        isConnecting: false, 
-        connectionError: 'Connection failed after multiple attempts. Please refresh the page.' 
-      })
-      return
-    }
-
-    // Clear any pending reconnect timeout
-    if (reconnectTimeout) {
-      clearTimeout(reconnectTimeout)
-      reconnectTimeout = null
-    }
-
     set({ isConnecting: true, connectionError: null })
 
-    // Create socket connection - disable auto-reconnection, we handle it manually
+    // Create socket connection with Socket.IO built-in reconnection
     const socketUrl = getSocketUrl()
     socket = io(socketUrl, {
       path: '/ws/socket.io',
       auth: { token },
       transports: ['websocket', 'polling'],
-      reconnection: false, // Disable auto-reconnection to prevent flooding
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
       timeout: 10000,
     })
 
     // Connection established
     socket.on('connection_established', (data: ConnectionEstablishedResponse) => {
-      reconnectAttempts = 0 // Reset on successful connection
       set({
         isConnected: true,
         isConnecting: false,
@@ -102,57 +81,43 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       })
     })
 
-    // Connection error - use exponential backoff
+    // Connection error
     socket.on('connect_error', (error: Error) => {
-      reconnectAttempts++
-      const delay = Math.min(
-        BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts - 1),
-        MAX_RECONNECT_DELAY
-      )
-      
-      console.warn(`WebSocket connection failed (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}). Retrying in ${delay/1000}s...`)
-      
+      console.warn('WebSocket connection error:', error.message)
       set({
         isConnected: false,
         isConnecting: false,
         connectionError: error.message || 'Connection failed',
       })
-
-      // Schedule reconnect with exponential backoff
-      if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        reconnectTimeout = setTimeout(() => {
-          const currentToken = socket?.auth?.token as string
-          if (currentToken) {
-            get().connect(currentToken)
-          }
-        }, delay)
-      }
     })
 
-    // Disconnected - attempt reconnect for unexpected disconnections
+    // Disconnected
     socket.on('disconnect', (reason: string) => {
-      const shouldReconnect = reason !== 'io server disconnect' && reason !== 'io client disconnect'
-      
       set({
         isConnected: false,
         isConnecting: false,
-        connectionError: shouldReconnect ? null : 'Disconnected',
+        connectionError: reason === 'io server disconnect' ? 'Server disconnected' : null,
       })
+    })
 
-      // Only auto-reconnect for unexpected disconnections
-      if (shouldReconnect && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        const delay = Math.min(
-          BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts),
-          MAX_RECONNECT_DELAY
-        )
-        reconnectTimeout = setTimeout(() => {
-          const currentToken = socket?.auth?.token as string
-          if (currentToken) {
-            reconnectAttempts++
-            get().connect(currentToken)
-          }
-        }, delay)
-      }
+    // Reconnecting
+    socket.on('reconnect_attempt', (attempt: number) => {
+      console.log(`WebSocket reconnecting... attempt ${attempt}`)
+      set({ isConnecting: true })
+    })
+
+    // Reconnected
+    socket.on('reconnect', () => {
+      set({ isConnected: true, isConnecting: false, connectionError: null })
+    })
+
+    // Failed to reconnect after all attempts
+    socket.on('reconnect_failed', () => {
+      console.warn('WebSocket: Max reconnection attempts reached')
+      set({
+        isConnecting: false,
+        connectionError: 'Connection failed. Please refresh the page.',
+      })
     })
 
     // Joined thread confirmation
@@ -351,13 +316,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   // Disconnect from Socket.IO server
   disconnect: () => {
-    // Clear any pending reconnect timeout
-    if (reconnectTimeout) {
-      clearTimeout(reconnectTimeout)
-      reconnectTimeout = null
-    }
-    reconnectAttempts = 0 // Reset reconnect attempts on manual disconnect
-    
     if (socket) {
       socket.disconnect()
       socket = null
