@@ -24,6 +24,9 @@ CREATE TABLE TR_UOM_UnitOfMeasure (
     uom_d_update DATETIME NULL
 );
 
--- Record migration
-INSERT INTO migration_history (version, description, applied_at)
-VALUES ('V1.0.0.4', 'Create BusinessUnit and UnitOfMeasure tables', GETDATE());
+-- Record migration (runner handles this automatically via _record_migration)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[_MigrationHistory] WHERE [version] = 'V1.0.0.4')
+BEGIN
+    INSERT INTO [dbo].[_MigrationHistory] ([version], [description], [filename], [execution_time_ms], [success])
+    VALUES ('V1.0.0.4', 'Create BusinessUnit and UnitOfMeasure tables', 'V1.0.0.4__create_business_unit_uom.sql', 0, 1);
+END

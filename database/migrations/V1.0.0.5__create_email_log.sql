@@ -28,5 +28,9 @@ CREATE TABLE TM_SET_EmailLog (
     eml_d_update DATETIME NULL
 );
 
-INSERT INTO migration_history (version, description, applied_at)
-VALUES ('V1.0.0.5', 'Create EmailLog table', GETDATE());
+-- Record migration (runner handles this automatically via _record_migration)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[_MigrationHistory] WHERE [version] = 'V1.0.0.5')
+BEGIN
+    INSERT INTO [dbo].[_MigrationHistory] ([version], [description], [filename], [execution_time_ms], [success])
+    VALUES ('V1.0.0.5', 'Create EmailLog table', 'V1.0.0.5__create_email_log.sql', 0, 1);
+END

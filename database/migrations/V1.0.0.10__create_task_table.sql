@@ -230,10 +230,10 @@ GO
 -- ==========================================================================
 -- 4) Record migration
 -- ==========================================================================
-IF NOT EXISTS (SELECT 1 FROM [dbo].[migration_history] WHERE [version] = 'V1.0.0.10')
+IF NOT EXISTS (SELECT 1 FROM [dbo].[_MigrationHistory] WHERE [version] = 'V1.0.0.10')
 BEGIN
-    INSERT INTO [dbo].[migration_history] ([version], [description], [applied_at])
-    VALUES ('V1.0.0.10', 'Create TM_TSK_Task table for calendar/tasks feature', GETDATE());
+    INSERT INTO [dbo].[_MigrationHistory] ([version], [description], [filename], [execution_time_ms], [success])
+    VALUES ('V1.0.0.10', 'Create TM_TSK_Task table for calendar/tasks feature', 'V1.0.0.10__create_task_table.sql', 0, 1);
     PRINT 'Recorded migration V1.0.0.10';
 END
 GO
