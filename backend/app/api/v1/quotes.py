@@ -18,6 +18,8 @@ from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.models.costplan import CostPlan
+from app.models.client import Client
+from app.models.cost_plan_status import CostPlanStatus
 from app.services.quote_service import (
     QuoteService,
     QuoteServiceError,
@@ -73,45 +75,63 @@ def _sync_list_quotes(
     page_size: int,
     search: Optional[str] = None,
     client_id: Optional[int] = None,
-    sort_by: str = "cpl_d_create",
+    sort_by: str = "cpl_d_creation",
     sort_order: str = "desc"
 ):
-    """Sync function to list quotes with pagination."""
-    query = select(CostPlan)
+    """Sync function to list quotes with pagination, joining client and status."""
+    query = (
+        select(
+            CostPlan.cpl_id,
+            CostPlan.cpl_code,
+            CostPlan.cli_id,
+            CostPlan.cpl_d_creation,
+            CostPlan.cpl_d_validity,
+            CostPlan.cst_id,
+            CostPlan.cpl_discount_percentage,
+            CostPlan.cpl_discount_amount,
+            CostPlan.soc_id,
+            CostPlan.cpl_name,
+            CostPlan.cpl_d_update,
+            Client.cli_company_name,
+            CostPlanStatus.cst_designation,
+        )
+        .outerjoin(Client, CostPlan.cli_id == Client.cli_id)
+        .outerjoin(CostPlanStatus, CostPlan.cst_id == CostPlanStatus.cst_id)
+    )
     count_query = select(func.count(CostPlan.cpl_id))
-    
+
     conditions = []
-    
+
     if search:
         search_term = f"%{search}%"
         conditions.append(CostPlan.cpl_code.ilike(search_term))
-    
+
     if client_id:
         conditions.append(CostPlan.cli_id == client_id)
-    
+
     if conditions:
         query = query.where(and_(*conditions))
         count_query = count_query.where(and_(*conditions))
-    
+
     # Get total count
     total_result = db.execute(count_query)
     total = total_result.scalar() or 0
-    
+
     # Apply sorting
     sort_column = getattr(CostPlan, sort_by, CostPlan.cpl_d_creation)
     if sort_order == "desc":
         query = query.order_by(desc(sort_column))
     else:
         query = query.order_by(asc(sort_column))
-    
+
     # Apply pagination
     skip = (page - 1) * page_size
     query = query.offset(skip).limit(page_size)
-    
+
     result = db.execute(query)
-    quotes = list(result.scalars().all())
-    
-    return quotes, total
+    rows = result.all()
+
+    return rows, total
 
 
 # =====================
@@ -121,7 +141,6 @@ def _sync_list_quotes(
 
 @router.get(
     "",
-    response_model=QuoteListPaginatedResponse,
     summary="List quotes with pagination",
     description="Get a paginated list of quotes with optional filters."
 )
@@ -130,65 +149,43 @@ async def list_quotes(
     page_size: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
     search: Optional[str] = Query(None, description="Search by quote code"),
     client_id: Optional[int] = Query(None, description="Filter by client ID"),
-    sort_by: str = Query("cpl_d_create", description="Sort field"),
+    sort_by: str = Query("cpl_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     db: Session = Depends(get_db)
 ):
     """List quotes with pagination."""
-    quotes, total = await asyncio.to_thread(
+    rows, total = await asyncio.to_thread(
         _sync_list_quotes, db, page, page_size, search, client_id, sort_by, sort_order
     )
 
-    # Manually build response items from model - CostPlanResponse schema doesn't align with model fields
+    # Build camelCase response matching frontend QuoteListItem type
     items = []
-    for q in quotes:
+    for row in rows:
         items.append({
-            "cp_id": q.cpl_id,
-            "cp_reference": q.cpl_code,
-            "cp_cli_id": q.cli_id,
-            "cp_date": q.cpl_d_creation,
-            "cp_valid_until": q.cpl_d_validity,
-            "cp_sta_id": q.cst_id,
-            "cp_cur_id": 1,  # TODO: Add currency support to model
-            "cp_shipping_address": None,
-            "cp_shipping_city": None,
-            "cp_shipping_postal_code": None,
-            "cp_shipping_country_id": None,
-            "cp_billing_address": None,
-            "cp_billing_city": None,
-            "cp_billing_postal_code": None,
-            "cp_billing_country_id": None,
-            "cp_discount": q.cpl_discount_percentage,
-            "cp_notes": q.cpl_client_comment,
-            "cp_internal_notes": q.cpl_inter_comment,
-            "cp_terms_conditions": None,
-            "cp_bu_id": None,
-            "cp_soc_id": q.soc_id,
-            "cp_sub_total": Decimal("0"),
-            "cp_total_vat": Decimal("0"),
-            "cp_total_amount": Decimal("0"),
-            "cp_pdf_url": None,
-            "cp_pdf_generated_at": None,
-            "cp_converted_to_order": False,
-            "cp_ord_id": None,
-            "cp_converted_at": None,
-            "cp_created_by": q.usr_creator_id,
-            "cp_created_at": q.cpl_d_creation,
-            "cp_updated_at": q.cpl_d_update,
+            "id": row.cpl_id,
+            "cplId": row.cpl_id,
+            "reference": row.cpl_code or "",
+            "clientName": row.cli_company_name or "",
+            "quoteDate": row.cpl_d_creation.isoformat() if row.cpl_d_creation else None,
+            "validUntil": row.cpl_d_validity.isoformat() if row.cpl_d_validity else None,
+            "statusId": row.cst_id,
+            "statusName": row.cst_designation or "Draft",
+            "totalAmount": 0,  # TODO: Compute from quote lines
+            "name": row.cpl_name,
         })
 
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
 
-    return QuoteListPaginatedResponse(
-        success=True,
-        data=items,
-        page=page,
-        pageSize=page_size,
-        totalCount=total,
-        totalPages=total_pages,
-        hasNextPage=page < total_pages,
-        hasPreviousPage=page > 1
-    )
+    return {
+        "success": True,
+        "data": items,
+        "page": page,
+        "pageSize": page_size,
+        "totalCount": total,
+        "totalPages": total_pages,
+        "hasNextPage": page < total_pages,
+        "hasPreviousPage": page > 1,
+    }
 
 
 @router.post(
