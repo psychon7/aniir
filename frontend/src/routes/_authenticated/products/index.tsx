@@ -22,11 +22,11 @@ interface Product {
   description?: string
   categoryName?: string
   brandName?: string
-  unitPrice: number
-  costPrice?: number
-  stockQuantity?: number
+  unitPrice?: number | null
+  costPrice?: number | null
+  stockQuantity?: number | null
   isActive: boolean
-  createdAt: string
+  createdAt?: string
 }
 
 interface ProductSearchParams {
@@ -161,7 +161,9 @@ function ProductsPage() {
         sortable: true,
         cell: (row) => (
           <span className="font-medium">
-            {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(row.unitPrice)}
+            {row.unitPrice != null
+              ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(row.unitPrice)
+              : '-'}
           </span>
         ),
       },

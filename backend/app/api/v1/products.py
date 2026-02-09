@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.product import Product
 from app.services.product_service import (
     ProductService,
     ProductServiceError,
@@ -119,18 +120,34 @@ async def search_products(
     search: Optional[str] = Query(None, description="Search term"),
     pty_id: Optional[int] = Query(None, description="Product type ID"),
     soc_id: Optional[int] = Query(None, description="Society ID"),
+    categoryId: Optional[int] = Query(None, description="Category ID (unused, reserved)"),
+    brandId: Optional[int] = Query(None, description="Brand ID (unused, reserved)"),
+    isActive: Optional[bool] = Query(None, description="Active filter (unused, reserved)"),
     min_price: Optional[float] = Query(None, ge=0, description="Minimum price"),
     max_price: Optional[float] = Query(None, ge=0, description="Maximum price"),
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
-    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    sort_by: str = Query("prd_name", description="Sort field"),
-    sort_order: str = Query("asc", description="Sort order (asc/desc)"),
+    pageSize: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
+    sortBy: str = Query("name", alias="sortBy", description="Sort field (camelCase)"),
+    sortOrder: str = Query("asc", alias="sortOrder", description="Sort order (asc/desc)"),
     service: ProductService = Depends(get_product_service)
 ):
     """Search and list products with pagination."""
-    # Convert page/page_size to skip/limit for internal use
-    skip = (page - 1) * page_size
-    
+    # Map frontend camelCase sort fields to DB column names
+    sort_field_map = {
+        "name": "prd_name",
+        "reference": "prd_ref",
+        "unitPrice": "prd_price",
+        "price": "prd_price",
+        "code": "prd_code",
+        "createdAt": "prd_d_creation",
+    }
+    db_sort_by = sort_field_map.get(sortBy, sortBy)
+    # If the mapped value doesn't start with prd_, it may already be a DB column name
+    if not hasattr(Product, db_sort_by):
+        db_sort_by = "prd_name"
+
+    skip = (page - 1) * pageSize
+
     params = ProductSearchParams(
         search=search,
         pty_id=pty_id,
@@ -138,22 +155,22 @@ async def search_products(
         min_price=min_price,
         max_price=max_price,
         skip=skip,
-        limit=page_size,
-        sort_by=sort_by,
-        sort_order=sort_order
+        limit=pageSize,
+        sort_by=db_sort_by,
+        sort_order=sortOrder
     )
-    
+
     products, total = await service.search_products(params)
-    
+
     # Build paginated response matching frontend format
     items = [ProductListResponse.model_validate(p) for p in products]
-    total_pages = (total + page_size - 1) // page_size if total > 0 else 0
-    
+    total_pages = (total + pageSize - 1) // pageSize if total > 0 else 0
+
     return ProductListPaginatedResponse(
         success=True,
         data=items,
         page=page,
-        pageSize=page_size,
+        pageSize=pageSize,
         totalCount=total,
         totalPages=total_pages,
         hasNextPage=page < total_pages,

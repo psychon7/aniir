@@ -315,23 +315,32 @@ class ProductWithInstancesResponse(ProductResponse):
 
 
 class ProductListResponse(BaseModel):
-    """Schema for listing products (lightweight)."""
-    model_config = ConfigDict(from_attributes=True)
+    """Schema for listing products (lightweight) — camelCase output for frontend."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    prd_id: int = Field(..., description="Product ID")
-    prd_ref: str = Field(..., description="Product reference")
-    prd_name: str = Field(..., description="Product name")
-    prd_code: Optional[str] = Field(None, description="Product code")
-    prd_price: Optional[Decimal] = Field(None, description="Selling price")
-    prd_weight: Optional[Decimal] = Field(None, description="Weight")
-    pty_id: int = Field(..., description="Product type ID")
-    soc_id: int = Field(..., description="Society ID")
+    id: int = Field(..., validation_alias="prd_id", description="Product ID")
+    reference: str = Field(..., validation_alias="prd_ref", description="Product reference")
+    name: str = Field(..., validation_alias="prd_name", description="Product name")
+    description: Optional[str] = Field(None, validation_alias="prd_description", description="Product description")
+    code: Optional[str] = Field(None, validation_alias="prd_code", description="Product code")
+    unitPrice: Optional[Decimal] = Field(None, validation_alias="prd_price", description="Selling price")
+    costPrice: Optional[Decimal] = Field(None, validation_alias="prd_purchase_price", description="Purchase price")
+    productTypeId: int = Field(..., validation_alias="pty_id", description="Product type ID")
+    societyId: int = Field(..., validation_alias="soc_id", description="Society ID")
+    createdAt: Optional[datetime] = Field(None, validation_alias="prd_d_creation", description="Creation date")
+
+    # Fields the frontend expects but don't exist as direct DB columns
+    # Populated by the service layer via enrichment
+    categoryName: Optional[str] = Field(None, description="Category name")
+    brandName: Optional[str] = Field(None, description="Brand name")
+    stockQuantity: Optional[int] = Field(None, description="Stock quantity")
+    isActive: bool = Field(True, description="Whether the product is active")
 
     @computed_field
     @property
-    def display_name(self) -> str:
+    def displayName(self) -> str:
         """Get display name."""
-        return f"{self.prd_ref} - {self.prd_name}"
+        return f"{self.reference} - {self.name}"
 
 
 class ProductDetailResponse(BaseModel):
