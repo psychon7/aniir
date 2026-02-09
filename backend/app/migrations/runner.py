@@ -95,52 +95,61 @@ class MigrationRunner:
     
     def _get_connection(self):
         """Create a database connection using pymssql."""
-        # Parse connection details from DATABASE_URL
-        # Format: mssql+pymssql://user:pass@host:port/database?params
-        url = self.settings.DATABASE_URL
-        
-        logger.info(f"Parsing DATABASE_URL (masked): {url[:30]}...")
-        
-        # Extract components
-        # Remove driver prefix
-        if url.startswith("mssql+pymssql://"):
-            url = url[len("mssql+pymssql://"):]
-        elif url.startswith("mssql://"):
-            url = url[len("mssql://"):]
-        
-        # Split user:pass@host:port/database
-        if "/" not in url:
-            raise ValueError(f"DATABASE_URL missing database path separator '/'")
-        
-        auth_host, db_params = url.split("/", 1)
-        database = db_params.split("?")[0]
-        
-        if "@" not in auth_host:
-            raise ValueError(f"DATABASE_URL missing '@' separator between credentials and host")
-        
-        user_pass, host_port = auth_host.rsplit("@", 1)
-        
-        # Handle URL-encoded characters
         from urllib.parse import unquote
-        
+
+        # Try to get DATABASE_URL from environment first (Docker sets this),
+        # then fall back to the settings computed value
+        import os
+        url = os.environ.get("DATABASE_URL", "") or self.settings.DATABASE_URL
+
+        logger.info(f"Parsing DATABASE_URL (masked): {url[:40]}...")
+
+        # Remove any SQLAlchemy driver prefix
+        for prefix in ("mssql+pymssql://", "mssql+pyodbc://", "mssql://"):
+            if url.startswith(prefix):
+                url = url[len(prefix):]
+                break
+
+        # Split off query parameters from the path portion
+        # Format after prefix removal: user:pass@host:port/database?params
+        #   or for Windows Auth:      @host:port/database?params
+
+        if "@" not in url:
+            raise ValueError(
+                "DATABASE_URL missing '@' separator between credentials and host. "
+                f"Ensure DATABASE_URL env var is set correctly (got prefix: {url[:20]}...)"
+            )
+
+        # rsplit on '@' to handle passwords that may contain '@'
+        user_pass, host_db = url.rsplit("@", 1)
+
+        # Extract database name (before any query string)
+        if "/" not in host_db:
+            raise ValueError("DATABASE_URL missing database path separator '/'")
+
+        host_port, db_params = host_db.split("/", 1)
+        database = db_params.split("?")[0]
+
+        # Parse credentials (may be empty for Windows Auth)
         if ":" in user_pass:
             user, password = user_pass.split(":", 1)
         else:
             user = user_pass
             password = ""
-        
+
         user = unquote(user)
         password = unquote(password)
-        
+
+        # Parse host:port
         if ":" in host_port:
-            host, port = host_port.split(":")
-            port = int(port)
+            host, port_str = host_port.split(":")
+            port = int(port_str)
         else:
             host = host_port
             port = 1433
-        
-        logger.debug(f"Connecting to {host}:{port}/{database} as {user}")
-        
+
+        logger.info(f"Connecting to {host}:{port}/{database} as {user or '(Windows Auth)'}")
+
         return pymssql.connect(
             server=host,
             port=port,

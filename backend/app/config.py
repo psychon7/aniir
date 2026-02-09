@@ -8,6 +8,7 @@ Handles all configuration settings for the ERP system including:
 - CORS configuration
 """
 
+import os
 from functools import lru_cache
 from typing import List, Optional, Union
 from pydantic import field_validator, computed_field
@@ -70,34 +71,37 @@ class Settings(BaseSettings):
     DB_ECHO: bool = False  # Log SQL queries (set True for debugging)
     DB_ECHO_POOL: bool = False  # Log connection pool events
     
-    @computed_field
-    @property
-    def DATABASE_URL(self) -> str:
-        """
-        Construct SQL Server connection URL for SQLAlchemy.
-        
-        Uses pyodbc with ODBC Driver 17 for SQL Server.
-        Format: mssql+pyodbc://user:password@server:port/database?driver=ODBC+Driver+17+for+SQL+Server
-        """
-        # URL-encode the driver name (spaces become +)
-        driver_encoded = self.DB_DRIVER.replace(" ", "+")
-        
-        # Build connection string
-        if self.DB_PASSWORD:
+    # DATABASE_URL can be set directly via env var (used in Docker/production).
+    # If not set, it will be computed from DB_* fields by the validator below.
+    DATABASE_URL: str = ""
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def _build_database_url(cls, v: str) -> str:
+        """Use DATABASE_URL env var if set, otherwise build from DB_* components."""
+        # If explicitly provided (env var or .env), use it directly
+        env_url = os.environ.get("DATABASE_URL", "")
+        if env_url:
+            return env_url
+        if v:
+            return v
+        # Fallback: build from DB_* components (local dev with pyodbc)
+        driver = os.environ.get("DB_DRIVER", "ODBC Driver 17 for SQL Server").replace(" ", "+")
+        server = os.environ.get("DB_SERVER", "localhost")
+        port = os.environ.get("DB_PORT", "1433")
+        name = os.environ.get("DB_NAME", "ERP_DB")
+        user = os.environ.get("DB_USER", "sa")
+        password = os.environ.get("DB_PASSWORD", "")
+        if password:
             return (
-                f"mssql+pyodbc://{self.DB_USER}:{self.DB_PASSWORD}"
-                f"@{self.DB_SERVER}:{self.DB_PORT}/{self.DB_NAME}"
-                f"?driver={driver_encoded}"
-                f"&TrustServerCertificate=yes"
+                f"mssql+pyodbc://{user}:{password}"
+                f"@{server}:{port}/{name}"
+                f"?driver={driver}&TrustServerCertificate=yes"
             )
-        else:
-            # Windows Authentication (Trusted Connection)
-            return (
-                f"mssql+pyodbc://@{self.DB_SERVER}:{self.DB_PORT}/{self.DB_NAME}"
-                f"?driver={driver_encoded}"
-                f"&Trusted_Connection=yes"
-                f"&TrustServerCertificate=yes"
-            )
+        return (
+            f"mssql+pyodbc://@{server}:{port}/{name}"
+            f"?driver={driver}&Trusted_Connection=yes&TrustServerCertificate=yes"
+        )
     
     @computed_field
     @property
