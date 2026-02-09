@@ -23,6 +23,8 @@ from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.models.invoice import ClientInvoice
+from app.models.client import Client
+from app.models.currency import Currency
 from app.services.invoice_service import (
     InvoiceService,
     get_invoice_service,
@@ -84,49 +86,69 @@ def _sync_list_invoices(
     page_size: int,
     search: Optional[str] = None,
     client_id: Optional[int] = None,
-    status_id: Optional[int] = None,
     sort_by: str = "cin_d_creation",
     sort_order: str = "desc"
 ):
-    """Sync function to list invoices with pagination."""
-    query = select(ClientInvoice)
+    """Sync function to list invoices with pagination, joining Client and Currency."""
+    query = (
+        select(
+            ClientInvoice.cin_id,
+            ClientInvoice.cin_code,
+            ClientInvoice.cli_id,
+            ClientInvoice.cod_id,
+            ClientInvoice.cin_d_creation,
+            ClientInvoice.cin_d_update,
+            ClientInvoice.cin_d_invoice,
+            ClientInvoice.cin_d_term,
+            ClientInvoice.cin_isinvoice,
+            ClientInvoice.cin_invoiced,
+            ClientInvoice.cin_is_full_paid,
+            ClientInvoice.cin_rest_to_pay,
+            ClientInvoice.cin_discount_percentage,
+            ClientInvoice.cin_discount_amount,
+            ClientInvoice.cur_id,
+            ClientInvoice.soc_id,
+            ClientInvoice.cin_name,
+            Client.cli_company_name,
+            Currency.cur_designation.label("currency_code"),
+        )
+        .outerjoin(Client, ClientInvoice.cli_id == Client.cli_id)
+        .outerjoin(Currency, ClientInvoice.cur_id == Currency.cur_id)
+    )
     count_query = select(func.count(ClientInvoice.cin_id))
-    
+
     conditions = []
-    
+
     if search:
         search_term = f"%{search}%"
         conditions.append(ClientInvoice.cin_code.ilike(search_term))
-    
+
     if client_id:
         conditions.append(ClientInvoice.cli_id == client_id)
-    
-    if status_id:
-        conditions.append(ClientInvoice.sta_id == status_id)
-    
+
     if conditions:
         query = query.where(and_(*conditions))
         count_query = count_query.where(and_(*conditions))
-    
+
     # Get total count
     total_result = db.execute(count_query)
     total = total_result.scalar() or 0
-    
+
     # Apply sorting
     sort_column = getattr(ClientInvoice, sort_by, ClientInvoice.cin_d_creation)
     if sort_order == "desc":
         query = query.order_by(desc(sort_column))
     else:
         query = query.order_by(asc(sort_column))
-    
+
     # Apply pagination
     skip = (page - 1) * page_size
     query = query.offset(skip).limit(page_size)
-    
+
     result = db.execute(query)
-    invoices = list(result.scalars().all())
-    
-    return invoices, total
+    rows = list(result.all())
+
+    return rows, total
 
 
 # ==========================================================================
@@ -170,7 +192,6 @@ def handle_invoice_error(error: InvoiceServiceError) -> HTTPException:
 
 @router.get(
     "",
-    response_model=InvoiceListPaginatedResponse,
     summary="List invoices with pagination",
     description="Get a paginated list of invoices with optional filters."
 )
@@ -179,29 +200,54 @@ async def list_invoices(
     page_size: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
     search: Optional[str] = Query(None, description="Search by invoice code"),
     client_id: Optional[int] = Query(None, description="Filter by client ID"),
-    status_id: Optional[int] = Query(None, description="Filter by status ID"),
     sort_by: str = Query("cin_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     db: Session = Depends(get_db)
 ):
     """List invoices with pagination."""
-    invoices, total = await asyncio.to_thread(
-        _sync_list_invoices, db, page, page_size, search, client_id, status_id, sort_by, sort_order
+    rows, total = await asyncio.to_thread(
+        _sync_list_invoices, db, page, page_size, search, client_id, sort_by, sort_order
     )
-    
-    items = [InvoiceResponse.model_validate(inv) for inv in invoices]
+
+    # Build camelCase response matching frontend InvoiceListItem type
+    items = []
+    for row in rows:
+        # Derive status from flags
+        if row.cin_is_full_paid:
+            status_name = "Paid"
+        elif row.cin_invoiced:
+            status_name = "Sent"
+        elif row.cin_isinvoice:
+            status_name = "Draft"
+        else:
+            status_name = "Credit Note"
+
+        items.append({
+            "id": row.cin_id,
+            "reference": row.cin_code or "",
+            "clientId": row.cli_id,
+            "clientName": row.cli_company_name or "",
+            "invoiceDate": row.cin_d_invoice.isoformat() if row.cin_d_invoice else None,
+            "dueDate": row.cin_d_term.isoformat() if row.cin_d_term else None,
+            "totalAmount": 0,  # TODO: compute from invoice lines
+            "paidAmount": 0,
+            "currency": row.currency_code or "EUR",
+            "statusName": status_name,
+            "name": row.cin_name,
+        })
+
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
-    
-    return InvoiceListPaginatedResponse(
-        success=True,
-        data=items,
-        page=page,
-        pageSize=page_size,
-        totalCount=total,
-        totalPages=total_pages,
-        hasNextPage=page < total_pages,
-        hasPreviousPage=page > 1
-    )
+
+    return {
+        "success": True,
+        "data": items,
+        "page": page,
+        "pageSize": page_size,
+        "totalCount": total,
+        "totalPages": total_pages,
+        "hasNextPage": page < total_pages,
+        "hasPreviousPage": page > 1,
+    }
 
 
 @router.post(

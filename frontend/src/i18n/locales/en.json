@@ -632,6 +632,8 @@
     "searchPlaceholder": "Search deliveries...",
     "createFirst": "Get started by creating your first delivery",
     "reference": "Reference",
+    "scheduled": "Scheduled",
+    "address": "Address",
     "orderReference": "Order Reference",
     "destination": "Destination",
     "amount": "Amount",

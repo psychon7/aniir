@@ -490,6 +490,8 @@
     "searchPlaceholder": "搜索发货单...",
     "createFirst": "创建您的第一张发货单开始",
     "reference": "编号",
+    "scheduled": "预定",
+    "address": "地址",
     "orderReference": "订单编号",
     "destination": "目的地",
     "amount": "金额",

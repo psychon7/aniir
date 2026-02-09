@@ -630,6 +630,8 @@
     "searchPlaceholder": "Rechercher des livraisons...",
     "createFirst": "Commencez par créer votre première livraison",
     "reference": "Référence",
+    "scheduled": "Prévu",
+    "address": "Adresse",
     "orderReference": "Référence commande",
     "destination": "Destination",
     "amount": "Montant",

@@ -17,6 +17,8 @@ from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.models.delivery_form import DeliveryForm
+from app.models.client import Client
+from app.models.order import ClientOrder
 from app.services.delivery_service import (
     DeliveryService,
     DeliveryServiceError,
@@ -73,42 +75,63 @@ def _sync_list_deliveries(
     sort_by: str = "dfo_d_creation",
     sort_order: str = "desc"
 ):
-    """Sync function to list deliveries with pagination."""
-    query = select(DeliveryForm)
+    """Sync function to list deliveries with pagination, joining Client and Order."""
+    query = (
+        select(
+            DeliveryForm.dfo_id,
+            DeliveryForm.dfo_code,
+            DeliveryForm.cli_id,
+            DeliveryForm.cod_id,
+            DeliveryForm.dfo_d_creation,
+            DeliveryForm.dfo_d_update,
+            DeliveryForm.dfo_d_delivery,
+            DeliveryForm.dfo_deliveried,
+            DeliveryForm.dfo_dlv_cco_address1,
+            DeliveryForm.dfo_dlv_cco_city,
+            DeliveryForm.dfo_dlv_cco_postcode,
+            DeliveryForm.dfo_dlv_cco_country,
+            DeliveryForm.dfo_delivery_comment,
+            DeliveryForm.soc_id,
+            Client.cli_company_name,
+            ClientOrder.cod_code.label("order_code"),
+        )
+        .outerjoin(Client, DeliveryForm.cli_id == Client.cli_id)
+        .outerjoin(ClientOrder, DeliveryForm.cod_id == ClientOrder.cod_id)
+    )
     count_query = select(func.count(DeliveryForm.dfo_id))
-    
+
     conditions = []
-    
+
     if search:
         search_term = f"%{search}%"
         conditions.append(DeliveryForm.dfo_code.ilike(search_term))
-    
+
     if client_id:
         conditions.append(DeliveryForm.cli_id == client_id)
-    
+
     if conditions:
         query = query.where(and_(*conditions))
         count_query = count_query.where(and_(*conditions))
-    
+
     # Get total count
     total_result = db.execute(count_query)
     total = total_result.scalar() or 0
-    
+
     # Apply sorting
     sort_column = getattr(DeliveryForm, sort_by, DeliveryForm.dfo_d_creation)
     if sort_order == "desc":
         query = query.order_by(desc(sort_column))
     else:
         query = query.order_by(asc(sort_column))
-    
+
     # Apply pagination
     skip = (page - 1) * page_size
     query = query.offset(skip).limit(page_size)
-    
+
     result = db.execute(query)
-    deliveries = list(result.scalars().all())
-    
-    return deliveries, total
+    rows = list(result.all())
+
+    return rows, total
 
 
 # ==========================================================================
@@ -196,20 +219,8 @@ async def create_delivery(
 
 @router.get(
     "",
-    response_model=DeliveryListPaginatedResponse,
     summary="Search and list delivery forms",
-    description="""
-    Search delivery forms with optional filters and pagination.
-
-    Supports filtering by:
-    - Search term (matches reference, tracking number)
-    - Order ID
-    - Client ID
-    - Status ID
-    - Carrier ID
-    - Date range
-    - Shipped/delivered status
-    """
+    description="Search delivery forms with optional filters and pagination."
 )
 async def search_deliveries(
     search: Optional[str] = Query(None, description="Search term"),
@@ -221,43 +232,54 @@ async def search_deliveries(
     db: Session = Depends(get_db)
 ):
     """Search and list delivery forms with pagination."""
-    deliveries, total = await asyncio.to_thread(
+    rows, total = await asyncio.to_thread(
         _sync_list_deliveries, db, page, page_size, search, client_id, sort_by, sort_order
     )
-    
-    # Map DeliveryForm model (dfo_* fields) to DeliveryFormResponse (del_* fields)
+
+    # Build camelCase response matching frontend DeliveryForm type
     items = []
-    for d in deliveries:
-        item_data = {
-            "del_id": d.dfo_id,
-            "del_reference": d.dfo_code,
-            "del_ord_id": d.cod_id,
-            "del_cli_id": d.cli_id,
-            "del_delivery_date": d.dfo_d_delivery,
-            "del_sta_id": 1,  # Default status - no status field in model
-            "del_tracking_number": None,
-            "del_shipping_address": d.dfo_dlv_cco_address1,
-            "del_shipping_city": d.dfo_dlv_cco_city,
-            "del_shipping_postal_code": d.dfo_dlv_cco_postcode,
-            "del_shipping_country_id": None,
-            "del_notes": d.dfo_delivery_comment,
-            "del_created_at": d.dfo_d_creation,
-            "del_updated_at": d.dfo_d_update,
-            "del_created_by": d.usr_creator_id,
-        }
-        items.append(DeliveryFormResponse.model_validate(item_data))
+    for row in rows:
+        # Build full address string
+        addr_parts = []
+        if row.dfo_dlv_cco_address1:
+            addr_parts.append(row.dfo_dlv_cco_address1)
+        if row.dfo_dlv_cco_city:
+            addr_parts.append(row.dfo_dlv_cco_city)
+        if row.dfo_dlv_cco_postcode:
+            addr_parts.append(row.dfo_dlv_cco_postcode)
+        if row.dfo_dlv_cco_country:
+            addr_parts.append(row.dfo_dlv_cco_country)
+        delivery_address = ", ".join(addr_parts) if addr_parts else None
+
+        items.append({
+            "id": row.dfo_id,
+            "reference": row.dfo_code or "",
+            "clientId": row.cli_id,
+            "clientName": row.cli_company_name or "",
+            "orderId": row.cod_id,
+            "orderReference": row.order_code or "",
+            "createdAt": row.dfo_d_creation.isoformat() if row.dfo_d_creation else None,
+            "scheduledDate": row.dfo_d_delivery.isoformat() if row.dfo_d_delivery else None,
+            "expectedDeliveryDate": row.dfo_d_delivery.isoformat() if row.dfo_d_delivery else None,
+            "deliveryDate": row.dfo_d_delivery.isoformat() if row.dfo_d_delivery and row.dfo_deliveried else None,
+            "deliveryAddress": delivery_address,
+            "statusName": "Delivered" if row.dfo_deliveried else "Pending",
+            "isShipped": False,
+            "isDelivered": bool(row.dfo_deliveried),
+        })
+
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
-    
-    return DeliveryListPaginatedResponse(
-        success=True,
-        data=items,
-        page=page,
-        pageSize=page_size,
-        totalCount=total,
-        totalPages=total_pages,
-        hasNextPage=page < total_pages,
-        hasPreviousPage=page > 1
-    )
+
+    return {
+        "success": True,
+        "data": items,
+        "page": page,
+        "pageSize": page_size,
+        "totalCount": total,
+        "totalPages": total_pages,
+        "hasNextPage": page < total_pages,
+        "hasPreviousPage": page > 1,
+    }
 
 
 @router.get(
