@@ -66,17 +66,34 @@ export function NewConversationDialog({
     }
   }, [isOpen])
 
+  // Load initial users when dialog opens
+  const loadInitialUsers = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const response = await apiClient.get('/users/lookup', {
+        params: { limit: 20 },
+      })
+      const data: UserLookupResponse[] = response.data?.data || response.data || []
+      const normalized = data.map(normalizeUser)
+      const filtered = normalized.filter(
+        (u) => !selectedUsers.some((s) => s.id === u.id)
+      )
+      setUsers(filtered)
+    } catch (err) {
+      console.error('Failed to load users:', err)
+      setUsers([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [selectedUsers])
+
   // Debounced user search
   const searchUsers = useCallback(
     debounce(async (query: string) => {
-      if (!query.trim()) {
-        setUsers([])
-        return
-      }
       setIsLoading(true)
       try {
         const response = await apiClient.get('/users/lookup', {
-          params: { q: query, limit: 10 },
+          params: { q: query || undefined, limit: 20 },
         })
         const data: UserLookupResponse[] = response.data?.data || response.data || []
         // Normalize and filter out already selected users
@@ -95,9 +112,21 @@ export function NewConversationDialog({
     [selectedUsers]
   )
 
+  // Load users when dialog opens
   useEffect(() => {
-    searchUsers(search)
-  }, [search, searchUsers])
+    if (isOpen) {
+      loadInitialUsers()
+    }
+  }, [isOpen, loadInitialUsers])
+
+  // Search when query changes
+  useEffect(() => {
+    if (search.trim()) {
+      searchUsers(search)
+    } else if (isOpen) {
+      loadInitialUsers()
+    }
+  }, [search, searchUsers, isOpen, loadInitialUsers])
 
   const handleSelectUser = (user: User) => {
     setSelectedUsers((prev) => [...prev, user])
