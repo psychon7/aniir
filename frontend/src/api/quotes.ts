@@ -175,6 +175,37 @@ export const quotesApi = {
     return response.data
   },
 
+  // ==================== PDF & Send Operations ====================
+
+  /**
+   * Generate and download quote PDF
+   */
+  async downloadPdf(id: number): Promise<Blob> {
+    const response = await apiClient.get(`/quotes/${id}/pdf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  /**
+   * Send quote via email with PDF attachment
+   */
+  async send(
+    id: number,
+    toEmail: string,
+    subject?: string,
+    body?: string,
+    cc?: string
+  ): Promise<any> {
+    const response = await apiClient.post(`/quotes/${id}/send`, {
+      to_email: toEmail,
+      subject,
+      body,
+      cc,
+    })
+    return response.data
+  },
+
   // ==================== Query Operations ====================
 
   /**

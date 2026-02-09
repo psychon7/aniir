@@ -95,6 +95,37 @@ export const deliveriesApi = {
     return response.data
   },
 
+  // ==================== PDF & Send Operations ====================
+
+  /**
+   * Generate and download delivery form PDF
+   */
+  async downloadPdf(id: number): Promise<Blob> {
+    const response = await apiClient.get(`/deliveries/${id}/pdf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  /**
+   * Send delivery form via email with PDF attachment
+   */
+  async send(
+    id: number,
+    toEmail: string,
+    subject?: string,
+    body?: string,
+    cc?: string
+  ): Promise<any> {
+    const response = await apiClient.post(`/deliveries/${id}/send`, {
+      to_email: toEmail,
+      subject,
+      body,
+      cc,
+    })
+    return response.data
+  },
+
   // ==================== Delivery Lines ====================
 
   /**

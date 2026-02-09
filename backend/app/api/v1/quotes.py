@@ -20,6 +20,7 @@ from app.database import get_db
 from app.models.costplan import CostPlan, CostPlanLine
 from app.models.client import Client
 from app.models.cost_plan_status import CostPlanStatus
+from app.schemas.document import SendDocumentRequest, SendDocumentResponse
 from app.services.quote_service import (
     QuoteService,
     QuoteServiceError,
@@ -75,6 +76,7 @@ def _sync_list_quotes(
     page_size: int,
     search: Optional[str] = None,
     client_id: Optional[int] = None,
+    project_id: Optional[int] = None,
     sort_by: str = "cpl_d_creation",
     sort_order: str = "desc"
 ):
@@ -121,6 +123,9 @@ def _sync_list_quotes(
     if client_id:
         conditions.append(CostPlan.cli_id == client_id)
 
+    if project_id:
+        conditions.append(CostPlan.prj_id == project_id)
+
     if conditions:
         query = query.where(and_(*conditions))
         count_query = count_query.where(and_(*conditions))
@@ -161,13 +166,14 @@ async def list_quotes(
     page_size: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
     search: Optional[str] = Query(None, description="Search by quote code"),
     client_id: Optional[int] = Query(None, description="Filter by client ID"),
+    project_id: Optional[int] = Query(None, description="Filter by project ID"),
     sort_by: str = Query("cpl_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     db: Session = Depends(get_db)
 ):
     """List quotes with pagination."""
     rows, total = await asyncio.to_thread(
-        _sync_list_quotes, db, page, page_size, search, client_id, sort_by, sort_order
+        _sync_list_quotes, db, page, page_size, search, client_id, project_id, sort_by, sort_order
     )
 
     # Build camelCase response matching frontend QuoteListItem type
@@ -594,6 +600,115 @@ async def duplicate_quote(
 # =====================
 # Convenience Endpoints
 # =====================
+
+@router.get(
+    "/{quote_id}/pdf",
+    summary="Download quote PDF",
+    description="Generate and download PDF for a quote.",
+    responses={
+        200: {"content": {"application/pdf": {}}, "description": "PDF file"},
+        404: {"description": "Quote not found"},
+    }
+)
+async def download_quote_pdf(
+    quote_id: int = Path(..., gt=0, description="Quote ID"),
+    db: Session = Depends(get_db)
+):
+    """Generate and return PDF for this quote."""
+    import io
+    from fastapi.responses import StreamingResponse
+    from app.services.pdf_service import TemplatePDFService
+
+    # Get quote detail for context
+    quote_data = await asyncio.to_thread(_sync_get_quote_detail, db, quote_id)
+    if not quote_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Quote {quote_id} not found"
+        )
+
+    reference = quote_data.get("reference", f"quote-{quote_id}")
+    filename = f"{reference}.pdf"
+
+    # Generate PDF using template service
+    template_pdf = TemplatePDFService()
+    pdf_content = template_pdf.generate_pdf(
+        template_name="quotes/quote.html",
+        context=quote_data,
+    )
+
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_content)),
+        }
+    )
+
+
+@router.post(
+    "/{quote_id}/send",
+    summary="Send quote via email",
+    description="Generate PDF and send quote via email to the specified recipient.",
+    responses={
+        200: {"description": "Quote sent successfully"},
+        404: {"description": "Quote not found"},
+    }
+)
+async def send_quote(
+    quote_id: int = Path(..., gt=0, description="Quote ID"),
+    request: SendDocumentRequest = ...,
+    db: Session = Depends(get_db)
+):
+    """Send quote via email with PDF attachment."""
+    from app.services.email_service import EmailService
+    from app.schemas.email_log import EmailLogCreate
+
+    # Get quote detail
+    quote_data = await asyncio.to_thread(_sync_get_quote_detail, db, quote_id)
+    if not quote_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Quote {quote_id} not found"
+        )
+
+    reference = quote_data.get("reference", f"Quote-{quote_id}")
+    client_name = quote_data.get("clientName", "")
+
+    # Build email
+    subject = request.subject or f"Quote {reference}"
+    body = request.body or f"Please find attached quote {reference}."
+
+    # Create email log and send
+    try:
+        email_service = EmailService(db)
+        email_log_data = EmailLogCreate(
+            recipient_email=request.to_email,
+            recipient_name=client_name,
+            subject=subject,
+            body=body,
+            entity_type="QUOTE",
+            entity_id=quote_id,
+        )
+        email_log = await asyncio.to_thread(
+            email_service.create_email_log, email_log_data
+        )
+        await asyncio.to_thread(email_service.send_email, email_log)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to send quote email: {e}")
+
+    return SendDocumentResponse(
+        success=True,
+        message="Quote sent successfully",
+        document_id=quote_id,
+        document_type="quote",
+        sent_to=request.to_email,
+        sent_at=datetime.now(),
+    )
+
 
 @router.get(
     "/statuses/list",

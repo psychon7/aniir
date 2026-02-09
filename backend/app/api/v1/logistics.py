@@ -24,7 +24,8 @@ from app.services.shipment_service import (
     ShipmentTrackingNotFoundError,
     ShipmentValidationError,
     ShipmentStatusError,
-    ShipmentDeleteError
+    ShipmentDeleteError,
+    LogisticsActionError,
 )
 from app.schemas.shipment import (
     # Shipment schemas
@@ -37,7 +38,9 @@ from app.schemas.shipment import (
     # Carriers
     CarrierListItemResponse, CarrierResponse,
     # Response schemas
-    ShipmentAPIResponse, ShipmentErrorResponse
+    ShipmentAPIResponse, ShipmentErrorResponse,
+    # Logistics actions
+    LogisticsActionResponse,
 )
 
 router = APIRouter(prefix="/logistics", tags=["Logistics"])
@@ -62,6 +65,8 @@ def handle_shipment_error(error: ShipmentServiceError) -> HTTPException:
     elif isinstance(error, ShipmentStatusError):
         status_code = status.HTTP_409_CONFLICT
     elif isinstance(error, ShipmentDeleteError):
+        status_code = status.HTTP_409_CONFLICT
+    elif isinstance(error, LogisticsActionError):
         status_code = status.HTTP_409_CONFLICT
 
     return HTTPException(
@@ -355,6 +360,103 @@ async def mark_shipment_delivered(
     try:
         shipment = await service.update_status(shipment_id, ShipmentService.STATUS_DELIVERED, actual_delivery)
         return service._to_detail_response(shipment)
+    except ShipmentServiceError as e:
+        raise handle_shipment_error(e)
+
+
+# ==========================================================================
+# Logistics Action Endpoints (Send / Receive / Stock-In)
+# ==========================================================================
+
+@router.post(
+    "/shipments/{shipment_id}/send",
+    response_model=LogisticsActionResponse,
+    summary="Mark logistics entry as sent",
+    description="""
+    Mark a logistics entry as sent.
+
+    Sets the send flag and records the send timestamp.
+    Only allowed when the shipment has not already been sent.
+
+    Status flow: Pending -> Sent -> Received -> Stocked In
+    """,
+    responses={
+        200: {"description": "Logistics entry marked as sent"},
+        404: {"model": ShipmentErrorResponse, "description": "Logistics entry not found"},
+        409: {"model": ShipmentErrorResponse, "description": "Already sent or invalid state"}
+    }
+)
+async def send_logistics(
+    shipment_id: int = Path(..., description="Logistics entry ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Mark a logistics entry as sent."""
+    service = get_shipment_service(db)
+
+    try:
+        return await service.send_logistics(shipment_id)
+    except ShipmentServiceError as e:
+        raise handle_shipment_error(e)
+
+
+@router.post(
+    "/shipments/{shipment_id}/receive",
+    response_model=LogisticsActionResponse,
+    summary="Mark logistics entry as received",
+    description="""
+    Mark a logistics entry as received.
+
+    Sets the received flag and records the arrival timestamp.
+    Requires the logistics entry to have been sent first.
+
+    Status flow: Pending -> Sent -> Received -> Stocked In
+    """,
+    responses={
+        200: {"description": "Logistics entry marked as received"},
+        404: {"model": ShipmentErrorResponse, "description": "Logistics entry not found"},
+        409: {"model": ShipmentErrorResponse, "description": "Not sent yet or already received"}
+    }
+)
+async def receive_logistics(
+    shipment_id: int = Path(..., description="Logistics entry ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Mark a logistics entry as received."""
+    service = get_shipment_service(db)
+
+    try:
+        return await service.receive_logistics(shipment_id)
+    except ShipmentServiceError as e:
+        raise handle_shipment_error(e)
+
+
+@router.post(
+    "/shipments/{shipment_id}/stock-in",
+    response_model=LogisticsActionResponse,
+    summary="Stock in received logistics entry",
+    description="""
+    Stock in a received logistics entry into warehouse inventory.
+
+    Sets the stock-in flag and records the stock-in timestamp.
+    Requires the logistics entry to have been received first.
+
+    Status flow: Pending -> Sent -> Received -> Stocked In
+    """,
+    responses={
+        200: {"description": "Logistics entry stocked in"},
+        404: {"model": ShipmentErrorResponse, "description": "Logistics entry not found"},
+        409: {"model": ShipmentErrorResponse, "description": "Not received yet or already stocked in"}
+    }
+)
+async def stock_in_logistics(
+    shipment_id: int = Path(..., description="Logistics entry ID"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Stock in a received logistics entry."""
+    service = get_shipment_service(db)
+
+    try:
+        return await service.stock_in_logistics(shipment_id)
     except ShipmentServiceError as e:
         raise handle_shipment_error(e)
 

@@ -7,6 +7,9 @@ Provides functionality for:
 - Statement export in multiple formats (PDF, Excel, CSV)
 - Bank reconciliation support
 - Statement scheduling and batch generation
+
+Uses ClientInvoicePayment (TM_CPY_ClientInvoice_Payment) for payment data.
+Uses synchronous Session with asyncio.to_thread() pattern.
 """
 import csv
 import io
@@ -15,20 +18,14 @@ from decimal import Decimal
 from enum import Enum
 from typing import List, Dict, Any, Optional, Tuple
 from sqlalchemy import select, func, and_, or_
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 from fastapi import Depends
 
 from app.database import get_db
 from app.models.invoice import ClientInvoice, ClientInvoiceLine
-from app.models.payment import Payment, PaymentAllocation
+from app.models.client_invoice_payment import ClientInvoicePayment
 from app.models.client import Client
 from app.models.supplier import Supplier
-from app.config import get_settings
-from app.services.invoice_status_service import InvoiceStatusCode
-
-
-settings = get_settings()
 
 
 # ==========================================================================
@@ -169,9 +166,11 @@ class StatementService:
 
     Handles customer statements, vendor statements, and supports
     multiple export formats including PDF, Excel, and CSV.
+
+    Uses synchronous Session (pymssql driver).
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         """
         Initialize the statement service.
 
@@ -184,14 +183,13 @@ class StatementService:
     # Customer Statement Generation
     # ==========================================================================
 
-    async def generate_customer_statement(
+    def generate_customer_statement(
         self,
         client_id: int,
         from_date: date,
         to_date: date,
         include_paid_invoices: bool = True,
         society_id: Optional[int] = None,
-        bu_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Generate a comprehensive customer statement.
@@ -206,18 +204,9 @@ class StatementService:
             to_date: End date of statement period.
             include_paid_invoices: Whether to include fully paid invoices.
             society_id: Optional society/company ID filter.
-            bu_id: Optional business unit ID filter.
 
         Returns:
-            Dict containing complete statement data:
-            - client: Client information
-            - period: Statement period details
-            - opening_balance: Balance at start of period
-            - transactions: List of all transactions with running balance
-            - totals: Summary totals (debits, credits, net change)
-            - closing_balance: Balance at end of period
-            - aging_summary: Outstanding amounts by aging bucket
-            - generated_at: Timestamp of generation
+            Dict containing complete statement data.
 
         Raises:
             ClientNotFoundError: If client does not exist.
@@ -228,30 +217,28 @@ class StatementService:
             raise InvalidDateRangeError(from_date, to_date)
 
         # Get client info
-        client = await self._get_client(client_id)
+        client = self._get_client(client_id)
         if not client:
             raise ClientNotFoundError(client_id)
 
         # Calculate opening balance
-        opening_balance = await self._calculate_client_balance_as_of(
+        opening_balance = self._calculate_client_balance_as_of(
             client_id,
             from_date - timedelta(days=1),
             society_id,
-            bu_id
         )
 
         # Get invoices in date range
-        invoices = await self._get_client_invoices_in_period(
+        invoices = self._get_client_invoices_in_period(
             client_id,
             from_date,
             to_date,
             include_paid_invoices,
             society_id,
-            bu_id
         )
 
         # Get payments in date range
-        payments = await self._get_client_payments_in_period(
+        payments = self._get_client_payments_in_period(
             client_id,
             from_date,
             to_date
@@ -262,33 +249,43 @@ class StatementService:
         today = date.today()
 
         for invoice in invoices:
-            invoice_date = invoice.inv_date.date() if isinstance(invoice.inv_date, datetime) else invoice.inv_date
-            due_date = invoice.inv_due_date.date() if isinstance(invoice.inv_due_date, datetime) else invoice.inv_due_date
+            invoice_date = invoice.cin_d_invoice.date() if isinstance(invoice.cin_d_invoice, datetime) else (invoice.cin_d_invoice or invoice.cin_d_creation.date())
+            due_date = invoice.cin_d_term.date() if isinstance(invoice.cin_d_term, datetime) else invoice.cin_d_term
             days_overdue = max(0, (today - due_date).days) if due_date and today > due_date else 0
+
+            # Compute total from lines
+            line_total = sum(
+                float(line.cii_price_with_discount_ht or line.cii_total_price or 0)
+                for line in (invoice.lines or [])
+            )
+
+            tx_type = TransactionType.CREDIT_NOTE if not invoice.cin_isinvoice else TransactionType.INVOICE
+            debit = Decimal(str(line_total)) if invoice.cin_isinvoice else Decimal("0")
+            credit = Decimal(str(abs(line_total))) if not invoice.cin_isinvoice else Decimal("0")
 
             transactions.append(StatementTransaction(
                 transaction_date=invoice_date,
-                transaction_type=TransactionType.INVOICE,
-                reference=invoice.inv_reference,
-                description=f"Invoice {invoice.inv_reference}",
-                debit=invoice.inv_total_amount,
-                credit=Decimal("0"),
+                transaction_type=tx_type,
+                reference=invoice.cin_code,
+                description=f"{'Invoice' if invoice.cin_isinvoice else 'Credit Note'} {invoice.cin_code}",
+                debit=debit,
+                credit=credit,
                 due_date=due_date,
-                document_id=invoice.inv_id,
+                document_id=invoice.cin_id,
                 days_overdue=days_overdue
             ))
 
         for payment in payments:
-            payment_date = payment.pay_date.date() if isinstance(payment.pay_date, datetime) else payment.pay_date
+            payment_date = payment.cpy_d_create.date() if isinstance(payment.cpy_d_create, datetime) else payment.cpy_d_create
 
             transactions.append(StatementTransaction(
                 transaction_date=payment_date,
                 transaction_type=TransactionType.PAYMENT,
-                reference=payment.pay_reference,
-                description=f"Payment {payment.pay_reference} ({payment.pay_method})",
+                reference=f"PAY-{payment.cpy_id}",
+                description=f"Payment {payment.cpy_comment or ''}".strip(),
                 debit=Decimal("0"),
-                credit=payment.pay_amount,
-                document_id=payment.pay_id
+                credit=payment.cpy_amount,
+                document_id=payment.cpy_id
             ))
 
         # Sort transactions by date, then by type (invoices before payments on same day)
@@ -307,25 +304,23 @@ class StatementService:
         total_credits = sum(tx.credit for tx in transactions)
 
         # Calculate aging summary for outstanding invoices
-        aging_summary = await self._calculate_client_aging_summary(
+        aging_summary = self._calculate_client_aging_summary(
             client_id,
             today,
             society_id,
-            bu_id
         )
 
         return {
             "statement_type": StatementType.CUSTOMER.value,
             "client": {
                 "id": client.cli_id,
-                "reference": client.cli_reference,
+                "reference": client.cli_ref,
                 "company_name": client.cli_company_name,
-                "address": client.cli_address,
+                "address": client.cli_address1,
                 "city": client.cli_city,
-                "postal_code": client.cli_postal_code,
-                "country": getattr(client, 'cli_country', None),
+                "postal_code": client.cli_postcode,
+                "country": client.cli_country,
                 "email": client.cli_email,
-                "phone": getattr(client, 'cli_phone', None)
             },
             "period": {
                 "from_date": from_date.isoformat(),
@@ -344,75 +339,7 @@ class StatementService:
             "filters": {
                 "include_paid_invoices": include_paid_invoices,
                 "society_id": society_id,
-                "business_unit_id": bu_id
             },
-            "generated_at": datetime.now().isoformat()
-        }
-
-    async def generate_customer_statement_summary(
-        self,
-        client_id: int,
-        as_of_date: Optional[date] = None
-    ) -> Dict[str, Any]:
-        """
-        Generate a summary customer statement showing current balance and aging.
-
-        Args:
-            client_id: ID of the client.
-            as_of_date: Date to calculate balance as of (default: today).
-
-        Returns:
-            Dict with summary balance information and aging.
-        """
-        if as_of_date is None:
-            as_of_date = date.today()
-
-        client = await self._get_client(client_id)
-        if not client:
-            raise ClientNotFoundError(client_id)
-
-        # Get current balance
-        current_balance = await self._calculate_client_balance_as_of(client_id, as_of_date)
-
-        # Get outstanding invoices count
-        outstanding_stmt = (
-            select(func.count(ClientInvoice.inv_id))
-            .where(
-                and_(
-                    ClientInvoice.inv_cli_id == client_id,
-                    ClientInvoice.inv_amount_paid < ClientInvoice.inv_total_amount
-                )
-            )
-        )
-        outstanding_result = await self.db.execute(outstanding_stmt)
-        outstanding_count = outstanding_result.scalar() or 0
-
-        # Get aging summary
-        aging_summary = await self._calculate_client_aging_summary(client_id, as_of_date)
-
-        # Get last payment
-        last_payment_stmt = (
-            select(Payment)
-            .where(Payment.pay_cli_id == client_id)
-            .order_by(Payment.pay_date.desc())
-            .limit(1)
-        )
-        last_payment_result = await self.db.execute(last_payment_stmt)
-        last_payment = last_payment_result.scalar_one_or_none()
-
-        return {
-            "client_id": client_id,
-            "client_name": client.cli_company_name,
-            "as_of_date": as_of_date.isoformat(),
-            "current_balance": float(current_balance),
-            "outstanding_invoice_count": outstanding_count,
-            "aging_summary": aging_summary,
-            "last_payment": {
-                "date": last_payment.pay_date.isoformat() if last_payment else None,
-                "amount": float(last_payment.pay_amount) if last_payment else None,
-                "reference": last_payment.pay_reference if last_payment else None
-            } if last_payment else None,
-            "credit_status": self._determine_credit_status(current_balance, aging_summary),
             "generated_at": datetime.now().isoformat()
         }
 
@@ -420,7 +347,7 @@ class StatementService:
     # Vendor Statement Generation
     # ==========================================================================
 
-    async def generate_vendor_statement(
+    def generate_vendor_statement(
         self,
         supplier_id: int,
         from_date: date,
@@ -429,22 +356,6 @@ class StatementService:
     ) -> Dict[str, Any]:
         """
         Generate a vendor/supplier statement.
-
-        Shows all purchase orders, invoices from supplier, and payments
-        made to the supplier within the date range.
-
-        Args:
-            supplier_id: ID of the supplier.
-            from_date: Start date of statement period.
-            to_date: End date of statement period.
-            society_id: Optional society/company ID filter.
-
-        Returns:
-            Dict containing complete vendor statement data.
-
-        Raises:
-            SupplierNotFoundError: If supplier does not exist.
-            InvalidDateRangeError: If date range is invalid.
 
         Note:
             This is a placeholder for vendor statement functionality.
@@ -455,12 +366,9 @@ class StatementService:
             raise InvalidDateRangeError(from_date, to_date)
 
         # Get supplier info
-        supplier = await self._get_supplier(supplier_id)
+        supplier = self._get_supplier(supplier_id)
         if not supplier:
             raise SupplierNotFoundError(supplier_id)
-
-        # Note: Full vendor statement requires supplier invoice and payment models
-        # This provides the structure for when those models are available
 
         return {
             "statement_type": StatementType.VENDOR.value,
@@ -479,7 +387,7 @@ class StatementService:
                 "to_date": to_date.isoformat()
             },
             "opening_balance": 0.0,
-            "transactions": [],  # Will be populated when vendor invoice models are available
+            "transactions": [],
             "totals": {
                 "total_debits": 0.0,
                 "total_credits": 0.0,
@@ -495,183 +403,26 @@ class StatementService:
         }
 
     # ==========================================================================
-    # Batch Statement Generation
-    # ==========================================================================
-
-    async def generate_batch_customer_statements(
-        self,
-        client_ids: List[int],
-        from_date: date,
-        to_date: date,
-        include_paid_invoices: bool = True,
-        only_with_balance: bool = False,
-        society_id: Optional[int] = None,
-        bu_id: Optional[int] = None
-    ) -> Dict[str, Any]:
-        """
-        Generate statements for multiple customers in batch.
-
-        Args:
-            client_ids: List of client IDs to generate statements for.
-            from_date: Start date of statement period.
-            to_date: End date of statement period.
-            include_paid_invoices: Whether to include fully paid invoices.
-            only_with_balance: Only include clients with non-zero balance.
-            society_id: Optional society/company ID filter.
-            bu_id: Optional business unit ID filter.
-
-        Returns:
-            Dict with batch results including success/failure for each client.
-        """
-        results = {
-            "success": [],
-            "errors": [],
-            "summary": {
-                "total_requested": len(client_ids),
-                "successful": 0,
-                "failed": 0,
-                "skipped": 0
-            }
-        }
-
-        for client_id in client_ids:
-            try:
-                statement = await self.generate_customer_statement(
-                    client_id=client_id,
-                    from_date=from_date,
-                    to_date=to_date,
-                    include_paid_invoices=include_paid_invoices,
-                    society_id=society_id,
-                    bu_id=bu_id
-                )
-
-                # Skip if only_with_balance and balance is zero
-                if only_with_balance and statement["closing_balance"] == 0:
-                    results["summary"]["skipped"] += 1
-                    continue
-
-                results["success"].append({
-                    "client_id": client_id,
-                    "client_name": statement["client"]["company_name"],
-                    "closing_balance": statement["closing_balance"],
-                    "transaction_count": statement["totals"]["transaction_count"]
-                })
-                results["summary"]["successful"] += 1
-
-            except Exception as e:
-                results["errors"].append({
-                    "client_id": client_id,
-                    "error": str(e),
-                    "error_code": getattr(e, 'code', 'UNKNOWN_ERROR')
-                })
-                results["summary"]["failed"] += 1
-
-        results["generated_at"] = datetime.now().isoformat()
-        return results
-
-    async def generate_statements_for_all_active_clients(
-        self,
-        from_date: date,
-        to_date: date,
-        only_with_balance: bool = True,
-        society_id: Optional[int] = None,
-        bu_id: Optional[int] = None
-    ) -> Dict[str, Any]:
-        """
-        Generate statements for all active clients.
-
-        Args:
-            from_date: Start date of statement period.
-            to_date: End date of statement period.
-            only_with_balance: Only include clients with non-zero balance.
-            society_id: Optional society/company ID filter.
-            bu_id: Optional business unit ID filter.
-
-        Returns:
-            Dict with batch results.
-        """
-        # Get all active clients
-        stmt = select(Client.cli_id).where(Client.cli_isactive == True)
-        if society_id:
-            stmt = stmt.where(Client.cli_soc_id == society_id)
-
-        result = await self.db.execute(stmt)
-        client_ids = [row[0] for row in result.all()]
-
-        return await self.generate_batch_customer_statements(
-            client_ids=client_ids,
-            from_date=from_date,
-            to_date=to_date,
-            only_with_balance=only_with_balance,
-            society_id=society_id,
-            bu_id=bu_id
-        )
-
-    # ==========================================================================
     # Export Methods
     # ==========================================================================
 
-    async def export_customer_statement(
+    def export_customer_statement_csv(
         self,
         client_id: int,
         from_date: date,
         to_date: date,
-        export_format: ExportFormat = ExportFormat.PDF,
         include_paid_invoices: bool = True,
         society_id: Optional[int] = None,
-        bu_id: Optional[int] = None
     ) -> Dict[str, Any]:
-        """
-        Export a customer statement in the specified format.
-
-        Args:
-            client_id: ID of the client.
-            from_date: Start date of statement period.
-            to_date: End date of statement period.
-            export_format: Format to export (PDF, Excel, CSV, JSON).
-            include_paid_invoices: Whether to include fully paid invoices.
-            society_id: Optional society/company ID filter.
-            bu_id: Optional business unit ID filter.
-
-        Returns:
-            Dict containing export result with file data or reference.
-        """
-        # Generate statement data
-        statement = await self.generate_customer_statement(
+        """Export a customer statement in CSV format."""
+        statement = self.generate_customer_statement(
             client_id=client_id,
             from_date=from_date,
             to_date=to_date,
             include_paid_invoices=include_paid_invoices,
             society_id=society_id,
-            bu_id=bu_id
         )
 
-        if export_format == ExportFormat.CSV:
-            return await self._export_statement_to_csv(statement)
-        elif export_format == ExportFormat.JSON:
-            return {
-                "format": "json",
-                "content_type": "application/json",
-                "data": statement,
-                "filename": f"statement_{client_id}_{from_date}_{to_date}.json"
-            }
-        elif export_format == ExportFormat.PDF:
-            return await self._export_statement_to_pdf(statement)
-        elif export_format == ExportFormat.EXCEL:
-            return await self._export_statement_to_excel(statement)
-        else:
-            raise ExportError(f"Unsupported export format: {export_format}", export_format.value)
-
-    async def _export_statement_to_csv(self, statement: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Export statement to CSV format.
-
-        Args:
-            statement: Statement data dictionary.
-
-        Returns:
-            Dict with CSV content and metadata.
-        """
         output = io.StringIO()
         writer = csv.writer(output)
 
@@ -727,417 +478,122 @@ class StatementService:
             "filename": filename
         }
 
-    async def _export_statement_to_pdf(self, statement: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Export statement to PDF format.
-
-        Uses the PDF service for rendering.
-
-        Args:
-            statement: Statement data dictionary.
-
-        Returns:
-            Dict with PDF generation instructions/data.
-        """
-        # Build HTML content for PDF generation
-        client = statement.get("client", {})
-        period = statement.get("period", {})
-        totals = statement.get("totals", {})
-
-        # Build transactions table rows
-        transactions_rows = ""
-        for tx in statement.get("transactions", []):
-            transactions_rows += f"""
-            <tr>
-                <td>{tx.get('date', '')}</td>
-                <td>{tx.get('type', '')}</td>
-                <td>{tx.get('reference', '')}</td>
-                <td>{tx.get('description', '')}</td>
-                <td class="text-right">{tx.get('debit', 0):.2f}</td>
-                <td class="text-right">{tx.get('credit', 0):.2f}</td>
-                <td class="text-right">{tx.get('balance', 0):.2f}</td>
-            </tr>
-            """
-
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>Customer Statement - {client.get('company_name', '')}</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; font-size: 11px; padding: 20px; }}
-                .header {{ margin-bottom: 30px; }}
-                .title {{ font-size: 20px; font-weight: bold; color: #1e40af; margin-bottom: 10px; }}
-                .client-info {{ margin-bottom: 20px; }}
-                .period {{ margin-bottom: 20px; padding: 10px; background: #f3f4f6; border-radius: 4px; }}
-                table {{ width: 100%; border-collapse: collapse; margin: 15px 0; }}
-                th, td {{ padding: 8px; text-align: left; border-bottom: 1px solid #e5e7eb; }}
-                th {{ background-color: #1e40af; color: white; font-weight: 600; }}
-                .text-right {{ text-align: right; }}
-                .totals {{ margin-top: 20px; background: #f9fafb; padding: 15px; border-radius: 4px; }}
-                .total-row {{ font-size: 14px; font-weight: bold; margin-top: 10px; }}
-                .aging {{ margin-top: 20px; }}
-                .aging-table {{ width: auto; }}
-                .aging-table td {{ padding: 5px 15px; }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <div class="title">CUSTOMER STATEMENT</div>
-            </div>
-
-            <div class="client-info">
-                <strong>{client.get('company_name', '')}</strong><br>
-                {client.get('address', '') or ''}<br>
-                {client.get('city', '') or ''} {client.get('postal_code', '') or ''}<br>
-                {client.get('email', '') or ''}
-            </div>
-
-            <div class="period">
-                <strong>Statement Period:</strong> {period.get('from_date', '')} to {period.get('to_date', '')}<br>
-                <strong>Opening Balance:</strong> {statement.get('opening_balance', 0):.2f}
-            </div>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Reference</th>
-                        <th>Description</th>
-                        <th class="text-right">Debit</th>
-                        <th class="text-right">Credit</th>
-                        <th class="text-right">Balance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {transactions_rows if transactions_rows else '<tr><td colspan="7" style="text-align: center;">No transactions in this period</td></tr>'}
-                </tbody>
-            </table>
-
-            <div class="totals">
-                <div>Total Debits: {totals.get('total_debits', 0):.2f}</div>
-                <div>Total Credits: {totals.get('total_credits', 0):.2f}</div>
-                <div>Net Change: {totals.get('net_change', 0):.2f}</div>
-                <div class="total-row">Closing Balance: {statement.get('closing_balance', 0):.2f}</div>
-            </div>
-
-            <div class="aging">
-                <strong>Aging Summary:</strong>
-                <table class="aging-table">
-                    <tr>
-                        <td>Current (0-30 days):</td>
-                        <td>{statement.get('aging_summary', {}).get('current', 0):.2f}</td>
-                    </tr>
-                    <tr>
-                        <td>31-60 days:</td>
-                        <td>{statement.get('aging_summary', {}).get('days_31_60', 0):.2f}</td>
-                    </tr>
-                    <tr>
-                        <td>61-90 days:</td>
-                        <td>{statement.get('aging_summary', {}).get('days_61_90', 0):.2f}</td>
-                    </tr>
-                    <tr>
-                        <td>Over 90 days:</td>
-                        <td>{statement.get('aging_summary', {}).get('over_90', 0):.2f}</td>
-                    </tr>
-                </table>
-            </div>
-
-            <div style="margin-top: 30px; font-size: 10px; color: #6b7280;">
-                Generated: {statement.get('generated_at', '')}
-            </div>
-        </body>
-        </html>
-        """
-
-        filename = f"statement_{client.get('reference', 'unknown')}_{period.get('from_date', '')}_{period.get('to_date', '')}.pdf"
-
-        return {
-            "format": "pdf",
-            "content_type": "application/pdf",
-            "html_content": html_content,
-            "filename": filename,
-            "requires_pdf_service": True,
-            "message": "Use PDFService.html_to_pdf() to convert HTML to PDF"
-        }
-
-    async def _export_statement_to_excel(self, statement: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Export statement to Excel format.
-
-        Args:
-            statement: Statement data dictionary.
-
-        Returns:
-            Dict with Excel generation instructions.
-        """
-        client = statement.get("client", {})
-        period = statement.get("period", {})
-
-        # Prepare data structure for Excel generation
-        excel_data = {
-            "header": {
-                "title": "Customer Statement",
-                "client_name": client.get("company_name", ""),
-                "client_reference": client.get("reference", ""),
-                "period_from": period.get("from_date", ""),
-                "period_to": period.get("to_date", ""),
-                "generated_at": statement.get("generated_at", "")
-            },
-            "opening_balance": statement.get("opening_balance", 0),
-            "transactions": statement.get("transactions", []),
-            "totals": statement.get("totals", {}),
-            "closing_balance": statement.get("closing_balance", 0),
-            "aging_summary": statement.get("aging_summary", {})
-        }
-
-        filename = f"statement_{client.get('reference', 'unknown')}_{period.get('from_date', '')}_{period.get('to_date', '')}.xlsx"
-
-        return {
-            "format": "xlsx",
-            "content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "data": excel_data,
-            "filename": filename,
-            "requires_excel_library": True,
-            "message": "Use openpyxl or xlsxwriter to generate Excel file from data"
-        }
-
-    # ==========================================================================
-    # Outstanding Balance Methods
-    # ==========================================================================
-
-    async def get_client_outstanding_balance(
-        self,
-        client_id: int,
-        as_of_date: Optional[date] = None
-    ) -> Dict[str, Any]:
-        """
-        Get current outstanding balance for a client.
-
-        Args:
-            client_id: ID of the client.
-            as_of_date: Date to calculate balance as of (default: today).
-
-        Returns:
-            Dict with balance details.
-        """
-        if as_of_date is None:
-            as_of_date = date.today()
-
-        client = await self._get_client(client_id)
-        if not client:
-            raise ClientNotFoundError(client_id)
-
-        balance = await self._calculate_client_balance_as_of(client_id, as_of_date)
-
-        # Get outstanding invoices
-        outstanding_stmt = (
-            select(
-                func.count(ClientInvoice.inv_id).label("count"),
-                func.sum(ClientInvoice.inv_total_amount - ClientInvoice.inv_amount_paid).label("total")
-            )
-            .where(
-                and_(
-                    ClientInvoice.inv_cli_id == client_id,
-                    ClientInvoice.inv_amount_paid < ClientInvoice.inv_total_amount
-                )
-            )
-        )
-        result = await self.db.execute(outstanding_stmt)
-        row = result.one()
-
-        return {
-            "client_id": client_id,
-            "client_name": client.cli_company_name,
-            "as_of_date": as_of_date.isoformat(),
-            "total_balance": float(balance),
-            "outstanding_invoices": {
-                "count": row.count or 0,
-                "total": float(row.total or Decimal("0"))
-            }
-        }
-
-    async def get_all_clients_outstanding(
-        self,
-        society_id: Optional[int] = None,
-        bu_id: Optional[int] = None,
-        min_balance: Optional[Decimal] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Get outstanding balances for all clients.
-
-        Args:
-            society_id: Optional society/company ID filter.
-            bu_id: Optional business unit ID filter.
-            min_balance: Minimum balance to include (default: include all).
-
-        Returns:
-            List of clients with their outstanding balances.
-        """
-        # Query for outstanding invoices grouped by client
-        stmt = (
-            select(
-                ClientInvoice.inv_cli_id,
-                Client.cli_reference,
-                Client.cli_company_name,
-                func.count(ClientInvoice.inv_id).label("invoice_count"),
-                func.sum(ClientInvoice.inv_total_amount - ClientInvoice.inv_amount_paid).label("outstanding")
-            )
-            .join(Client, Client.cli_id == ClientInvoice.inv_cli_id)
-            .where(
-                ClientInvoice.inv_amount_paid < ClientInvoice.inv_total_amount
-            )
-            .group_by(
-                ClientInvoice.inv_cli_id,
-                Client.cli_reference,
-                Client.cli_company_name
-            )
-        )
-
-        if society_id:
-            stmt = stmt.where(ClientInvoice.inv_soc_id == society_id)
-        if bu_id:
-            stmt = stmt.where(ClientInvoice.inv_bu_id == bu_id)
-        if min_balance:
-            stmt = stmt.having(func.sum(ClientInvoice.inv_total_amount - ClientInvoice.inv_amount_paid) >= min_balance)
-
-        stmt = stmt.order_by(func.sum(ClientInvoice.inv_total_amount - ClientInvoice.inv_amount_paid).desc())
-
-        result = await self.db.execute(stmt)
-        rows = result.all()
-
-        return [
-            {
-                "client_id": row.inv_cli_id,
-                "client_reference": row.cli_reference,
-                "client_name": row.cli_company_name,
-                "outstanding_invoice_count": row.invoice_count,
-                "outstanding_balance": float(row.outstanding)
-            }
-            for row in rows
-        ]
-
     # ==========================================================================
     # Private Helper Methods
     # ==========================================================================
 
-    async def _get_client(self, client_id: int) -> Optional[Client]:
+    def _get_client(self, client_id: int) -> Optional[Client]:
         """Get client by ID."""
-        stmt = select(Client).where(Client.cli_id == client_id)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        return self.db.query(Client).filter(Client.cli_id == client_id).first()
 
-    async def _get_supplier(self, supplier_id: int) -> Optional[Supplier]:
+    def _get_supplier(self, supplier_id: int) -> Optional[Supplier]:
         """Get supplier by ID."""
-        stmt = select(Supplier).where(Supplier.sup_id == supplier_id)
-        result = await self.db.execute(stmt)
-        return result.scalar_one_or_none()
+        return self.db.query(Supplier).filter(Supplier.sup_id == supplier_id).first()
 
-    async def _calculate_client_balance_as_of(
+    def _calculate_client_balance_as_of(
         self,
         client_id: int,
         as_of_date: date,
         society_id: Optional[int] = None,
-        bu_id: Optional[int] = None
     ) -> Decimal:
         """
         Calculate client balance as of a specific date.
 
-        Balance = Total invoices - Total payments up to that date.
+        Balance = Total invoiced amounts - Total payments up to that date.
+        Uses ClientInvoicePayment for payment data.
         """
-        # Sum of invoices up to date
-        invoices_conditions = [
-            ClientInvoice.inv_cli_id == client_id,
-            ClientInvoice.inv_date <= as_of_date
+        # Sum of invoices up to date (from invoice lines)
+        invoice_conditions = [
+            ClientInvoice.cli_id == client_id,
+            ClientInvoice.cin_isinvoice == True,
         ]
-        if society_id:
-            invoices_conditions.append(ClientInvoice.inv_soc_id == society_id)
-        if bu_id:
-            invoices_conditions.append(ClientInvoice.inv_bu_id == bu_id)
-
-        invoices_stmt = (
-            select(func.sum(ClientInvoice.inv_total_amount))
-            .where(and_(*invoices_conditions))
-        )
-        invoices_result = await self.db.execute(invoices_stmt)
-        total_invoices = invoices_result.scalar() or Decimal("0")
-
-        # Sum of payments up to date
-        payments_stmt = (
-            select(func.sum(Payment.pay_amount))
-            .where(
-                and_(
-                    Payment.pay_cli_id == client_id,
-                    Payment.pay_date <= as_of_date
-                )
+        # Filter by invoice date or creation date
+        invoice_conditions.append(
+            or_(
+                and_(ClientInvoice.cin_d_invoice != None, ClientInvoice.cin_d_invoice <= as_of_date),
+                and_(ClientInvoice.cin_d_invoice == None, ClientInvoice.cin_d_creation <= as_of_date),
             )
         )
-        payments_result = await self.db.execute(payments_stmt)
-        total_payments = payments_result.scalar() or Decimal("0")
+        if society_id:
+            invoice_conditions.append(ClientInvoice.soc_id == society_id)
 
-        return total_invoices - total_payments
+        # Get sum of line totals for invoices up to date
+        invoices_total = self.db.query(
+            func.coalesce(
+                func.sum(ClientInvoiceLine.cii_price_with_discount_ht),
+                Decimal("0")
+            )
+        ).join(
+            ClientInvoice, ClientInvoiceLine.cin_id == ClientInvoice.cin_id
+        ).filter(
+            and_(*invoice_conditions)
+        ).scalar() or Decimal("0")
 
-    async def _get_client_invoices_in_period(
+        # Sum of payments up to date (join through invoice to filter by client)
+        payments_total = self.db.query(
+            func.coalesce(func.sum(ClientInvoicePayment.cpy_amount), Decimal("0"))
+        ).join(
+            ClientInvoice, ClientInvoicePayment.cin_id == ClientInvoice.cin_id
+        ).filter(
+            and_(
+                ClientInvoice.cli_id == client_id,
+                ClientInvoicePayment.cpy_d_create <= as_of_date,
+            )
+        ).scalar() or Decimal("0")
+
+        return Decimal(str(invoices_total)) - Decimal(str(payments_total))
+
+    def _get_client_invoices_in_period(
         self,
         client_id: int,
         from_date: date,
         to_date: date,
         include_paid: bool = True,
         society_id: Optional[int] = None,
-        bu_id: Optional[int] = None
     ) -> List[ClientInvoice]:
         """Get client invoices within date range."""
         conditions = [
-            ClientInvoice.inv_cli_id == client_id,
-            ClientInvoice.inv_date >= from_date,
-            ClientInvoice.inv_date <= to_date
+            ClientInvoice.cli_id == client_id,
+            or_(
+                and_(ClientInvoice.cin_d_invoice != None, ClientInvoice.cin_d_invoice >= from_date, ClientInvoice.cin_d_invoice <= to_date),
+                and_(ClientInvoice.cin_d_invoice == None, ClientInvoice.cin_d_creation >= from_date, ClientInvoice.cin_d_creation <= to_date),
+            ),
         ]
 
         if not include_paid:
-            conditions.append(ClientInvoice.inv_amount_paid < ClientInvoice.inv_total_amount)
+            conditions.append(ClientInvoice.cin_is_full_paid != True)
 
         if society_id:
-            conditions.append(ClientInvoice.inv_soc_id == society_id)
-        if bu_id:
-            conditions.append(ClientInvoice.inv_bu_id == bu_id)
+            conditions.append(ClientInvoice.soc_id == society_id)
 
-        stmt = (
-            select(ClientInvoice)
-            .where(and_(*conditions))
-            .order_by(ClientInvoice.inv_date.asc())
-        )
-        result = await self.db.execute(stmt)
-        return list(result.scalars().all())
+        return self.db.query(ClientInvoice).options(
+            selectinload(ClientInvoice.lines)
+        ).filter(
+            and_(*conditions)
+        ).order_by(ClientInvoice.cin_d_invoice.asc()).all()
 
-    async def _get_client_payments_in_period(
+    def _get_client_payments_in_period(
         self,
         client_id: int,
         from_date: date,
         to_date: date
-    ) -> List[Payment]:
-        """Get client payments within date range."""
-        stmt = (
-            select(Payment)
-            .where(
-                and_(
-                    Payment.pay_cli_id == client_id,
-                    Payment.pay_date >= from_date,
-                    Payment.pay_date <= to_date
-                )
+    ) -> List[ClientInvoicePayment]:
+        """Get client payments within date range using ClientInvoicePayment."""
+        return self.db.query(ClientInvoicePayment).join(
+            ClientInvoice, ClientInvoicePayment.cin_id == ClientInvoice.cin_id
+        ).filter(
+            and_(
+                ClientInvoice.cli_id == client_id,
+                ClientInvoicePayment.cpy_d_create >= from_date,
+                ClientInvoicePayment.cpy_d_create <= to_date
             )
-            .order_by(Payment.pay_date.asc())
-        )
-        result = await self.db.execute(stmt)
-        return list(result.scalars().all())
+        ).order_by(ClientInvoicePayment.cpy_d_create.asc()).all()
 
-    async def _calculate_client_aging_summary(
+    def _calculate_client_aging_summary(
         self,
         client_id: int,
         as_of_date: date,
         society_id: Optional[int] = None,
-        bu_id: Optional[int] = None
     ) -> Dict[str, float]:
         """
         Calculate aging buckets for client's outstanding invoices.
@@ -1149,23 +605,16 @@ class StatementService:
         - over_90: 90+ days
         """
         conditions = [
-            ClientInvoice.inv_cli_id == client_id,
-            ClientInvoice.inv_amount_paid < ClientInvoice.inv_total_amount
+            ClientInvoice.cli_id == client_id,
+            ClientInvoice.cin_isinvoice == True,
+            ClientInvoice.cin_is_full_paid != True,
         ]
         if society_id:
-            conditions.append(ClientInvoice.inv_soc_id == society_id)
-        if bu_id:
-            conditions.append(ClientInvoice.inv_bu_id == bu_id)
+            conditions.append(ClientInvoice.soc_id == society_id)
 
-        stmt = (
-            select(
-                ClientInvoice.inv_due_date,
-                (ClientInvoice.inv_total_amount - ClientInvoice.inv_amount_paid).label("balance")
-            )
-            .where(and_(*conditions))
-        )
-        result = await self.db.execute(stmt)
-        invoices = result.all()
+        invoices = self.db.query(ClientInvoice).filter(
+            and_(*conditions)
+        ).all()
 
         buckets = {
             "current": Decimal("0"),
@@ -1175,9 +624,12 @@ class StatementService:
         }
 
         for invoice in invoices:
-            due_date = invoice.inv_due_date.date() if isinstance(invoice.inv_due_date, datetime) else invoice.inv_due_date
+            due_date = invoice.cin_d_term
+            if due_date and isinstance(due_date, datetime):
+                due_date = due_date.date()
+
             days_overdue = (as_of_date - due_date).days if due_date else 0
-            balance = invoice.balance
+            balance = Decimal(str(invoice.cin_rest_to_pay or 0))
 
             if days_overdue <= 30:
                 buckets["current"] += balance
@@ -1221,7 +673,7 @@ class StatementService:
 # Factory Function
 # ==========================================================================
 
-def get_statement_service(db: AsyncSession = Depends(get_db)) -> StatementService:
+def get_statement_service(db: Session = Depends(get_db)) -> StatementService:
     """
     Factory function to create StatementService instance.
 

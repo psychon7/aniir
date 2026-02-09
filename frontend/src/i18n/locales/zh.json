@@ -898,7 +898,28 @@
     "invoiceSettings": "发票设置",
     "emailTemplates": "邮件模板",
     "saveChanges": "保存更改",
-    "changesSaved": "更改已保存"
+    "changesSaved": "更改已保存",
+    "enterprise": {
+      "title": "企业设置",
+      "description": "管理您的企业信息",
+      "shortLabel": "简称",
+      "capital": "注册资本",
+      "address1": "地址行1",
+      "address2": "地址行2",
+      "postcode": "邮政编码",
+      "city": "城市",
+      "county": "省份 / 地区",
+      "contactInfo": "联系方式",
+      "cellphone": "手机",
+      "fax": "传真",
+      "taxLegalInfo": "税务与法律信息",
+      "siret": "SIRET",
+      "rcs": "RCS",
+      "vatIntra": "欧盟内增值税号",
+      "quickInfo": "快速概览",
+      "notFound": "未配置企业信息",
+      "updateError": "更新设置失败"
+    }
   },
   "drive": {
     "title": "文件管理",

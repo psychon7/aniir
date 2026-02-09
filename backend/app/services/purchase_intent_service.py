@@ -13,12 +13,14 @@ for compatibility with FastAPI's async endpoints.
 import asyncio
 from typing import List, Optional, Tuple
 from datetime import datetime
+from decimal import Decimal
 from sqlalchemy import select, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from fastapi import Depends
 
 from app.database import get_db
 from app.models.purchase_intent import PurchaseIntent, PurchaseIntentLine
+from app.models.supplier_order import SupplierOrder, SupplierOrderLine
 from app.schemas.purchase_intent import (
     PurchaseIntentCreate, PurchaseIntentUpdate, PurchaseIntentSearchParams,
     PurchaseIntentLineCreate, PurchaseIntentLineUpdate
@@ -75,6 +77,16 @@ class PurchaseIntentLineNotFoundError(PurchaseIntentServiceError):
             code="PURCHASE_INTENT_LINE_NOT_FOUND",
             message=f"Purchase Intent Line with ID {line_id} not found",
             details={"line_id": line_id}
+        )
+
+
+class PurchaseIntentClosedError(PurchaseIntentServiceError):
+    """Raised when attempting to convert a closed purchase intent."""
+    def __init__(self, purchase_intent_id: int):
+        super().__init__(
+            code="PURCHASE_INTENT_CLOSED",
+            message=f"Purchase Intent with ID {purchase_intent_id} is already closed and cannot be converted",
+            details={"purchase_intent_id": purchase_intent_id}
         )
 
 
@@ -333,6 +345,119 @@ class PurchaseIntentService:
         return True
 
     # ==========================================================================
+    # Conversion Methods (Sync)
+    # ==========================================================================
+
+    def _generate_supplier_order_code(self) -> str:
+        """Generate unique supplier order code (same pattern as SupplierOrderService)."""
+        year = datetime.now().year
+        month = datetime.now().month
+        prefix = f"SOD-{year}{month:02d}-"
+
+        query = select(func.max(SupplierOrder.sod_code)).where(
+            SupplierOrder.sod_code.like(f"{prefix}%")
+        )
+        result = self.db.execute(query)
+        max_code = result.scalar()
+
+        if max_code:
+            try:
+                num = int(max_code.replace(prefix, "")) + 1
+            except ValueError:
+                num = 1
+        else:
+            num = 1
+
+        return f"{prefix}{num:05d}"
+
+    def _sync_convert_to_supplier_order(
+        self,
+        purchase_intent_id: int,
+        supplier_id: int,
+        currency_id: int,
+        vat_id: int,
+        user_id: int,
+    ) -> SupplierOrder:
+        """
+        Synchronous conversion of a PurchaseIntent to a SupplierOrder.
+
+        Loads the PurchaseIntent with lines, validates it is not closed,
+        creates a new SupplierOrder with copied lines, generates a reference
+        code, marks the PurchaseIntent as closed, and returns the new order.
+        """
+        # 1. Load PurchaseIntent with lines
+        query = (
+            select(PurchaseIntent)
+            .options(selectinload(PurchaseIntent.lines))
+            .where(PurchaseIntent.pin_id == purchase_intent_id)
+        )
+        result = self.db.execute(query)
+        purchase_intent = result.scalars().first()
+
+        if not purchase_intent:
+            raise PurchaseIntentNotFoundError(purchase_intent_id)
+
+        # 2. Validate not closed
+        if purchase_intent.pin_closed:
+            raise PurchaseIntentClosedError(purchase_intent_id)
+
+        # 3. Generate order code and create SupplierOrder
+        now = datetime.now()
+        order_code = self._generate_supplier_order_code()
+
+        supplier_order = SupplierOrder(
+            sod_code=order_code,
+            sod_name=purchase_intent.pin_name,
+            sup_id=supplier_id,
+            soc_id=purchase_intent.soc_id,
+            usr_creator_id=user_id,
+            pin_id=purchase_intent_id,
+            cur_id=currency_id,
+            vat_id=vat_id,
+            sod_inter_comment=purchase_intent.pin_inter_comment,
+            sod_supplier_comment=purchase_intent.pin_supplier_comment,
+            sod_d_creation=now,
+            sod_d_update=now,
+            sod_discount_amount=Decimal("0"),
+            sod_total_ht=Decimal("0"),
+            sod_total_ttc=Decimal("0"),
+            sod_need2pay=Decimal("0"),
+            sod_paid=Decimal("0"),
+            sod_started=False,
+            sod_canceled=False,
+        )
+
+        self.db.add(supplier_order)
+        self.db.flush()  # Get the sod_id
+
+        # 4. Copy PurchaseIntentLines -> SupplierOrderLines
+        for pi_line in purchase_intent.lines:
+            sol = SupplierOrderLine(
+                sod_id=supplier_order.sod_id,
+                prd_id=pi_line.prd_id,
+                pit_id=pi_line.pit_id,
+                pil_id=pi_line.pil_id,
+                sol_order=pi_line.pil_order,
+                sol_quantity=pi_line.pil_quantity,
+                sol_description=pi_line.pil_description,
+                sol_unit_price=Decimal("0"),
+                sol_discount_amount=Decimal("0"),
+                sol_total_crude_price=Decimal("0"),
+                sol_price_with_dis=Decimal("0"),
+                sol_total_price=Decimal("0"),
+                vat_id=vat_id,
+            )
+            self.db.add(sol)
+
+        # 5. Mark PurchaseIntent as closed
+        purchase_intent.pin_closed = True
+        purchase_intent.pin_d_update = now
+
+        self.db.commit()
+        self.db.refresh(supplier_order)
+        return supplier_order
+
+    # ==========================================================================
     # Async Wrapper Methods (for FastAPI endpoints)
     # ==========================================================================
 
@@ -376,6 +501,25 @@ class PurchaseIntentService:
     async def reopen_purchase_intent(self, purchase_intent_id: int) -> PurchaseIntent:
         """Reopen a purchase intent (async wrapper)."""
         return await asyncio.to_thread(self._sync_reopen_purchase_intent, purchase_intent_id)
+
+    # Conversion async wrapper
+    async def convert_to_supplier_order(
+        self,
+        purchase_intent_id: int,
+        supplier_id: int,
+        currency_id: int,
+        vat_id: int,
+        user_id: int,
+    ) -> SupplierOrder:
+        """Convert a purchase intent to a supplier order (async wrapper)."""
+        return await asyncio.to_thread(
+            self._sync_convert_to_supplier_order,
+            purchase_intent_id,
+            supplier_id,
+            currency_id,
+            vat_id,
+            user_id,
+        )
 
     # Line async wrappers
     async def list_lines(self, purchase_intent_id: int) -> List[PurchaseIntentLine]:

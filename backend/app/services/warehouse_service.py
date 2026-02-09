@@ -11,7 +11,8 @@ from typing import Optional, List
 from decimal import Decimal
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.warehouse_repository import (
@@ -20,6 +21,7 @@ from app.repositories.warehouse_repository import (
     StockMovementRepository
 )
 from app.models.warehouse import Warehouse
+from app.models.inventory import Shelf, ProductShelves, Inventory
 from app.schemas.warehouse import (
     WarehouseCreate, WarehouseUpdate, WarehouseSearchParams,
     WarehouseResponse, WarehouseDetailResponse, WarehouseListResponse, WarehouseListPaginatedResponse,
@@ -30,7 +32,9 @@ from app.schemas.warehouse import (
     StockMovementResponse, StockMovementWithLinesResponse,
     StockMovementListResponse, StockMovementListPaginatedResponse,
     StockMovementLineCreate, StockMovementLineUpdate, StockMovementLineResponse,
-    MovementStatus, MovementType
+    MovementStatus, MovementType,
+    ShelfCreate, ShelfUpdate, ShelfResponse, ShelfDetailResponse,
+    ShelfListPaginatedResponse, ShelfProductResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,6 +81,16 @@ class StockMovementInvalidStatusError(WarehouseServiceError):
 
 class StockMovementLineNotFoundError(WarehouseServiceError):
     """Raised when a stock movement line is not found."""
+    pass
+
+
+class ShelfNotFoundError(WarehouseServiceError):
+    """Raised when a shelf is not found."""
+    pass
+
+
+class ShelfDuplicateCodeError(WarehouseServiceError):
+    """Raised when a shelf code already exists in the same warehouse."""
     pass
 
 
@@ -1126,3 +1140,307 @@ class StockMovementService:
             client_name=movement.srv_client,
             lines=lines
         )
+
+
+# ==========================================================================
+# Shelf Service
+# ==========================================================================
+
+class ShelfService:
+    """
+    Service for managing warehouse shelves/bins.
+
+    Shelves represent specific storage locations within a warehouse.
+    """
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def list_shelves(self, whs_id: int) -> ShelfListPaginatedResponse:
+        """
+        List all shelves for a warehouse.
+
+        Args:
+            whs_id: Warehouse ID
+
+        Returns:
+            Paginated list of shelves
+
+        Raises:
+            WarehouseNotFoundError: If warehouse not found
+        """
+        # Verify warehouse exists
+        wh_result = await self.db.execute(
+            select(Warehouse).where(Warehouse.whs_id == whs_id)
+        )
+        if not wh_result.scalar_one_or_none():
+            raise WarehouseNotFoundError(f"Warehouse {whs_id} not found")
+
+        result = await self.db.execute(
+            select(Shelf)
+            .where(Shelf.whs_id == whs_id)
+            .order_by(Shelf.she_code.asc(), Shelf.she_id.asc())
+        )
+        shelves = list(result.scalars().all())
+
+        items = []
+        for shelf in shelves:
+            items.append(ShelfResponse(
+                she_id=shelf.she_id,
+                whs_id=shelf.whs_id,
+                she_code=shelf.she_code,
+                she_floor=shelf.she_floor,
+                she_line=shelf.she_line,
+                she_row=shelf.she_row,
+                she_length=shelf.she_length,
+                she_width=shelf.she_width,
+                she_height=shelf.she_height,
+                she_available_volume=shelf.she_availabel_volume,
+            ))
+
+        return ShelfListPaginatedResponse(
+            items=items,
+            total=len(items),
+        )
+
+    async def get_shelf(self, she_id: int) -> ShelfResponse:
+        """
+        Get a single shelf by ID.
+
+        Args:
+            she_id: Shelf ID
+
+        Returns:
+            Shelf details
+
+        Raises:
+            ShelfNotFoundError: If shelf not found
+        """
+        result = await self.db.execute(
+            select(Shelf).where(Shelf.she_id == she_id)
+        )
+        shelf = result.scalar_one_or_none()
+        if not shelf:
+            raise ShelfNotFoundError(f"Shelf {she_id} not found")
+
+        return ShelfResponse(
+            she_id=shelf.she_id,
+            whs_id=shelf.whs_id,
+            she_code=shelf.she_code,
+            she_floor=shelf.she_floor,
+            she_line=shelf.she_line,
+            she_row=shelf.she_row,
+            she_length=shelf.she_length,
+            she_width=shelf.she_width,
+            she_height=shelf.she_height,
+            she_available_volume=shelf.she_availabel_volume,
+        )
+
+    async def create_shelf(self, whs_id: int, data: ShelfCreate) -> ShelfResponse:
+        """
+        Create a new shelf in a warehouse.
+
+        Args:
+            whs_id: Warehouse ID
+            data: Shelf creation data
+
+        Returns:
+            Created shelf
+
+        Raises:
+            WarehouseNotFoundError: If warehouse not found
+            ShelfDuplicateCodeError: If code already exists in warehouse
+        """
+        # Verify warehouse exists
+        wh_result = await self.db.execute(
+            select(Warehouse).where(Warehouse.whs_id == whs_id)
+        )
+        if not wh_result.scalar_one_or_none():
+            raise WarehouseNotFoundError(f"Warehouse {whs_id} not found")
+
+        # Check for duplicate code in same warehouse
+        if data.she_code:
+            dup_result = await self.db.execute(
+                select(func.count(Shelf.she_id)).where(
+                    Shelf.whs_id == whs_id,
+                    Shelf.she_code == data.she_code,
+                )
+            )
+            if dup_result.scalar_one() > 0:
+                raise ShelfDuplicateCodeError(
+                    f"Shelf with code '{data.she_code}' already exists in warehouse {whs_id}"
+                )
+
+        shelf = Shelf(
+            whs_id=whs_id,
+            she_code=data.she_code,
+            she_floor=data.she_floor,
+            she_line=data.she_line,
+            she_row=data.she_row,
+            she_length=data.she_length,
+            she_width=data.she_width,
+            she_height=data.she_height,
+            she_availabel_volume=data.she_available_volume,
+        )
+
+        self.db.add(shelf)
+        await self.db.flush()
+        await self.db.refresh(shelf)
+
+        return ShelfResponse(
+            she_id=shelf.she_id,
+            whs_id=shelf.whs_id,
+            she_code=shelf.she_code,
+            she_floor=shelf.she_floor,
+            she_line=shelf.she_line,
+            she_row=shelf.she_row,
+            she_length=shelf.she_length,
+            she_width=shelf.she_width,
+            she_height=shelf.she_height,
+            she_available_volume=shelf.she_availabel_volume,
+        )
+
+    async def update_shelf(self, she_id: int, data: ShelfUpdate) -> ShelfResponse:
+        """
+        Update a shelf.
+
+        Args:
+            she_id: Shelf ID
+            data: Update data
+
+        Returns:
+            Updated shelf
+
+        Raises:
+            ShelfNotFoundError: If shelf not found
+            ShelfDuplicateCodeError: If new code already exists in warehouse
+        """
+        result = await self.db.execute(
+            select(Shelf).where(Shelf.she_id == she_id)
+        )
+        shelf = result.scalar_one_or_none()
+        if not shelf:
+            raise ShelfNotFoundError(f"Shelf {she_id} not found")
+
+        update_data = data.model_dump(exclude_unset=True)
+
+        # Check for duplicate code if code is being updated
+        if "she_code" in update_data and update_data["she_code"] is not None:
+            if update_data["she_code"] != shelf.she_code:
+                dup_result = await self.db.execute(
+                    select(func.count(Shelf.she_id)).where(
+                        Shelf.whs_id == shelf.whs_id,
+                        Shelf.she_code == update_data["she_code"],
+                        Shelf.she_id != she_id,
+                    )
+                )
+                if dup_result.scalar_one() > 0:
+                    raise ShelfDuplicateCodeError(
+                        f"Shelf with code '{update_data['she_code']}' already exists "
+                        f"in warehouse {shelf.whs_id}"
+                    )
+            shelf.she_code = update_data["she_code"]
+
+        if "she_floor" in update_data:
+            shelf.she_floor = update_data["she_floor"]
+        if "she_line" in update_data:
+            shelf.she_line = update_data["she_line"]
+        if "she_row" in update_data:
+            shelf.she_row = update_data["she_row"]
+        if "she_length" in update_data:
+            shelf.she_length = update_data["she_length"]
+        if "she_width" in update_data:
+            shelf.she_width = update_data["she_width"]
+        if "she_height" in update_data:
+            shelf.she_height = update_data["she_height"]
+        if "she_available_volume" in update_data:
+            shelf.she_availabel_volume = update_data["she_available_volume"]
+
+        await self.db.flush()
+        await self.db.refresh(shelf)
+
+        return ShelfResponse(
+            she_id=shelf.she_id,
+            whs_id=shelf.whs_id,
+            she_code=shelf.she_code,
+            she_floor=shelf.she_floor,
+            she_line=shelf.she_line,
+            she_row=shelf.she_row,
+            she_length=shelf.she_length,
+            she_width=shelf.she_width,
+            she_height=shelf.she_height,
+            she_available_volume=shelf.she_availabel_volume,
+        )
+
+    async def delete_shelf(self, she_id: int) -> bool:
+        """
+        Delete a shelf.
+
+        Args:
+            she_id: Shelf ID
+
+        Returns:
+            True if deleted
+
+        Raises:
+            ShelfNotFoundError: If shelf not found
+        """
+        result = await self.db.execute(
+            select(Shelf).where(Shelf.she_id == she_id)
+        )
+        shelf = result.scalar_one_or_none()
+        if not shelf:
+            raise ShelfNotFoundError(f"Shelf {she_id} not found")
+
+        await self.db.delete(shelf)
+        await self.db.flush()
+        return True
+
+    async def list_products_on_shelf(self, she_id: int) -> List[ShelfProductResponse]:
+        """
+        List products stored on a specific shelf.
+
+        Args:
+            she_id: Shelf ID
+
+        Returns:
+            List of products on the shelf
+
+        Raises:
+            ShelfNotFoundError: If shelf not found
+        """
+        # Verify shelf exists
+        shelf_result = await self.db.execute(
+            select(Shelf).where(Shelf.she_id == she_id)
+        )
+        if not shelf_result.scalar_one_or_none():
+            raise ShelfNotFoundError(f"Shelf {she_id} not found")
+
+        result = await self.db.execute(
+            select(
+                ProductShelves.psh_id,
+                ProductShelves.inv_id,
+                ProductShelves.whs_id,
+                ProductShelves.she_id,
+                Inventory.prd_name.label("product_name"),
+                Inventory.prd_ref.label("product_ref"),
+                Inventory.inv_quantity.label("quantity"),
+            )
+            .join(Inventory, Inventory.inv_id == ProductShelves.inv_id)
+            .where(ProductShelves.she_id == she_id)
+            .order_by(Inventory.prd_name.asc())
+        )
+        rows = result.all()
+
+        return [
+            ShelfProductResponse(
+                psh_id=row.psh_id,
+                inv_id=row.inv_id,
+                whs_id=row.whs_id,
+                she_id=row.she_id,
+                product_name=row.product_name,
+                product_ref=row.product_ref,
+                quantity=row.quantity,
+            )
+            for row in rows
+        ]

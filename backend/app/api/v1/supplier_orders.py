@@ -31,12 +31,23 @@ from app.services.supplier_order_service import (
     SupplierOrderValidationError,
     SupplierOrderStatusError
 )
+from app.services.supplier_payment_service import (
+    SupplierPaymentService,
+    get_supplier_payment_service,
+    SupplierPaymentServiceError,
+    SupplierPaymentNotFoundError,
+)
 from app.schemas.supplier_order import (
     SupplierOrderCreate, SupplierOrderUpdate,
     SupplierOrderSearchParams,
     SupplierOrderLineCreate, SupplierOrderLineUpdate,
     ConfirmSupplierOrderRequest, ConfirmSupplierOrderResponse,
     CancelSupplierOrderRequest, CancelSupplierOrderResponse,
+)
+from app.schemas.supplier_payment import (
+    SupplierPaymentCreate,
+    SupplierPaymentUpdate,
+    SupplierPaymentResponse,
 )
 
 router = APIRouter(prefix="/supplier-orders", tags=["Supplier Orders"])
@@ -56,6 +67,30 @@ def handle_supplier_order_error(error: SupplierOrderServiceError) -> HTTPExcepti
         status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
     elif isinstance(error, SupplierOrderStatusError):
         status_code = status.HTTP_409_CONFLICT
+
+    return HTTPException(
+        status_code=status_code,
+        detail={
+            "success": False,
+            "error": {
+                "code": error.code,
+                "message": error.message,
+                "details": error.details
+            }
+        }
+    )
+
+
+def handle_supplier_payment_error(error: SupplierPaymentServiceError) -> HTTPException:
+    """Convert SupplierPaymentServiceError to appropriate HTTPException."""
+    status_code = status.HTTP_400_BAD_REQUEST
+
+    if isinstance(error, SupplierPaymentNotFoundError):
+        status_code = status.HTTP_404_NOT_FOUND
+    elif hasattr(error, 'code') and error.code == "SUPPLIER_ORDER_NOT_FOUND":
+        status_code = status.HTTP_404_NOT_FOUND
+    elif hasattr(error, 'code') and error.code == "SUPPLIER_PAYMENT_VALIDATION_ERROR":
+        status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
 
     return HTTPException(
         status_code=status_code,
@@ -507,3 +542,88 @@ async def cancel_supplier_order(
         )
     except SupplierOrderServiceError as e:
         raise handle_supplier_order_error(e)
+
+
+# ==========================================================================
+# Payment Record Endpoints
+# ==========================================================================
+
+@router.get(
+    "/{sod_id}/payments",
+    summary="List payment records for a supplier order",
+)
+async def list_supplier_order_payments(
+    sod_id: int = Path(..., gt=0, description="Supplier order ID"),
+    service: SupplierPaymentService = Depends(get_supplier_payment_service),
+):
+    """List all payment records for a supplier order."""
+    try:
+        payments = await service.list_payments(sod_id)
+        total_paid = await service.get_total_paid(sod_id)
+
+        items = [
+            SupplierPaymentResponse.model_validate(p).model_dump()
+            for p in payments
+        ]
+
+        return {
+            "success": True,
+            "data": items,
+            "totalCount": len(items),
+            "totalPaid": float(total_paid),
+        }
+    except SupplierPaymentServiceError as e:
+        raise handle_supplier_payment_error(e)
+
+
+@router.post(
+    "/{sod_id}/payments",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a payment record for a supplier order",
+)
+async def create_supplier_order_payment(
+    sod_id: int = Path(..., gt=0, description="Supplier order ID"),
+    payment: SupplierPaymentCreate = ...,
+    service: SupplierPaymentService = Depends(get_supplier_payment_service),
+):
+    """Create a new payment record for a supplier order."""
+    try:
+        record = await service.create_payment(sod_id, payment)
+        return SupplierPaymentResponse.model_validate(record).model_dump()
+    except SupplierPaymentServiceError as e:
+        raise handle_supplier_payment_error(e)
+
+
+@router.put(
+    "/{sod_id}/payments/{spr_id}",
+    summary="Update a payment record for a supplier order",
+)
+async def update_supplier_order_payment(
+    sod_id: int = Path(..., gt=0, description="Supplier order ID"),
+    spr_id: int = Path(..., gt=0, description="Payment record ID"),
+    payment: SupplierPaymentUpdate = ...,
+    service: SupplierPaymentService = Depends(get_supplier_payment_service),
+):
+    """Update an existing payment record."""
+    try:
+        record = await service.update_payment(spr_id, payment)
+        return SupplierPaymentResponse.model_validate(record).model_dump()
+    except SupplierPaymentServiceError as e:
+        raise handle_supplier_payment_error(e)
+
+
+@router.delete(
+    "/{sod_id}/payments/{spr_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a payment record from a supplier order",
+)
+async def delete_supplier_order_payment(
+    sod_id: int = Path(..., gt=0, description="Supplier order ID"),
+    spr_id: int = Path(..., gt=0, description="Payment record ID"),
+    service: SupplierPaymentService = Depends(get_supplier_payment_service),
+):
+    """Delete a payment record from a supplier order."""
+    try:
+        await service.delete_payment(spr_id)
+    except SupplierPaymentServiceError as e:
+        raise handle_supplier_payment_error(e)

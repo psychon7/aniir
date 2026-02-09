@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
 import { StatusBadge } from '@/components/ui/Badge'
 import { DocumentAttachments } from '@/components/attachments'
 import { AttachFileButton } from '@/components/attachments'
+import { useDownloadInvoicePdf } from '@/hooks/useInvoices'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/invoices/$invoiceId')({
@@ -15,6 +16,7 @@ export const Route = createFileRoute('/_authenticated/invoices/$invoiceId')({
 function InvoiceDetailPage() {
   const { invoiceId } = Route.useParams()
   const navigate = useNavigate()
+  const downloadPdf = useDownloadInvoicePdf()
 
   const { data: invoice, isLoading } = useQuery({
     queryKey: ['invoice', invoiceId],
@@ -58,7 +60,13 @@ function InvoiceDetailPage() {
         entityId={parseInt(invoiceId, 10)}
         variant="outline"
       />
-      <button className="btn-secondary">Download PDF</button>
+      <button
+        className="btn-secondary"
+        disabled={downloadPdf.isPending}
+        onClick={() => downloadPdf.mutate(parseInt(invoiceId, 10))}
+      >
+        {downloadPdf.isPending ? 'Generating...' : 'Download PDF'}
+      </button>
       <button className="btn-secondary">Send by Email</button>
       <button className="btn-primary">Record Payment</button>
     </div>

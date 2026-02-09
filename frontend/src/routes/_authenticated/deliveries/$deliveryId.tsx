@@ -4,6 +4,7 @@ import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
 import { StatusBadge } from '@/components/ui/Badge'
+import { useDownloadDeliveryPdf } from '@/hooks/useDeliveries'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/deliveries/$deliveryId')({
@@ -13,6 +14,7 @@ export const Route = createFileRoute('/_authenticated/deliveries/$deliveryId')({
 function DeliveryDetailPage() {
   const { deliveryId } = Route.useParams()
   const navigate = useNavigate()
+  const downloadPdf = useDownloadDeliveryPdf()
 
   const { data: delivery, isLoading } = useQuery({
     queryKey: ['delivery', deliveryId],
@@ -51,7 +53,13 @@ function DeliveryDetailPage() {
       <button onClick={() => navigate({ to: '/deliveries' as any })} className="btn-secondary">
         Back
       </button>
-      <button className="btn-secondary">Print Delivery Note</button>
+      <button
+        className="btn-secondary"
+        disabled={downloadPdf.isPending}
+        onClick={() => downloadPdf.mutate(parseInt(deliveryId, 10))}
+      >
+        {downloadPdf.isPending ? 'Generating...' : 'Download PDF'}
+      </button>
       {delivery.statusName !== 'Delivered' && (
         <button className="btn-primary">Mark as Delivered</button>
       )}

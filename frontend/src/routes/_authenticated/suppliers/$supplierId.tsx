@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
@@ -9,10 +9,12 @@ import { LoadingSkeletonCard } from '@/components/ui/feedback/LoadingSkeleton'
 import { EmptyStateError } from '@/components/ui/feedback/EmptyState'
 import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
+import { DataTable, Column } from '@/components/ui/data-table'
 import { SupplierForm } from '@/components/features/suppliers/SupplierForm'
 import { useSupplier, useUpdateSupplier, useDeleteSupplier, useSupplierContacts } from '@/hooks/useSuppliers'
-import { useSupplierPrices } from '@/hooks/usePricing'
+import { useSupplierPrices, useSupplierProducts } from '@/hooks/usePricing'
 import type { SupplierCreateDto } from '@/types/supplier'
+import type { SupplierProduct } from '@/types/pricing'
 
 export const Route = createFileRoute('/_authenticated/suppliers/$supplierId')({
   component: SupplierDetailPage,
@@ -26,10 +28,24 @@ function SupplierDetailPage() {
 
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<'details' | 'products'>('details')
+
+  // Products tab state
+  const [productsParams, setProductsParams] = useState({
+    page: 1,
+    pageSize: 10,
+    search: undefined as string | undefined,
+    activeOnly: true,
+  })
 
   const { data: supplier, isLoading, error } = useSupplier(Number(supplierId))
   const { data: contacts = [] } = useSupplierContacts(Number(supplierId))
   const { data: pricesData } = useSupplierPrices(Number(supplierId), { page: 1, pageSize: 5, activeOnly: true })
+  const { data: productsData, isLoading: isLoadingProducts } = useSupplierProducts(
+    Number(supplierId),
+    productsParams,
+    activeTab === 'products'
+  )
   const prices = pricesData?.data || []
   const updateMutation = useUpdateSupplier()
   const deleteMutation = useDeleteSupplier()
@@ -101,6 +117,50 @@ function SupplierDetailPage() {
         }
       />
 
+      {/* Tabs */}
+      <div className="border-b border-border mb-6">
+        <nav className="flex gap-6" aria-label="Tabs">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'details'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
+          >
+            {t('common.details', 'Details')}
+          </button>
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'products'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
+          >
+            {t('pricing.supplierProducts', 'Supplier Products')}
+            {productsData?.totalCount != null && productsData.totalCount > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-muted text-muted-foreground">
+                {productsData.totalCount}
+              </span>
+            )}
+          </button>
+        </nav>
+      </div>
+
+      {/* Products Tab Content */}
+      {activeTab === 'products' && (
+        <SupplierProductsTab
+          supplierId={Number(supplierId)}
+          productsData={productsData}
+          isLoading={isLoadingProducts}
+          params={productsParams}
+          onParamsChange={setProductsParams}
+        />
+      )}
+
+      {/* Details Tab Content */}
+      {activeTab === 'details' && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Info */}
         <div className="lg:col-span-2 space-y-6">
@@ -347,6 +407,7 @@ function SupplierDetailPage() {
           </Card>
         </div>
       </div>
+      )}
 
       {/* Edit Form Modal */}
       <SupplierForm
@@ -366,6 +427,159 @@ function SupplierDetailPage() {
         isLoading={deleteMutation.isPending}
       />
     </PageContainer>
+  )
+}
+
+// Supplier Products Tab Component
+function SupplierProductsTab({
+  supplierId,
+  productsData,
+  isLoading,
+  params,
+  onParamsChange,
+}: {
+  supplierId: number
+  productsData: import('@/types/pricing').SupplierProductPagedResponse | undefined
+  isLoading: boolean
+  params: { page: number; pageSize: number; search?: string; activeOnly: boolean }
+  onParamsChange: (params: { page: number; pageSize: number; search?: string; activeOnly: boolean }) => void
+}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+
+  const columns = useMemo<Column<SupplierProduct>[]>(
+    () => [
+      {
+        id: 'productReference',
+        header: t('products.reference', 'Reference'),
+        accessorKey: 'productReference',
+        sortable: true,
+        cell: (row) => (
+          <span className="font-mono text-sm text-muted-foreground">{row.productReference || '-'}</span>
+        ),
+      },
+      {
+        id: 'productName',
+        header: t('products.name', 'Product Name'),
+        accessorKey: 'productName',
+        sortable: true,
+        cell: (row) => (
+          <div>
+            <p className="font-medium text-foreground">{row.productName || `Product #${row.productId}`}</p>
+            {row.supplierProductName && (
+              <p className="text-xs text-muted-foreground">{row.supplierProductName}</p>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: 'supplierRef',
+        header: t('pricing.supplierRef', 'Supplier Ref'),
+        accessorKey: 'supplierRef',
+        cell: (row) => (
+          <span className="font-mono text-sm">{row.supplierRef || '-'}</span>
+        ),
+      },
+      {
+        id: 'unitCost',
+        header: t('pricing.unitCost', 'Unit Cost'),
+        accessorKey: 'unitCost',
+        sortable: true,
+        cell: (row) => (
+          <div className="text-right">
+            <span className="font-semibold">
+              {row.currencyCode || '\u20AC'}{Number(row.unitCost).toFixed(2)}
+            </span>
+            {row.discountPercent != null && Number(row.discountPercent) > 0 && (
+              <p className="text-xs text-green-600">-{Number(row.discountPercent)}%</p>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: 'leadTimeDays',
+        header: t('pricing.leadTime', 'Lead Time'),
+        accessorKey: 'leadTimeDays',
+        sortable: true,
+        cell: (row) => (
+          <span className="text-sm text-muted-foreground">
+            {row.leadTimeDays ? `${row.leadTimeDays} ${t('pricing.days', 'days')}` : '-'}
+          </span>
+        ),
+      },
+      {
+        id: 'minOrderQty',
+        header: t('pricing.minQuantity', 'Min Qty'),
+        accessorKey: 'minOrderQty',
+        cell: (row) => (
+          <span className="text-sm text-muted-foreground">
+            {row.minOrderQty || t('pricing.noMinimum', '-')}
+          </span>
+        ),
+      },
+      {
+        id: 'priority',
+        header: t('pricing.priority', 'Priority'),
+        accessorKey: 'priority',
+        sortable: true,
+        cell: (row) => (
+          <div className="flex items-center gap-2">
+            <span className="text-sm">{row.priority}</span>
+            {row.isPreferred && (
+              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">
+                {t('pricing.preferred', 'Preferred')}
+              </span>
+            )}
+          </div>
+        ),
+      },
+      {
+        id: 'isActive',
+        header: t('common.status', 'Status'),
+        accessorKey: 'isActive',
+        cell: (row) => (
+          <StatusBadge status={row.isActive ? 'Active' : 'Inactive'} />
+        ),
+      },
+    ],
+    [t]
+  )
+
+  const handleSearch = (search: string) => {
+    onParamsChange({ ...params, search: search || undefined, page: 1 })
+  }
+
+  const handlePageChange = (page: number) => {
+    onParamsChange({ ...params, page })
+  }
+
+  const handlePageSizeChange = (pageSize: number) => {
+    onParamsChange({ ...params, pageSize, page: 1 })
+  }
+
+  const handleRowClick = (row: SupplierProduct) => {
+    navigate({ to: '/products/$productId', params: { productId: String(row.productId) } })
+  }
+
+  return (
+    <DataTable
+      columns={columns}
+      data={productsData?.data || []}
+      keyField="priceId"
+      isLoading={isLoading}
+      page={params.page}
+      pageSize={params.pageSize}
+      totalCount={productsData?.totalCount || 0}
+      totalPages={productsData?.totalPages || 1}
+      onPageChange={handlePageChange}
+      onPageSizeChange={handlePageSizeChange}
+      searchValue={params.search || ''}
+      onSearchChange={handleSearch}
+      searchPlaceholder={t('products.searchProducts', 'Search products...')}
+      onRowClick={handleRowClick}
+      emptyMessage={t('pricing.noProductsFound', 'No products from this supplier')}
+      emptyDescription={t('pricing.noProductsDescription', 'Add product pricing to see products here')}
+    />
   )
 }
 

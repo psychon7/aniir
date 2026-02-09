@@ -451,3 +451,39 @@ class PurchaseIntentLineAPIResponse(BaseModel):
         None,
         description="Line data"
     )
+
+
+# ==========================================================================
+# Conversion Schemas
+# ==========================================================================
+
+class ConvertToSupplierOrderRequest(BaseModel):
+    """Request schema for converting a purchase intent to a supplier order."""
+    supplier_id: int = Field(
+        ...,
+        description="Supplier ID (FK to TM_SUP_Supplier)"
+    )
+    currency_id: int = Field(
+        ...,
+        description="Currency ID (FK to TR_CUR_Currency)"
+    )
+    vat_id: int = Field(
+        ...,
+        description="VAT rate ID (FK to TR_VAT_Vat)"
+    )
+
+
+class ConvertToSupplierOrderResponse(BaseModel):
+    """Response schema for purchase intent to supplier order conversion."""
+    supplier_order_id: int = Field(
+        ...,
+        description="ID of the newly created supplier order"
+    )
+    supplier_order_code: str = Field(
+        ...,
+        description="Code/reference of the newly created supplier order"
+    )
+    message: str = Field(
+        ...,
+        description="Success message"
+    )

@@ -25,22 +25,26 @@ class PDFService:
     def __init__(self, db: Session):
         self.db = db
 
-    def _get_table_info(self, document_type: DocumentType) -> Tuple[str, str, str]:
-        """Get table name, reference column, and PDF columns for document type"""
+    def _get_table_info(self, document_type: DocumentType) -> Tuple[str, str, str, str]:
+        """Get table name, id column, reference column, and PDF table for document type.
+
+        Returns:
+            Tuple of (table_name, id_column, reference_column, pdf_table)
+        """
         table_map = {
-            "quote": ("TM_QUO_Quote", "Reference", "TM_QUO_Quote"),
-            "order": ("TM_ORD_Order", "Reference", "TM_ORD_Order"),
-            "invoice": ("TM_INV_ClientInvoice", "Reference", "TM_INV_ClientInvoice"),
-            "delivery": ("TM_DEL_DeliveryNote", "Reference", "TM_DEL_DeliveryNote"),
-            "credit": ("TM_CRE_CreditNote", "Reference", "TM_CRE_CreditNote"),
+            "quote": ("TM_CPL_Cost_Plan", "cpl_id", "cpl_code", "TM_CPL_Cost_Plan"),
+            "order": ("TM_COD_Client_Order", "cod_id", "cod_code", "TM_COD_Client_Order"),
+            "invoice": ("TM_CIN_Client_Invoice", "cin_id", "cin_code", "TM_CIN_Client_Invoice"),
+            "delivery": ("TM_DFO_Delivery_Form", "dfo_id", "dfo_code", "TM_DFO_Delivery_Form"),
+            "credit": ("TM_CIN_Client_Invoice", "cin_id", "cin_code", "TM_CIN_Client_Invoice"),
         }
-        return table_map.get(document_type, ("", "", ""))
+        return table_map.get(document_type, ("", "", "", ""))
 
     def get_pdf_status(
         self, document_type: DocumentType, document_id: int
     ) -> PDFStatusResponse:
         """Get PDF status for a single document"""
-        table_name, ref_col, _ = self._get_table_info(document_type)
+        table_name, id_col, ref_col, _ = self._get_table_info(document_type)
 
         if not table_name:
             return PDFStatusResponse(
@@ -52,8 +56,8 @@ class PDFService:
         # Query the document for PDF-related fields
         # Assuming documents have: PdfUrl, PdfGeneratedAt, PdfFileSize, PdfError, UpdatedAt
         query = text(f"""
-            SELECT 
-                Id,
+            SELECT
+                {id_col} as Id,
                 {ref_col} as Reference,
                 PdfUrl,
                 PdfGeneratedAt,
@@ -61,7 +65,7 @@ class PDFService:
                 PdfError,
                 UpdatedAt
             FROM {table_name}
-            WHERE Id = :document_id
+            WHERE {id_col} = :document_id
         """)
 
         result = self.db.execute(query, {"document_id": document_id}).fetchone()
@@ -110,7 +114,7 @@ class PDFService:
         if not document_ids:
             return []
 
-        table_name, ref_col, _ = self._get_table_info(document_type)
+        table_name, id_col, ref_col, _ = self._get_table_info(document_type)
 
         if not table_name:
             return [
@@ -125,8 +129,8 @@ class PDFService:
         # Build query for batch status
         ids_str = ",".join(str(id) for id in document_ids)
         query = text(f"""
-            SELECT 
-                Id,
+            SELECT
+                {id_col} as Id,
                 {ref_col} as Reference,
                 PdfUrl,
                 PdfGeneratedAt,
@@ -134,7 +138,7 @@ class PDFService:
                 PdfError,
                 UpdatedAt
             FROM {table_name}
-            WHERE Id IN ({ids_str})
+            WHERE {id_col} IN ({ids_str})
         """)
 
         results = self.db.execute(query).fetchall()
@@ -209,8 +213,8 @@ class PDFService:
             raise ValueError(f"PDF not available for {document_type} {document_id}")
 
         # Get document reference for filename
-        table_name, ref_col, _ = self._get_table_info(document_type)
-        query = text(f"SELECT {ref_col} FROM {table_name} WHERE Id = :id")
+        table_name, id_col, ref_col, _ = self._get_table_info(document_type)
+        query = text(f"SELECT {ref_col} FROM {table_name} WHERE {id_col} = :id")
         result = self.db.execute(query, {"id": document_id}).fetchone()
         reference = result[0] if result else f"{document_type}_{document_id}"
 

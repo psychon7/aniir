@@ -9,7 +9,7 @@ import { AttachFileButton } from '@/components/attachments'
 import { useToast } from '@/components/ui/feedback/Toast'
 import { useOrdersByQuote } from '@/hooks/useOrders'
 import { useInvoicesByQuote } from '@/hooks/useInvoices'
-import { useConvertQuoteToOrder } from '@/hooks/useQuotes'
+import { useConvertQuoteToOrder, useDownloadQuotePdf } from '@/hooks/useQuotes'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/quotes/$quoteId')({
@@ -31,6 +31,7 @@ function QuoteDetailPage() {
   const { data: orders = [] } = useOrdersByQuote(Number(quoteId))
   const { data: invoices = [] } = useInvoicesByQuote(Number(quoteId))
   const convertMutation = useConvertQuoteToOrder()
+  const downloadPdf = useDownloadQuotePdf()
 
   if (isLoading) {
     return (
@@ -66,7 +67,13 @@ function QuoteDetailPage() {
         entityId={parseInt(quoteId, 10)}
         variant="outline"
       />
-      <button className="btn-secondary">Download PDF</button>
+      <button
+        className="btn-secondary"
+        disabled={downloadPdf.isPending}
+        onClick={() => downloadPdf.mutate(parseInt(quoteId, 10))}
+      >
+        {downloadPdf.isPending ? 'Generating...' : 'Download PDF'}
+      </button>
       <button
         className="btn-primary"
         disabled={convertMutation.isPending}

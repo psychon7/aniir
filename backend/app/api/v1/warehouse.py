@@ -17,6 +17,7 @@ from app.services.warehouse_service import (
     WarehouseService,
     StockService,
     StockMovementService,
+    ShelfService,
     WarehouseServiceError,
     WarehouseNotFoundError,
     WarehouseDuplicateCodeError,
@@ -24,7 +25,9 @@ from app.services.warehouse_service import (
     StockInsufficientError,
     StockMovementNotFoundError,
     StockMovementInvalidStatusError,
-    StockMovementLineNotFoundError
+    StockMovementLineNotFoundError,
+    ShelfNotFoundError,
+    ShelfDuplicateCodeError,
 )
 from app.schemas.warehouse import (
     # Warehouse schemas
@@ -38,7 +41,10 @@ from app.schemas.warehouse import (
     StockMovementCreate, StockMovementUpdate, StockMovementSearchParams,
     StockMovementWithLinesResponse, StockMovementListPaginatedResponse,
     StockMovementLineCreate, StockMovementLineUpdate, StockMovementLineResponse,
-    MovementType, MovementStatus
+    MovementType, MovementStatus,
+    # Shelf schemas
+    ShelfCreate, ShelfUpdate, ShelfResponse,
+    ShelfListPaginatedResponse, ShelfProductResponse,
 )
 
 
@@ -62,6 +68,11 @@ async def get_stock_service(db: AsyncSession = Depends(get_db)) -> StockService:
 async def get_movement_service(db: AsyncSession = Depends(get_db)) -> StockMovementService:
     """Get stock movement service instance."""
     return StockMovementService(db)
+
+
+async def get_shelf_service(db: AsyncSession = Depends(get_db)) -> ShelfService:
+    """Get shelf service instance."""
+    return ShelfService(db)
 
 
 # ==========================================================================
@@ -94,6 +105,12 @@ def handle_warehouse_error(error: WarehouseServiceError) -> HTTPException:
     elif isinstance(error, StockMovementLineNotFoundError):
         status_code = status.HTTP_404_NOT_FOUND
         error_code = "MOVEMENT_LINE_NOT_FOUND"
+    elif isinstance(error, ShelfNotFoundError):
+        status_code = status.HTTP_404_NOT_FOUND
+        error_code = "SHELF_NOT_FOUND"
+    elif isinstance(error, ShelfDuplicateCodeError):
+        status_code = status.HTTP_409_CONFLICT
+        error_code = "SHELF_DUPLICATE_CODE"
 
     return HTTPException(
         status_code=status_code,
@@ -688,5 +705,114 @@ async def delete_movement_line(
     """Delete a movement line."""
     try:
         await service.delete_movement_line(line_id)
+    except WarehouseServiceError as e:
+        raise handle_warehouse_error(e)
+
+
+# ==========================================================================
+# Shelf/Bin Endpoints
+# ==========================================================================
+
+@router.get(
+    "/warehouses/{whs_id}/shelves",
+    response_model=ShelfListPaginatedResponse,
+    summary="List warehouse shelves",
+    description="List all shelves/bins for a specific warehouse."
+)
+async def list_warehouse_shelves(
+    whs_id: int = Path(..., gt=0, description="Warehouse ID"),
+    service: ShelfService = Depends(get_shelf_service)
+):
+    """List all shelves for a warehouse."""
+    try:
+        return await service.list_shelves(whs_id)
+    except WarehouseServiceError as e:
+        raise handle_warehouse_error(e)
+
+
+@router.post(
+    "/warehouses/{whs_id}/shelves",
+    response_model=ShelfResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a shelf",
+    description="Create a new shelf/bin in a warehouse."
+)
+async def create_warehouse_shelf(
+    whs_id: int = Path(..., gt=0, description="Warehouse ID"),
+    data: ShelfCreate = ...,
+    service: ShelfService = Depends(get_shelf_service)
+):
+    """Create a new shelf in a warehouse."""
+    try:
+        return await service.create_shelf(whs_id, data)
+    except WarehouseServiceError as e:
+        raise handle_warehouse_error(e)
+
+
+@router.get(
+    "/shelves/{she_id}",
+    response_model=ShelfResponse,
+    summary="Get shelf by ID",
+    description="Get detailed information about a specific shelf/bin."
+)
+async def get_shelf(
+    she_id: int = Path(..., gt=0, description="Shelf ID"),
+    service: ShelfService = Depends(get_shelf_service)
+):
+    """Get a specific shelf by ID."""
+    try:
+        return await service.get_shelf(she_id)
+    except WarehouseServiceError as e:
+        raise handle_warehouse_error(e)
+
+
+@router.put(
+    "/shelves/{she_id}",
+    response_model=ShelfResponse,
+    summary="Update a shelf",
+    description="Update an existing shelf/bin."
+)
+async def update_shelf(
+    she_id: int = Path(..., gt=0, description="Shelf ID"),
+    data: ShelfUpdate = ...,
+    service: ShelfService = Depends(get_shelf_service)
+):
+    """Update an existing shelf."""
+    try:
+        return await service.update_shelf(she_id, data)
+    except WarehouseServiceError as e:
+        raise handle_warehouse_error(e)
+
+
+@router.delete(
+    "/shelves/{she_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a shelf",
+    description="Delete a shelf/bin."
+)
+async def delete_shelf(
+    she_id: int = Path(..., gt=0, description="Shelf ID"),
+    service: ShelfService = Depends(get_shelf_service)
+):
+    """Delete a shelf."""
+    try:
+        await service.delete_shelf(she_id)
+    except WarehouseServiceError as e:
+        raise handle_warehouse_error(e)
+
+
+@router.get(
+    "/shelves/{she_id}/products",
+    response_model=List[ShelfProductResponse],
+    summary="List products on shelf",
+    description="List all products stored on a specific shelf/bin."
+)
+async def list_products_on_shelf(
+    she_id: int = Path(..., gt=0, description="Shelf ID"),
+    service: ShelfService = Depends(get_shelf_service)
+):
+    """List products stored on a specific shelf."""
+    try:
+        return await service.list_products_on_shelf(she_id)
     except WarehouseServiceError as e:
         raise handle_warehouse_error(e)

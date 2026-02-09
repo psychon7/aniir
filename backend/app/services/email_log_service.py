@@ -1,63 +1,50 @@
 """
-Email Log Service - DISABLED.
+Email Log Service - SUPERSEDED.
 
-WARNING: The EmailLog model is disabled because its database table
-(TM_SET_EmailLog) does NOT exist in the database (DEV_ERP_ECOLED).
+NOTE: This service has been superseded by EmailService in
+app/services/email_service.py, which handles both email sending
+and email log management.
 
-This service has been disabled to prevent runtime errors. All methods will raise
-NotImplementedError if called.
+The EmailLog model and database table (TM_SET_EmailLog) are now active
+as of migration V1.0.0.5.
 
-To re-enable:
-1. Create the database table TM_SET_EmailLog
-2. Restore the EmailLog model in app/models/email_log.py
-3. Restore the EmailLogRepository in app/repositories/email_log_repository.py
-4. Restore this service's implementation
+This file is kept for backward compatibility. New code should use
+EmailService from app.services.email_service instead.
 
-Disabled on: 2026-02-01
-Reason: Database alignment - email log table does not exist in production database
+Previously disabled on: 2026-02-01
+Re-enabled on: 2026-02-09
 """
 from typing import Optional
 import logging
 
+from sqlalchemy.orm import Session
+
 logger = logging.getLogger(__name__)
-
-
-class EmailLogServiceDisabledError(Exception):
-    """Raised when the email log service is called but is disabled."""
-    pass
 
 
 class EmailLogService:
     """
-    DISABLED: Service for email log operations.
+    SUPERSEDED: Use EmailService from app.services.email_service instead.
 
-    This service is disabled because the EmailLog database table
-    does not exist. All methods will raise EmailLogServiceDisabledError.
+    This service is kept for backward compatibility but delegates to
+    the main EmailService for all operations.
     """
-    __disabled__ = True
 
-    def __init__(self, db=None):
-        """
-        Initialize the disabled email log service.
-
-        Note: Service is disabled - all operations will raise errors.
-        """
+    def __init__(self, db: Optional[Session] = None):
+        """Initialize the email log service."""
         self.db = db
-        logger.warning(
-            "EmailLogService instantiated but is DISABLED - "
-            "EmailLog table does not exist in database"
-        )
-
-    def _raise_disabled(self):
-        """Raise disabled error with helpful message."""
-        raise EmailLogServiceDisabledError(
-            "EmailLogService is disabled - database table TM_SET_EmailLog "
-            "does not exist. Create the table first to enable email logging."
+        logger.info(
+            "EmailLogService is superseded - use EmailService from "
+            "app.services.email_service for email log operations"
         )
 
     def get_by_id(self, log_id: int):
-        """DISABLED: Get email log by ID."""
-        self._raise_disabled()
+        """Get email log by ID. Use EmailService.get_email_log() instead."""
+        from app.services.email_service import EmailService
+        if self.db is None:
+            raise RuntimeError("Database session required")
+        service = EmailService(self.db)
+        return service.get_email_log(log_id)
 
     def get_list(
         self,
@@ -67,21 +54,17 @@ class EmailLogService:
         sort_by: str = "created_at",
         sort_order: str = "desc"
     ):
-        """DISABLED: Get paginated list of email logs."""
-        self._raise_disabled()
+        """Get paginated list of email logs. Use EmailService.get_email_logs() instead."""
+        from app.services.email_service import EmailService
+        if self.db is None:
+            raise RuntimeError("Database session required")
+        service = EmailService(self.db)
+        return service.get_email_logs(page=page, page_size=page_size)
 
     def create(self, data, created_by_id: Optional[int] = None):
-        """DISABLED: Create a new email log entry."""
-        self._raise_disabled()
-
-    def mark_as_sent(self, log_id: int):
-        """DISABLED: Mark email as sent."""
-        self._raise_disabled()
-
-    def mark_as_failed(self, log_id: int, error_message: str):
-        """DISABLED: Mark email as failed."""
-        self._raise_disabled()
-
-    def get_stats(self, society_id: Optional[int] = None):
-        """DISABLED: Get email statistics."""
-        self._raise_disabled()
+        """Create a new email log entry. Use EmailService.create_email_log() instead."""
+        from app.services.email_service import EmailService
+        if self.db is None:
+            raise RuntimeError("Database session required")
+        service = EmailService(self.db)
+        return service.create_email_log(data, created_by=created_by_id)

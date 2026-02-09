@@ -39,6 +39,7 @@ import { Route as AuthenticatedSupplierOrdersOrderIdRouteImport } from './routes
 import { Route as AuthenticatedSupplierInvoicesNewRouteImport } from './routes/_authenticated/supplier-invoices/new'
 import { Route as AuthenticatedSupplierInvoicesInvoiceIdRouteImport } from './routes/_authenticated/supplier-invoices/$invoiceId'
 import { Route as AuthenticatedSettingsEmailLogsRouteImport } from './routes/_authenticated/settings/email-logs'
+import { Route as AuthenticatedSettingsEnterpriseRouteImport } from './routes/_authenticated/settings/enterprise'
 import { Route as AuthenticatedQuotesNewRouteImport } from './routes/_authenticated/quotes/new'
 import { Route as AuthenticatedQuotesQuoteIdRouteImport } from './routes/_authenticated/quotes/$quoteId'
 import { Route as AuthenticatedPurchaseIntentsIntentIdRouteImport } from './routes/_authenticated/purchase-intents/$intentId'
@@ -46,6 +47,7 @@ import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenti
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects/$projectId'
 import { Route as AuthenticatedProductsNewRouteImport } from './routes/_authenticated/products/new'
 import { Route as AuthenticatedProductsProductIdRouteImport } from './routes/_authenticated/products/$productId'
+import { Route as AuthenticatedProductsAttributesIndexRouteImport } from './routes/_authenticated/products/attributes/index'
 import { Route as AuthenticatedOrdersNewRouteImport } from './routes/_authenticated/orders/new'
 import { Route as AuthenticatedOrdersOrderIdRouteImport } from './routes/_authenticated/orders/$orderId'
 import { Route as AuthenticatedLogisticsNewRouteImport } from './routes/_authenticated/logistics/new'
@@ -244,6 +246,12 @@ const AuthenticatedSettingsEmailLogsRoute =
     path: '/settings/email-logs',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedSettingsEnterpriseRoute =
+  AuthenticatedSettingsEnterpriseRouteImport.update({
+    id: '/settings/enterprise',
+    path: '/settings/enterprise',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedQuotesNewRoute = AuthenticatedQuotesNewRouteImport.update({
   id: '/quotes/new',
   path: '/quotes/new',
@@ -283,6 +291,12 @@ const AuthenticatedProductsProductIdRoute =
   AuthenticatedProductsProductIdRouteImport.update({
     id: '/products/$productId',
     path: '/products/$productId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedProductsAttributesIndexRoute =
+  AuthenticatedProductsAttributesIndexRouteImport.update({
+    id: '/products/attributes/',
+    path: '/products/attributes/',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedOrdersNewRoute = AuthenticatedOrdersNewRouteImport.update({
@@ -444,12 +458,14 @@ export interface FileRoutesByFullPath {
   '/orders/new': typeof AuthenticatedOrdersNewRoute
   '/products/$productId': typeof AuthenticatedProductsProductIdRoute
   '/products/new': typeof AuthenticatedProductsNewRoute
+  '/products/attributes/': typeof AuthenticatedProductsAttributesIndexRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
   '/purchase-intents/$intentId': typeof AuthenticatedPurchaseIntentsIntentIdRoute
   '/quotes/$quoteId': typeof AuthenticatedQuotesQuoteIdRoute
   '/quotes/new': typeof AuthenticatedQuotesNewRoute
   '/settings/email-logs': typeof AuthenticatedSettingsEmailLogsRoute
+  '/settings/enterprise': typeof AuthenticatedSettingsEnterpriseRoute
   '/supplier-invoices/$invoiceId': typeof AuthenticatedSupplierInvoicesInvoiceIdRoute
   '/supplier-invoices/new': typeof AuthenticatedSupplierInvoicesNewRoute
   '/supplier-orders/$orderId': typeof AuthenticatedSupplierOrdersOrderIdRoute
@@ -506,12 +522,14 @@ export interface FileRoutesByTo {
   '/orders/new': typeof AuthenticatedOrdersNewRoute
   '/products/$productId': typeof AuthenticatedProductsProductIdRoute
   '/products/new': typeof AuthenticatedProductsNewRoute
+  '/products/attributes': typeof AuthenticatedProductsAttributesIndexRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
   '/purchase-intents/$intentId': typeof AuthenticatedPurchaseIntentsIntentIdRoute
   '/quotes/$quoteId': typeof AuthenticatedQuotesQuoteIdRoute
   '/quotes/new': typeof AuthenticatedQuotesNewRoute
   '/settings/email-logs': typeof AuthenticatedSettingsEmailLogsRoute
+  '/settings/enterprise': typeof AuthenticatedSettingsEnterpriseRoute
   '/supplier-invoices/$invoiceId': typeof AuthenticatedSupplierInvoicesInvoiceIdRoute
   '/supplier-invoices/new': typeof AuthenticatedSupplierInvoicesNewRoute
   '/supplier-orders/$orderId': typeof AuthenticatedSupplierOrdersOrderIdRoute
@@ -570,12 +588,14 @@ export interface FileRoutesById {
   '/_authenticated/orders/new': typeof AuthenticatedOrdersNewRoute
   '/_authenticated/products/$productId': typeof AuthenticatedProductsProductIdRoute
   '/_authenticated/products/new': typeof AuthenticatedProductsNewRoute
+  '/_authenticated/products/attributes/': typeof AuthenticatedProductsAttributesIndexRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/projects/new': typeof AuthenticatedProjectsNewRoute
   '/_authenticated/purchase-intents/$intentId': typeof AuthenticatedPurchaseIntentsIntentIdRoute
   '/_authenticated/quotes/$quoteId': typeof AuthenticatedQuotesQuoteIdRoute
   '/_authenticated/quotes/new': typeof AuthenticatedQuotesNewRoute
   '/_authenticated/settings/email-logs': typeof AuthenticatedSettingsEmailLogsRoute
+  '/_authenticated/settings/enterprise': typeof AuthenticatedSettingsEnterpriseRoute
   '/_authenticated/supplier-invoices/$invoiceId': typeof AuthenticatedSupplierInvoicesInvoiceIdRoute
   '/_authenticated/supplier-invoices/new': typeof AuthenticatedSupplierInvoicesNewRoute
   '/_authenticated/supplier-orders/$orderId': typeof AuthenticatedSupplierOrdersOrderIdRoute
@@ -634,12 +654,14 @@ export interface FileRouteTypes {
     | '/orders/new'
     | '/products/$productId'
     | '/products/new'
+    | '/products/attributes/'
     | '/projects/$projectId'
     | '/projects/new'
     | '/purchase-intents/$intentId'
     | '/quotes/$quoteId'
     | '/quotes/new'
     | '/settings/email-logs'
+    | '/settings/enterprise'
     | '/supplier-invoices/$invoiceId'
     | '/supplier-invoices/new'
     | '/supplier-orders/$orderId'
@@ -696,12 +718,14 @@ export interface FileRouteTypes {
     | '/orders/new'
     | '/products/$productId'
     | '/products/new'
+    | '/products/attributes'
     | '/projects/$projectId'
     | '/projects/new'
     | '/purchase-intents/$intentId'
     | '/quotes/$quoteId'
     | '/quotes/new'
     | '/settings/email-logs'
+    | '/settings/enterprise'
     | '/supplier-invoices/$invoiceId'
     | '/supplier-invoices/new'
     | '/supplier-orders/$orderId'
@@ -759,12 +783,14 @@ export interface FileRouteTypes {
     | '/_authenticated/orders/new'
     | '/_authenticated/products/$productId'
     | '/_authenticated/products/new'
+    | '/_authenticated/products/attributes/'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/projects/new'
     | '/_authenticated/purchase-intents/$intentId'
     | '/_authenticated/quotes/$quoteId'
     | '/_authenticated/quotes/new'
     | '/_authenticated/settings/email-logs'
+    | '/_authenticated/settings/enterprise'
     | '/_authenticated/supplier-invoices/$invoiceId'
     | '/_authenticated/supplier-invoices/new'
     | '/_authenticated/supplier-orders/$orderId'
@@ -1025,6 +1051,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsEmailLogsRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/settings/enterprise': {
+      id: '/_authenticated/settings/enterprise'
+      path: '/settings/enterprise'
+      fullPath: '/settings/enterprise'
+      preLoaderRoute: typeof AuthenticatedSettingsEnterpriseRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/quotes/new': {
       id: '/_authenticated/quotes/new'
       path: '/quotes/new'
@@ -1072,6 +1105,13 @@ declare module '@tanstack/react-router' {
       path: '/products/$productId'
       fullPath: '/products/$productId'
       preLoaderRoute: typeof AuthenticatedProductsProductIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/products/attributes/': {
+      id: '/_authenticated/products/attributes/'
+      path: '/products/attributes'
+      fullPath: '/products/attributes/'
+      preLoaderRoute: typeof AuthenticatedProductsAttributesIndexRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/orders/new': {
@@ -1258,12 +1298,14 @@ interface AuthenticatedRouteChildren {
   AuthenticatedOrdersNewRoute: typeof AuthenticatedOrdersNewRoute
   AuthenticatedProductsProductIdRoute: typeof AuthenticatedProductsProductIdRoute
   AuthenticatedProductsNewRoute: typeof AuthenticatedProductsNewRoute
+  AuthenticatedProductsAttributesIndexRoute: typeof AuthenticatedProductsAttributesIndexRoute
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
   AuthenticatedProjectsNewRoute: typeof AuthenticatedProjectsNewRoute
   AuthenticatedPurchaseIntentsIntentIdRoute: typeof AuthenticatedPurchaseIntentsIntentIdRoute
   AuthenticatedQuotesQuoteIdRoute: typeof AuthenticatedQuotesQuoteIdRoute
   AuthenticatedQuotesNewRoute: typeof AuthenticatedQuotesNewRoute
   AuthenticatedSettingsEmailLogsRoute: typeof AuthenticatedSettingsEmailLogsRoute
+  AuthenticatedSettingsEnterpriseRoute: typeof AuthenticatedSettingsEnterpriseRoute
   AuthenticatedSupplierInvoicesInvoiceIdRoute: typeof AuthenticatedSupplierInvoicesInvoiceIdRoute
   AuthenticatedSupplierInvoicesNewRoute: typeof AuthenticatedSupplierInvoicesNewRoute
   AuthenticatedSupplierOrdersOrderIdRoute: typeof AuthenticatedSupplierOrdersOrderIdRoute
@@ -1320,6 +1362,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedOrdersNewRoute: AuthenticatedOrdersNewRoute,
   AuthenticatedProductsProductIdRoute: AuthenticatedProductsProductIdRoute,
   AuthenticatedProductsNewRoute: AuthenticatedProductsNewRoute,
+  AuthenticatedProductsAttributesIndexRoute: AuthenticatedProductsAttributesIndexRoute,
   AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
   AuthenticatedProjectsNewRoute: AuthenticatedProjectsNewRoute,
   AuthenticatedPurchaseIntentsIntentIdRoute:
@@ -1327,6 +1370,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedQuotesQuoteIdRoute: AuthenticatedQuotesQuoteIdRoute,
   AuthenticatedQuotesNewRoute: AuthenticatedQuotesNewRoute,
   AuthenticatedSettingsEmailLogsRoute: AuthenticatedSettingsEmailLogsRoute,
+  AuthenticatedSettingsEnterpriseRoute: AuthenticatedSettingsEnterpriseRoute,
   AuthenticatedSupplierInvoicesInvoiceIdRoute:
     AuthenticatedSupplierInvoicesInvoiceIdRoute,
   AuthenticatedSupplierInvoicesNewRoute: AuthenticatedSupplierInvoicesNewRoute,

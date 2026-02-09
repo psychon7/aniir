@@ -26,10 +26,10 @@ class EmailService:
     
     def get_email_log(self, email_log_id: int) -> Optional[EmailLog]:
         """Get email log by ID."""
-        stmt = select(EmailLog).where(EmailLog.id == email_log_id)
+        stmt = select(EmailLog).where(EmailLog.eml_id == email_log_id)
         result = self.db.execute(stmt)
         return result.scalar_one_or_none()
-    
+
     def get_email_logs(
         self,
         page: int = 1,
@@ -40,29 +40,29 @@ class EmailService:
     ) -> tuple[list[EmailLog], int]:
         """Get paginated email logs with optional filters."""
         stmt = select(EmailLog)
-        count_stmt = select(func.count(EmailLog.id))
-        
+        count_stmt = select(func.count(EmailLog.eml_id))
+
         # Apply filters
         if status:
-            stmt = stmt.where(EmailLog.status == status)
-            count_stmt = count_stmt.where(EmailLog.status == status)
+            stmt = stmt.where(EmailLog.eml_status == status)
+            count_stmt = count_stmt.where(EmailLog.eml_status == status)
         if entity_type:
-            stmt = stmt.where(EmailLog.entity_type == entity_type)
-            count_stmt = count_stmt.where(EmailLog.entity_type == entity_type)
+            stmt = stmt.where(EmailLog.eml_entity_type == entity_type)
+            count_stmt = count_stmt.where(EmailLog.eml_entity_type == entity_type)
         if entity_id:
-            stmt = stmt.where(EmailLog.entity_id == entity_id)
-            count_stmt = count_stmt.where(EmailLog.entity_id == entity_id)
-        
+            stmt = stmt.where(EmailLog.eml_entity_id == entity_id)
+            count_stmt = count_stmt.where(EmailLog.eml_entity_id == entity_id)
+
         # Get total count
         total = self.db.execute(count_stmt).scalar() or 0
-        
+
         # Apply pagination
         offset = (page - 1) * page_size
-        stmt = stmt.order_by(EmailLog.created_at.desc()).offset(offset).limit(page_size)
-        
+        stmt = stmt.order_by(EmailLog.eml_d_creation.desc()).offset(offset).limit(page_size)
+
         result = self.db.execute(stmt)
         items = list(result.scalars().all())
-        
+
         return items, total
     
     def create_email_log(
@@ -72,19 +72,19 @@ class EmailService:
     ) -> EmailLog:
         """Create a new email log entry."""
         email_log = EmailLog(
-            recipient_email=data.recipient_email,
-            recipient_name=data.recipient_name,
-            subject=data.subject,
-            body=data.body,
-            template_name=data.template_name,
-            template_data=data.template_data,
-            entity_type=data.entity_type,
-            entity_id=data.entity_id,
-            max_retries=data.max_retries,
-            status="PENDING",
-            retry_count=0,
-            created_by=created_by,
-            created_at=datetime.utcnow(),
+            eml_recipient_email=data.recipient_email,
+            eml_recipient_name=data.recipient_name,
+            eml_subject=data.subject,
+            eml_body=data.body,
+            eml_template_name=data.template_name,
+            eml_template_data=data.template_data,
+            eml_entity_type=data.entity_type,
+            eml_entity_id=data.entity_id,
+            eml_max_retries=data.max_retries,
+            eml_status="PENDING",
+            eml_retry_count=0,
+            usr_id=created_by,
+            eml_d_creation=datetime.utcnow(),
         )
         self.db.add(email_log)
         self.db.commit()

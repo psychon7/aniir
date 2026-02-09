@@ -295,3 +295,23 @@ class BulkStatusUpdateResponse(BaseModel):
     updated_count: int
     failed_ids: List[int] = Field(default_factory=list)
     message: str
+
+
+# ==========================================================================
+# Logistics Action Schemas
+# ==========================================================================
+
+class LogisticsActionResponse(BaseModel):
+    """Response schema for logistics send/receive/stock-in actions."""
+    success: bool
+    message: str
+    id: int
+    code: str
+    action: str
+    timestamp: datetime
+    isSent: bool = False
+    isReceived: bool = False
+    isStockedIn: bool = False
+    sendDate: Optional[datetime] = None
+    receiveDate: Optional[datetime] = None
+    stockInDate: Optional[datetime] = None

@@ -26,6 +26,7 @@ from app.schemas.shipment import (
     BulkStatusUpdateRequest, BulkStatusUpdateResponse,
     TrackingEvent, TrackingResponse,
     CarrierListItemResponse, CarrierResponse,
+    LogisticsActionResponse,
 )
 
 
@@ -95,6 +96,16 @@ class ShipmentDeleteError(ShipmentServiceError):
             f"Cannot delete shipment {shipment_id}: {reason}",
             code="SHIPMENT_DELETE_ERROR",
             details={"shipment_id": shipment_id, "reason": reason}
+        )
+
+
+class LogisticsActionError(ShipmentServiceError):
+    """Raised when a logistics action (send/receive/stock-in) is invalid."""
+    def __init__(self, message: str, shipment_id: int, action: str):
+        super().__init__(
+            message,
+            code="LOGISTICS_ACTION_ERROR",
+            details={"shipment_id": shipment_id, "action": action}
         )
 
 
@@ -442,6 +453,146 @@ class ShipmentService:
                 current_status=current_status,
                 target_status=target_status
             )
+
+    # ==========================================================================
+    # Logistics Actions (Send / Receive / Stock-In)
+    # ==========================================================================
+
+    async def send_logistics(self, shipment_id: int) -> LogisticsActionResponse:
+        """
+        Mark a logistics entry as sent.
+
+        Sets lgs_is_send=True and lgs_d_send to now.
+        Only allowed when the shipment has not already been sent.
+        """
+        shipment = await self.get_shipment(shipment_id)
+
+        if shipment.lgs_is_send:
+            raise LogisticsActionError(
+                f"Logistics {shipment_id} has already been sent",
+                shipment_id=shipment_id,
+                action="send",
+            )
+
+        now = datetime.utcnow()
+        shipment.lgs_is_send = True
+        shipment.lgs_d_send = now
+        shipment.lgs_d_update = now
+
+        await self.db.flush()
+        await self.db.refresh(shipment)
+        await self.db.commit()
+
+        return LogisticsActionResponse(
+            success=True,
+            message=f"Logistics {shipment.lgs_code} marked as sent",
+            id=shipment.lgs_id,
+            code=shipment.lgs_code,
+            action="send",
+            timestamp=now,
+            isSent=shipment.lgs_is_send,
+            isReceived=shipment.lgs_is_received,
+            isStockedIn=shipment.lgs_is_stockin,
+            sendDate=shipment.lgs_d_send,
+            receiveDate=shipment.lgs_d_arrive,
+            stockInDate=shipment.lgs_d_stockin,
+        )
+
+    async def receive_logistics(self, shipment_id: int) -> LogisticsActionResponse:
+        """
+        Mark a logistics entry as received.
+
+        Sets lgs_is_received=True and lgs_d_arrive to now.
+        Requires the shipment to have been sent first.
+        Cannot receive if already received.
+        """
+        shipment = await self.get_shipment(shipment_id)
+
+        if not shipment.lgs_is_send:
+            raise LogisticsActionError(
+                f"Logistics {shipment_id} must be sent before it can be received",
+                shipment_id=shipment_id,
+                action="receive",
+            )
+
+        if shipment.lgs_is_received:
+            raise LogisticsActionError(
+                f"Logistics {shipment_id} has already been received",
+                shipment_id=shipment_id,
+                action="receive",
+            )
+
+        now = datetime.utcnow()
+        shipment.lgs_is_received = True
+        shipment.lgs_d_arrive = now
+        shipment.lgs_d_update = now
+
+        await self.db.flush()
+        await self.db.refresh(shipment)
+        await self.db.commit()
+
+        return LogisticsActionResponse(
+            success=True,
+            message=f"Logistics {shipment.lgs_code} marked as received",
+            id=shipment.lgs_id,
+            code=shipment.lgs_code,
+            action="receive",
+            timestamp=now,
+            isSent=shipment.lgs_is_send,
+            isReceived=shipment.lgs_is_received,
+            isStockedIn=shipment.lgs_is_stockin,
+            sendDate=shipment.lgs_d_send,
+            receiveDate=shipment.lgs_d_arrive,
+            stockInDate=shipment.lgs_d_stockin,
+        )
+
+    async def stock_in_logistics(self, shipment_id: int) -> LogisticsActionResponse:
+        """
+        Stock in a received logistics entry into warehouse inventory.
+
+        Sets lgs_is_stockin=True and lgs_d_stockin to now.
+        Requires the shipment to have been received first.
+        Cannot stock-in if already stocked in.
+        """
+        shipment = await self.get_shipment(shipment_id)
+
+        if not shipment.lgs_is_received:
+            raise LogisticsActionError(
+                f"Logistics {shipment_id} must be received before it can be stocked in",
+                shipment_id=shipment_id,
+                action="stock-in",
+            )
+
+        if shipment.lgs_is_stockin:
+            raise LogisticsActionError(
+                f"Logistics {shipment_id} has already been stocked in",
+                shipment_id=shipment_id,
+                action="stock-in",
+            )
+
+        now = datetime.utcnow()
+        shipment.lgs_is_stockin = True
+        shipment.lgs_d_stockin = now
+        shipment.lgs_d_update = now
+
+        await self.db.flush()
+        await self.db.refresh(shipment)
+        await self.db.commit()
+
+        return LogisticsActionResponse(
+            success=True,
+            message=f"Logistics {shipment.lgs_code} stocked in",
+            id=shipment.lgs_id,
+            code=shipment.lgs_code,
+            action="stock-in",
+            timestamp=now,
+            isSent=shipment.lgs_is_send,
+            isReceived=shipment.lgs_is_received,
+            isStockedIn=shipment.lgs_is_stockin,
+            sendDate=shipment.lgs_d_send,
+            receiveDate=shipment.lgs_d_arrive,
+            stockInDate=shipment.lgs_d_stockin,
+        )
 
     # ==========================================================================
     # Tracking Operations

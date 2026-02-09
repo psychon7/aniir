@@ -711,3 +711,112 @@ class StockMovementAPIResponse(BaseModel):
     success: bool = Field(True, description="Operation successful")
     message: Optional[str] = Field(None, description="Optional message")
     data: Optional[StockMovementWithLinesResponse] = Field(None, description="Movement data")
+
+
+# ==========================================================================
+# Shelf Schemas
+# ==========================================================================
+
+class ShelfCreate(BaseModel):
+    """Schema for creating a Shelf in a warehouse."""
+    she_code: Optional[str] = Field(None, max_length=200, description="Shelf code/label")
+    she_floor: Optional[int] = Field(None, description="Floor number")
+    she_line: Optional[int] = Field(None, description="Line/aisle number")
+    she_row: Optional[int] = Field(None, description="Row number")
+    she_length: Optional[Decimal] = Field(None, description="Shelf length")
+    she_width: Optional[Decimal] = Field(None, description="Shelf width")
+    she_height: Optional[Decimal] = Field(None, description="Shelf height")
+    she_available_volume: Optional[Decimal] = Field(None, description="Available volume")
+
+
+class ShelfUpdate(BaseModel):
+    """Schema for updating a Shelf."""
+    she_code: Optional[str] = Field(None, max_length=200, description="Shelf code/label")
+    she_floor: Optional[int] = Field(None, description="Floor number")
+    she_line: Optional[int] = Field(None, description="Line/aisle number")
+    she_row: Optional[int] = Field(None, description="Row number")
+    she_length: Optional[Decimal] = Field(None, description="Shelf length")
+    she_width: Optional[Decimal] = Field(None, description="Shelf width")
+    she_height: Optional[Decimal] = Field(None, description="Shelf height")
+    she_available_volume: Optional[Decimal] = Field(None, description="Available volume")
+
+
+class ShelfResponse(BaseModel):
+    """Schema for Shelf response."""
+    model_config = ConfigDict(from_attributes=True)
+
+    she_id: int = Field(..., description="Shelf ID")
+    whs_id: int = Field(..., description="Warehouse ID")
+    she_code: Optional[str] = Field(None, description="Shelf code/label")
+    she_floor: Optional[int] = Field(None, description="Floor number")
+    she_line: Optional[int] = Field(None, description="Line/aisle number")
+    she_row: Optional[int] = Field(None, description="Row number")
+    she_length: Optional[Decimal] = Field(None, description="Shelf length")
+    she_width: Optional[Decimal] = Field(None, description="Shelf width")
+    she_height: Optional[Decimal] = Field(None, description="Shelf height")
+    she_available_volume: Optional[Decimal] = Field(None, description="Available volume")
+
+    @computed_field
+    @property
+    def displayName(self) -> str:
+        """Get shelf display name."""
+        parts = []
+        if self.she_code:
+            parts.append(self.she_code)
+        if self.she_floor is not None:
+            parts.append(f"F{self.she_floor}")
+        if self.she_line is not None:
+            parts.append(f"L{self.she_line}")
+        if self.she_row is not None:
+            parts.append(f"R{self.she_row}")
+        return " - ".join(parts) if parts else f"Shelf #{self.she_id}"
+
+    @computed_field
+    @property
+    def location(self) -> str:
+        """Get shelf location string (floor/line/row)."""
+        parts = []
+        if self.she_floor is not None:
+            parts.append(f"Floor {self.she_floor}")
+        if self.she_line is not None:
+            parts.append(f"Line {self.she_line}")
+        if self.she_row is not None:
+            parts.append(f"Row {self.she_row}")
+        return ", ".join(parts) if parts else ""
+
+
+class ShelfDetailResponse(BaseModel):
+    """Schema for shelf detail response with camelCase field names for frontend."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: int = Field(..., validation_alias="she_id", description="Shelf ID")
+    warehouseId: int = Field(..., validation_alias="whs_id", description="Warehouse ID")
+    code: Optional[str] = Field(None, validation_alias="she_code", description="Shelf code")
+    floor: Optional[int] = Field(None, validation_alias="she_floor", description="Floor number")
+    line: Optional[int] = Field(None, validation_alias="she_line", description="Line/aisle number")
+    row: Optional[int] = Field(None, validation_alias="she_row", description="Row number")
+    length: Optional[Decimal] = Field(None, validation_alias="she_length", description="Shelf length")
+    width: Optional[Decimal] = Field(None, validation_alias="she_width", description="Shelf width")
+    height: Optional[Decimal] = Field(None, validation_alias="she_height", description="Shelf height")
+    availableVolume: Optional[Decimal] = Field(
+        None, validation_alias="she_availabel_volume", description="Available volume"
+    )
+
+
+class ShelfListPaginatedResponse(BaseModel):
+    """Paginated response for shelf list."""
+    items: List[ShelfResponse] = Field(..., description="List of shelves")
+    total: int = Field(..., description="Total count of shelves")
+
+
+class ShelfProductResponse(BaseModel):
+    """Schema for products stored on a shelf."""
+    model_config = ConfigDict(from_attributes=True)
+
+    psh_id: int = Field(..., description="Product-shelf link ID")
+    inv_id: int = Field(..., description="Inventory ID")
+    whs_id: int = Field(..., description="Warehouse ID")
+    she_id: int = Field(..., description="Shelf ID")
+    product_name: Optional[str] = Field(None, description="Product name")
+    product_ref: Optional[str] = Field(None, description="Product reference")
+    quantity: Optional[Decimal] = Field(None, description="Quantity on hand")

@@ -5,17 +5,18 @@ from typing import List, Optional, Tuple
 from sqlalchemy import func, case, and_, or_
 from sqlalchemy.orm import Session, joinedload
 
-# Use the correct model from invoice.py
 from app.models.invoice import ClientInvoice
+from app.models.client_invoice_line import ClientInvoiceLine
 from app.models.client import Client
+from app.models.currency import Currency
 
 
 class AccountingRepository:
     """Repository for accounting data access."""
-    
+
     def __init__(self, db: Session):
         self.db = db
-    
+
     def get_unpaid_invoices(
         self,
         as_of_date: date,
@@ -23,95 +24,68 @@ class AccountingRepository:
         client_id: Optional[int] = None,
         currency_id: Optional[int] = None,
         min_amount: Optional[Decimal] = None
-    ) -> List[ClientInvoice]:
+    ) -> List:
         """
         Get all unpaid invoices as of a specific date.
-        
-        Args:
-            as_of_date: The date to calculate aging from
-            society_id: Optional filter by society
-            client_id: Optional filter by client
-            currency_id: Optional filter by currency
-            min_amount: Optional minimum remaining amount
-            
-        Returns:
-            List of unpaid invoices with related data
+
+        Returns list of row-like objects with invoice + client + currency data.
         """
-        query = self.db.query(ClientInvoice).options(
-            joinedload(ClientInvoice.client),
-            joinedload(ClientInvoice.currency),
-            joinedload(ClientInvoice.status)
-        ).filter(
-            ClientInvoice.IsActive == True,
-            ClientInvoice.RemainingAmount > 0,
-            ClientInvoice.InvoiceDate <= as_of_date
+        # Subquery for line totals per invoice
+        line_totals = (
+            self.db.query(
+                ClientInvoiceLine.cin_id,
+                func.coalesce(
+                    func.sum(ClientInvoiceLine.cii_price_with_discount_ht),
+                    Decimal("0")
+                ).label("total_amount"),
+            )
+            .group_by(ClientInvoiceLine.cin_id)
+            .subquery()
         )
-        
+
+        query = (
+            self.db.query(
+                ClientInvoice.cin_id.label("invoice_id"),
+                ClientInvoice.cin_code.label("invoice_reference"),
+                ClientInvoice.cli_id.label("client_id"),
+                ClientInvoice.cin_d_invoice.label("invoice_date"),
+                ClientInvoice.cin_d_term.label("due_date"),
+                ClientInvoice.cin_rest_to_pay.label("remaining_amount"),
+                ClientInvoice.cin_is_full_paid.label("is_full_paid"),
+                ClientInvoice.soc_id.label("society_id"),
+                ClientInvoice.cur_id.label("currency_id"),
+                func.coalesce(line_totals.c.total_amount, Decimal("0")).label("total_amount"),
+                Client.cli_ref.label("client_reference"),
+                Client.cli_company_name.label("client_name"),
+                Currency.cur_designation.label("currency_code"),
+            )
+            .outerjoin(Client, ClientInvoice.cli_id == Client.cli_id)
+            .outerjoin(Currency, ClientInvoice.cur_id == Currency.cur_id)
+            .outerjoin(line_totals, ClientInvoice.cin_id == line_totals.c.cin_id)
+            .filter(
+                ClientInvoice.cin_isinvoice == True,
+                ClientInvoice.cin_is_full_paid != True,
+                or_(
+                    and_(ClientInvoice.cin_d_invoice != None, ClientInvoice.cin_d_invoice <= as_of_date),
+                    and_(ClientInvoice.cin_d_invoice == None, ClientInvoice.cin_d_creation <= as_of_date),
+                ),
+            )
+        )
+
         if society_id:
-            query = query.filter(ClientInvoice.SocietyId == society_id)
-        
+            query = query.filter(ClientInvoice.soc_id == society_id)
+
         if client_id:
-            query = query.filter(ClientInvoice.ClientId == client_id)
-        
+            query = query.filter(ClientInvoice.cli_id == client_id)
+
         if currency_id:
-            query = query.filter(ClientInvoice.CurrencyId == currency_id)
-        
+            query = query.filter(ClientInvoice.cur_id == currency_id)
+
         if min_amount:
-            query = query.filter(ClientInvoice.RemainingAmount >= min_amount)
-        
+            query = query.filter(ClientInvoice.cin_rest_to_pay >= min_amount)
+
         return query.all()
-    
-    def get_aging_summary_by_bucket(
-        self,
-        as_of_date: date,
-        society_id: Optional[int] = None,
-        currency_id: Optional[int] = None
-    ) -> List[Tuple]:
-        """
-        Get aggregated aging data by bucket directly from database.
-        
-        Returns tuples of (bucket_name, total_amount, invoice_count)
-        """
-        # Calculate days overdue
-        days_overdue = func.datediff(
-            as_of_date,
-            ClientInvoice.DueDate
-        )
-        
-        # Define bucket cases
-        bucket_case = case(
-            (days_overdue <= 0, 'Current'),
-            (and_(days_overdue >= 1, days_overdue <= 30), '1-30 days'),
-            (and_(days_overdue >= 31, days_overdue <= 60), '31-60 days'),
-            (and_(days_overdue >= 61, days_overdue <= 90), '61-90 days'),
-            else_='90+ days'
-        )
-        
-        query = self.db.query(
-            bucket_case.label('bucket'),
-            func.sum(ClientInvoice.RemainingAmount).label('total_amount'),
-            func.count(ClientInvoice.Id).label('invoice_count')
-        ).filter(
-            ClientInvoice.IsActive == True,
-            ClientInvoice.RemainingAmount > 0,
-            ClientInvoice.InvoiceDate <= as_of_date
-        )
-        
-        if society_id:
-            query = query.filter(ClientInvoice.SocietyId == society_id)
-        
-        if currency_id:
-            query = query.filter(ClientInvoice.CurrencyId == currency_id)
-        
-        return query.group_by(bucket_case).all()
-    
-    def get_client_with_credit_info(self, client_id: int) -> Optional[Client]:
-        """Get client with credit limit information."""
-        return self.db.query(Client).filter(
-            Client.Id == client_id,
-            Client.IsActive == True
-        ).first()
-    
+
     def get_clients_with_outstanding(
         self,
         as_of_date: date,
@@ -119,30 +93,30 @@ class AccountingRepository:
     ) -> List[Tuple]:
         """
         Get all clients with outstanding balances.
-        
-        Returns tuples of (client_id, client_reference, client_name, total_outstanding, credit_limit)
+
+        Returns tuples of (client_id, client_reference, client_name, total_outstanding)
         """
         query = self.db.query(
-            Client.Id,
-            Client.Reference,
-            Client.Name,
-            func.sum(ClientInvoice.RemainingAmount).label('total_outstanding'),
-            Client.CreditLimit
+            Client.cli_id,
+            Client.cli_ref,
+            Client.cli_company_name,
+            func.sum(ClientInvoice.cin_rest_to_pay).label('total_outstanding'),
         ).join(
-            ClientInvoice, Client.Id == ClientInvoice.ClientId
+            ClientInvoice, Client.cli_id == ClientInvoice.cli_id
         ).filter(
-            Client.IsActive == True,
-            ClientInvoice.IsActive == True,
-            ClientInvoice.RemainingAmount > 0,
-            ClientInvoice.InvoiceDate <= as_of_date
+            ClientInvoice.cin_isinvoice == True,
+            ClientInvoice.cin_is_full_paid != True,
+            or_(
+                and_(ClientInvoice.cin_d_invoice != None, ClientInvoice.cin_d_invoice <= as_of_date),
+                and_(ClientInvoice.cin_d_invoice == None, ClientInvoice.cin_d_creation <= as_of_date),
+            ),
         )
-        
+
         if society_id:
-            query = query.filter(ClientInvoice.SocietyId == society_id)
-        
+            query = query.filter(ClientInvoice.soc_id == society_id)
+
         return query.group_by(
-            Client.Id,
-            Client.Reference,
-            Client.Name,
-            Client.CreditLimit
+            Client.cli_id,
+            Client.cli_ref,
+            Client.cli_company_name,
         ).all()

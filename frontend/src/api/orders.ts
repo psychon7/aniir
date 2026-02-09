@@ -297,6 +297,33 @@ export const ordersApi = {
   },
 
   // ============================================
+  // SEND OPERATIONS
+  // ============================================
+
+  /**
+   * Send order via email with PDF attachment
+   */
+  async send(
+    id: number,
+    toEmail: string,
+    subject?: string,
+    body?: string,
+    cc?: string
+  ): Promise<any> {
+    if (isMockEnabled()) {
+      return { success: true, message: 'Order sent (mock)' }
+    }
+
+    const response = await apiClient.post(`/orders/${id}/send`, {
+      to_email: toEmail,
+      subject,
+      body,
+      cc,
+    })
+    return response.data
+  },
+
+  // ============================================
   // ORDER TOTALS RECALCULATION
   // ============================================
 

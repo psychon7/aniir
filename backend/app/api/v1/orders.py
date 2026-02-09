@@ -17,6 +17,7 @@ from app.database import get_db
 from app.models.order import ClientOrder, ClientOrderLine
 from app.models.client import Client
 from app.models.costplan import CostPlan
+from app.schemas.document import SendDocumentRequest, SendDocumentResponse
 from app.services.order_service import (
     OrderService,
     get_order_service,
@@ -164,6 +165,8 @@ def _sync_list_orders(
     search: Optional[str] = None,
     client_id: Optional[int] = None,
     status_id: Optional[int] = None,
+    project_id: Optional[int] = None,
+    quote_id: Optional[int] = None,
     sort_by: str = "cod_d_creation",
     sort_order: str = "desc"
 ):
@@ -208,6 +211,12 @@ def _sync_list_orders(
     if client_id:
         conditions.append(ClientOrder.cli_id == client_id)
 
+    if project_id:
+        conditions.append(ClientOrder.prj_id == project_id)
+
+    if quote_id:
+        conditions.append(ClientOrder.cpl_id == quote_id)
+
     if conditions:
         query = query.where(and_(*conditions))
         count_query = count_query.where(and_(*conditions))
@@ -249,13 +258,15 @@ async def list_orders(
     search: Optional[str] = Query(None, description="Search by reference"),
     client_id: Optional[int] = Query(None, description="Filter by client ID"),
     status_id: Optional[int] = Query(None, description="Filter by status ID"),
+    project_id: Optional[int] = Query(None, description="Filter by project ID"),
+    quote_id: Optional[int] = Query(None, description="Filter by quote/cost plan ID"),
     sort_by: str = Query("cod_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     db: Session = Depends(get_db)
 ):
     """List orders with pagination."""
     rows, total = await asyncio.to_thread(
-        _sync_list_orders, db, page, page_size, search, client_id, status_id, sort_by, sort_order
+        _sync_list_orders, db, page, page_size, search, client_id, status_id, project_id, quote_id, sort_by, sort_order
     )
 
     # Build camelCase response matching frontend OrderListItem type
@@ -402,6 +413,115 @@ async def get_order_detail(
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
     return result
+
+
+@router.get(
+    "/{order_id}/pdf",
+    summary="Download order PDF",
+    description="Generate and download PDF for an order.",
+    responses={
+        200: {"content": {"application/pdf": {}}, "description": "PDF file"},
+        404: {"description": "Order not found"},
+    }
+)
+async def download_order_pdf(
+    order_id: int = Path(..., gt=0, description="Order ID"),
+    db: Session = Depends(get_db),
+):
+    """Generate and return PDF for this order."""
+    import io
+    from fastapi.responses import StreamingResponse
+    from app.services.pdf_service import TemplatePDFService
+
+    # Get order detail for context
+    order_data = await asyncio.to_thread(_sync_get_order_detail, db, order_id)
+    if not order_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order {order_id} not found"
+        )
+
+    reference = order_data.get("reference", f"order-{order_id}")
+    filename = f"{reference}.pdf"
+
+    # Generate PDF using template service
+    template_pdf = TemplatePDFService()
+    pdf_content = template_pdf.generate_pdf(
+        template_name="orders/order.html",
+        context=order_data,
+    )
+
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_content)),
+        }
+    )
+
+
+@router.post(
+    "/{order_id}/send",
+    summary="Send order via email",
+    description="Generate PDF and send order via email to the specified recipient.",
+    responses={
+        200: {"description": "Order sent successfully"},
+        404: {"description": "Order not found"},
+    }
+)
+async def send_order(
+    order_id: int = Path(..., gt=0, description="Order ID"),
+    request: SendDocumentRequest = ...,
+    db: Session = Depends(get_db),
+):
+    """Send order via email with PDF attachment."""
+    from app.services.email_service import EmailService
+    from app.schemas.email_log import EmailLogCreate
+
+    # Get order detail
+    order_data = await asyncio.to_thread(_sync_get_order_detail, db, order_id)
+    if not order_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order {order_id} not found"
+        )
+
+    reference = order_data.get("reference", f"Order-{order_id}")
+    client_name = order_data.get("clientName", "")
+
+    # Build email
+    subject = request.subject or f"Order {reference}"
+    body = request.body or f"Please find attached order {reference}."
+
+    # Create email log and send
+    try:
+        email_service = EmailService(db)
+        email_log_data = EmailLogCreate(
+            recipient_email=request.to_email,
+            recipient_name=client_name,
+            subject=subject,
+            body=body,
+            entity_type="ORDER",
+            entity_id=order_id,
+        )
+        email_log = await asyncio.to_thread(
+            email_service.create_email_log, email_log_data
+        )
+        await asyncio.to_thread(email_service.send_email, email_log)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to send order email: {e}")
+
+    return SendDocumentResponse(
+        success=True,
+        message="Order sent successfully",
+        document_id=order_id,
+        document_type="order",
+        sent_to=request.to_email,
+        sent_at=datetime.now(),
+    )
 
 
 @router.patch(

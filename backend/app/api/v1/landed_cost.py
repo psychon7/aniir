@@ -10,7 +10,7 @@ Provides REST API for:
 """
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services.landed_cost_service import (
@@ -41,7 +41,7 @@ from app.schemas.landed_cost import (
 router = APIRouter(prefix="/landed-cost", tags=["Landed Cost"])
 
 
-def get_landed_cost_service(db: AsyncSession = Depends(get_db)) -> LandedCostService:
+def get_landed_cost_service(db: Session = Depends(get_db)) -> LandedCostService:
     """Dependency to get LandedCostService instance."""
     return LandedCostService(db)
 
@@ -60,11 +60,10 @@ def get_landed_cost_service(db: AsyncSession = Depends(get_db)) -> LandedCostSer
 async def create_supply_lot(
     data: SupplyLotCreate,
     service: LandedCostService = Depends(get_landed_cost_service),
-    # current_user_id: int = Depends(get_current_user_id)  # TODO: Add auth dependency
 ):
     """Create a new supply lot."""
     try:
-        return await service.create_supply_lot(data, created_by=None)  # TODO: Pass current_user_id
+        return await service.create_supply_lot(data, created_by=None)
     except LandedCostServiceError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -241,10 +240,9 @@ async def add_freight_cost(
     service: LandedCostService = Depends(get_landed_cost_service)
 ):
     """Add a freight cost to a supply lot."""
-    # Ensure lot_id in path matches data
     data.frc_lot_id = lot_id
     try:
-        return await service.add_freight_cost(data, created_by=None)  # TODO: Pass current_user_id
+        return await service.add_freight_cost(data, created_by=None)
     except LotNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except LandedCostServiceError as e:
@@ -315,7 +313,7 @@ async def calculate_landed_cost(
             lot_id=lot_id,
             strategy=data.strategy,
             recalculate=data.recalculate,
-            calculated_by=None  # TODO: Pass current_user_id
+            calculated_by=None
         )
     except LotNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

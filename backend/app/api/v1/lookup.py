@@ -25,8 +25,7 @@ from app.services.lookup_service import (
 from app.models.country import Country
 from app.models.language import Language
 from app.models.society import Society
-# BusinessUnit table doesn't exist in DB
-# from app.models.business_unit import BusinessUnit
+from app.models.business_unit import BusinessUnit
 
 router = APIRouter(prefix="/lookup", tags=["Lookup (Frontend Alias)"])
 
@@ -223,8 +222,7 @@ async def get_units_of_measure(
     """Get units of measure - frontend alias endpoint."""
     try:
         uoms = await service.get_units_of_measure()
-        # UOM table doesn't exist, returns empty list
-        return wrap_response([{"id": u.uom_id, "name": u.uom_name} for u in uoms] if uoms else [])
+        return wrap_response([{"id": u.uom_id, "name": u.uom_name, "code": u.uom_code} for u in uoms])
     except Exception as e:
         return wrap_response([])
 
@@ -254,8 +252,17 @@ async def get_business_units(
     db: Session = Depends(get_db)
 ):
     """Get business units - frontend alias endpoint."""
-    # BusinessUnit table doesn't exist in database
-    return wrap_response([])
+    try:
+        result = db.execute(
+            select(BusinessUnit)
+            .where(BusinessUnit.bu_is_active == True)
+            .order_by(BusinessUnit.bu_name)
+            .limit(100)
+        )
+        bus = result.scalars().all()
+        return wrap_response([{"id": bu.bu_id, "name": bu.bu_name, "code": bu.bu_code, "color": bu.bu_color} for bu in bus])
+    except Exception as e:
+        return wrap_response([])
 
 
 # ==========================================================================
@@ -373,7 +380,7 @@ async def get_all_lookups(
         societies_result = db.execute(select(Society).order_by(Society.soc_name).limit(100))
         societies = societies_result.scalars().all()
         
-        bus_result = db.execute(select(BusinessUnit).order_by(BusinessUnit.bun_name).limit(100))
+        bus_result = db.execute(select(BusinessUnit).where(BusinessUnit.bu_is_active == True).order_by(BusinessUnit.bu_name).limit(100))
         business_units = bus_result.scalars().all()
         
         return wrap_response({
@@ -384,13 +391,13 @@ async def get_all_lookups(
             "paymentTerms": [{"id": pt.pco_id, "name": pt.pco_designation} for pt in payment_terms],
             "clientTypes": [{"id": ct.cty_id, "name": ct.cty_description} for ct in client_types],
             "clientStatuses": [{"id": s.stt_id, "name": s.stt_value} for s in statuses if getattr(s, 'stt_tab_name', None) == "Client" or getattr(s, 'stt_tab_name', None) is None],
-            "businessUnits": [{"id": bu.bun_id, "name": bu.bun_name} for bu in business_units],
+            "businessUnits": [{"id": bu.bu_id, "name": bu.bu_name, "code": bu.bu_code, "color": bu.bu_color} for bu in business_units],
             "languages": [{"id": l.lng_id, "name": l.lng_name} for l in languages],
             "societies": [{"id": s.soc_id, "name": s.soc_name} for s in societies],
             "productCategories": [{"id": c.cat_id, "name": c.cat_name} for c in categories],
             "orderStatuses": [{"id": s.stt_id, "name": s.stt_value} for s in statuses if getattr(s, 'stt_tab_name', None) == "Order"],
             "invoiceStatuses": [{"id": s.stt_id, "name": s.stt_value} for s in statuses if getattr(s, 'stt_tab_name', None) == "Invoice"],
-            "unitsOfMeasure": [],  # Table doesn't exist
+            "unitsOfMeasure": [{"id": u.uom_id, "name": u.uom_name, "code": u.uom_code} for u in await service.get_units_of_measure()],
             "warehouses": [{"id": w.whs_id, "name": w.whs_name} for w in warehouses],
         })
     except Exception as e:

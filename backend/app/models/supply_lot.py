@@ -1,54 +1,56 @@
 """
 Supply Lot SQLAlchemy Models
 
-WARNING: These models are DISABLED because tables TM_SUP_SupplyLot, TM_SUP_SupplyLotLine,
-and TM_SUP_SupplyLotCost do NOT exist in the actual database. They were fictional tables
-created during development without database access.
+DEPRECATED: This module is deprecated. All supply lot and landed cost functionality
+has been consolidated into `app.models.landed_cost`. Use that module instead.
 
-If supply lot functionality is needed, actual database tables must be created first,
-or these models must be mapped to existing tables (if any).
+The canonical models are:
+  - app.models.landed_cost.SupplyLot (TM_LOT_SupplyLot)
+  - app.models.landed_cost.SupplyLotItem (TM_LOT_SupplyLotItem)
+  - app.models.landed_cost.FreightCost (TM_FRC_FreightCost)
 
-Disabled on: 2026-02-01
+Deprecated on: 2026-02-09
+See: app/models/landed_cost.py
 """
 
-# These models are DISABLED - see module docstring
-# No actual TM_SUP_SupplyLot, TM_SUP_SupplyLotLine, or TM_SUP_SupplyLotCost tables exist
+import warnings
+
+warnings.warn(
+    "app.models.supply_lot is deprecated. Use app.models.landed_cost instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
-# Placeholder classes for import compatibility (will cause runtime errors if used)
+# Placeholder classes kept for backward compatibility (will cause runtime errors if used)
 class SupplyLot:
-    """DISABLED: No database table exists. This is a placeholder to prevent import errors."""
+    """DEPRECATED: Use app.models.landed_cost.SupplyLot instead."""
     __disabled__ = True
 
     def __init__(self, *args, **kwargs):
-        raise NotImplementedError("SupplyLot model is disabled - no database table exists")
+        raise NotImplementedError(
+            "SupplyLot from supply_lot.py is deprecated. "
+            "Use app.models.landed_cost.SupplyLot instead."
+        )
 
 
 class SupplyLotLine:
-    """DISABLED: No database table exists. This is a placeholder to prevent import errors."""
+    """DEPRECATED: Use app.models.landed_cost.SupplyLotItem instead."""
     __disabled__ = True
 
     def __init__(self, *args, **kwargs):
-        raise NotImplementedError("SupplyLotLine model is disabled - no database table exists")
+        raise NotImplementedError(
+            "SupplyLotLine from supply_lot.py is deprecated. "
+            "Use app.models.landed_cost.SupplyLotItem instead."
+        )
 
 
 class SupplyLotCost:
-    """DISABLED: No database table exists. This is a placeholder to prevent import errors."""
+    """DEPRECATED: Use app.models.landed_cost.FreightCost instead."""
     __disabled__ = True
 
     def __init__(self, *args, **kwargs):
-        raise NotImplementedError("SupplyLotCost model is disabled - no database table exists")
-
-
-# Original model code removed - see git history
-# class SupplyLot(Base):
-#     __tablename__ = "TM_SUP_SupplyLot"
-#     ... (entire class definition removed for brevity)
-
-# class SupplyLotLine(Base):
-#     __tablename__ = "TM_SUP_SupplyLotLine"
-#     ... (entire class definition removed for brevity)
-
-# class SupplyLotCost(Base):
-#     __tablename__ = "TM_SUP_SupplyLotCost"
-#     ... (entire class definition removed for brevity)
+        raise NotImplementedError(
+            "SupplyLotCost from supply_lot.py is deprecated. "
+            "Use app.models.landed_cost.FreightCost instead."
+        )

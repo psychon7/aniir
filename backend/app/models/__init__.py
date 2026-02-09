@@ -30,6 +30,8 @@ from app.models.society import Society
 from app.models.activity import Activity
 from app.models.brand import Brand
 from app.models.cost_plan_status import CostPlanStatus
+from app.models.business_unit import BusinessUnit
+from app.models.unit_of_measure import UnitOfMeasure
 
 # =============================================================================
 # Core Entity Tables (TM_* tables) - Import after reference tables
@@ -88,21 +90,45 @@ from app.models.document_attachment import DocumentAttachment
 from app.models.supplier_order_payment_record import SupplierOrderPaymentRecord
 
 # =============================================================================
+# Landed Cost / Supply Lot Tables
+# =============================================================================
+from app.models.landed_cost import (
+    SupplyLot, SupplyLotItem, FreightCost, LandedCostAllocationLog,
+    LandedCostProfile, LandedCostComponent, ProductLandedCost, LandedCostHistory,
+)
+
+# =============================================================================
+# Settings/Email Tables
+# =============================================================================
+from app.models.email_log import EmailLog
+
+# =============================================================================
+# Drive Module
+# =============================================================================
+from app.models.drive import DriveFile, DriveFolder
+
+# =============================================================================
+# Chat Tables
+# =============================================================================
+from app.models.chat import (
+    ChatThread, ChatParticipant, ChatMessage, ChatMessageReadReceipt,
+    ChatRoom, ChatRoomMember, ChatRoomMessage,
+)
+
+# =============================================================================
 # DISABLED Models - Tables do NOT exist in database
 # These are placeholder classes that raise NotImplementedError if instantiated.
 # Do NOT import as SQLAlchemy models.
 # =============================================================================
-# from app.models.chat import ChatThread, ChatParticipant, ChatMessage, ...
 # from app.models.quote import Quote, QuoteLine
 # from app.models.stock import Stock
 # from app.models.stock_movement import StockMovement, StockMovementLine
 # from app.models.supply_lot import SupplyLot, SupplyLotLine, SupplyLotCost
 # from app.models.payment import Payment, PaymentAllocation
-# from app.models.email_log import EmailLog
-# from app.models.unit_of_measure import UnitOfMeasure
-# from app.models.business_unit import BusinessUnit
+# NOTE: EmailLog is now ENABLED (V1.0.0.5 migration)
+# NOTE: BusinessUnit and UnitOfMeasure are now ENABLED (V1.0.0.4 migration)
 # from app.models.document_attachment import DocumentAttachment
-# from app.models.drive import DriveFile, DriveFolder
+# NOTE: DriveFile and DriveFolder are now ENABLED (V1.0.0.7 migration)
 
 __all__ = [
     # Base
@@ -121,6 +147,8 @@ __all__ = [
     "Society",
     "Activity",
     "CostPlanStatus",
+    "BusinessUnit",
+    "UnitOfMeasure",
     # Core entities
     "User",
     "Civility",
@@ -177,4 +205,26 @@ __all__ = [
     "ProductAttribute",
     "ProductAttributeValue",
     "AttributeDataType",
+    # Settings/Email
+    "EmailLog",
+    # Drive
+    "DriveFile",
+    "DriveFolder",
+    # Chat
+    "ChatThread",
+    "ChatParticipant",
+    "ChatMessage",
+    "ChatMessageReadReceipt",
+    "ChatRoom",
+    "ChatRoomMember",
+    "ChatRoomMessage",
+    # Landed Cost / Supply Lot
+    "SupplyLot",
+    "SupplyLotItem",
+    "FreightCost",
+    "LandedCostAllocationLog",
+    "LandedCostProfile",
+    "LandedCostComponent",
+    "ProductLandedCost",
+    "LandedCostHistory",
 ]

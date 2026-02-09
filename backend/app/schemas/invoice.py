@@ -303,16 +303,21 @@ class InvoiceDetailResponse(BaseModel):
 class SendInvoiceRequest(BaseModel):
     """Request to send invoice via email"""
     recipient_email: Optional[str] = None
+    email_to: Optional[str] = Field(None, alias="emailTo")
     cc_emails: Optional[List[str]] = None
     message: Optional[str] = None
     attach_pdf: bool = True
+
+    model_config = {"populate_by_name": True}
 
 
 class SendInvoiceResponse(BaseModel):
     """Response for send invoice"""
     success: bool = True
+    invoice_id: Optional[int] = None
     message: str = "Invoice sent successfully"
     sent_to: Optional[str] = None
+    sent_at: Optional[datetime] = None
 
 
 class VoidInvoiceRequest(BaseModel):
@@ -387,3 +392,19 @@ class InvoiceErrorResponse(BaseModel):
     message: str
     code: Optional[str] = None
     details: Optional[dict] = None
+
+
+# =============================================================================
+# Credit Note Schemas
+# =============================================================================
+
+class CreditNoteResponse(BaseModel):
+    """Response for credit note creation"""
+    success: bool = True
+    message: str = "Credit note created successfully"
+    credit_note_id: int
+    credit_note_reference: str
+    original_invoice_id: int
+    original_invoice_reference: str
+    created_at: Optional[datetime] = None
+    lines_count: int = 0

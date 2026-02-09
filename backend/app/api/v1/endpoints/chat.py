@@ -1,11 +1,15 @@
 """
 Chat API endpoints for real-time messaging functionality.
+
+Supports both:
+  - Room-based chat (ChatRoom, ChatRoomMember, ChatRoomMessage)
+  - Thread-based read receipts (ChatThread, ChatParticipant, ChatMessage)
 """
 from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -13,11 +17,12 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.models.chat import (
     ChatMessage,
+    ChatRoomMessage,
     ChatRoom,
     ChatRoomMember,
     ChatThread,
     ChatParticipant,
-    ChatMessageReadReceipt
+    ChatMessageReadReceipt,
 )
 from app.schemas.chat import (
     ChatMessageCreate,
@@ -33,7 +38,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 # ============================================================================
-# Chat Messages Endpoints
+# Chat Messages Endpoints (Room-based)
 # ============================================================================
 
 @router.get("/messages", response_model=PaginatedChatMessages)
@@ -49,45 +54,47 @@ async def list_messages(
     Users can only see messages from rooms they are members of.
     """
     # Base query - only non-deleted messages
-    query = db.query(ChatMessage).filter(ChatMessage.is_deleted == False)
-    
+    query = db.query(ChatRoomMessage).filter(
+        ChatRoomMessage.cmsg_is_deleted == False
+    )
+
     # Filter by room if specified
     if room_id:
         # Verify user is a member of the room
         membership = db.query(ChatRoomMember).filter(
             and_(
-                ChatRoomMember.room_id == room_id,
-                ChatRoomMember.user_id == current_user.id,
-                ChatRoomMember.is_active == True
+                ChatRoomMember.mbr_room_id == room_id,
+                ChatRoomMember.mbr_usr_id == current_user.id,
+                ChatRoomMember.mbr_is_active == True
             )
         ).first()
-        
+
         if not membership:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not a member of this chat room"
             )
-        
-        query = query.filter(ChatMessage.room_id == room_id)
+
+        query = query.filter(ChatRoomMessage.cmsg_room_id == room_id)
     else:
         # Get all rooms user is a member of
-        user_room_ids = db.query(ChatRoomMember.room_id).filter(
+        user_room_ids = db.query(ChatRoomMember.mbr_room_id).filter(
             and_(
-                ChatRoomMember.user_id == current_user.id,
-                ChatRoomMember.is_active == True
+                ChatRoomMember.mbr_usr_id == current_user.id,
+                ChatRoomMember.mbr_is_active == True
             )
         ).subquery()
-        
-        query = query.filter(ChatMessage.room_id.in_(user_room_ids))
-    
+
+        query = query.filter(ChatRoomMessage.cmsg_room_id.in_(user_room_ids))
+
     # Get total count
     total_count = query.count()
-    
+
     # Apply pagination (newest first)
-    messages = query.order_by(ChatMessage.created_at.desc()).offset(
+    messages = query.order_by(ChatRoomMessage.cmsg_d_creation.desc()).offset(
         (page - 1) * page_size
     ).limit(page_size).all()
-    
+
     return PaginatedChatMessages(
         items=messages,
         total_count=total_count,
@@ -106,38 +113,42 @@ async def get_message(
     """
     Get a specific chat message by ID.
     """
-    message = db.query(ChatMessage).filter(
+    message = db.query(ChatRoomMessage).filter(
         and_(
-            ChatMessage.id == message_id,
-            ChatMessage.is_deleted == False
+            ChatRoomMessage.cmsg_id == message_id,
+            ChatRoomMessage.cmsg_is_deleted == False
         )
     ).first()
-    
+
     if not message:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Message not found"
         )
-    
+
     # Verify user is a member of the room
     membership = db.query(ChatRoomMember).filter(
         and_(
-            ChatRoomMember.room_id == message.room_id,
-            ChatRoomMember.user_id == current_user.id,
-            ChatRoomMember.is_active == True
+            ChatRoomMember.mbr_room_id == message.cmsg_room_id,
+            ChatRoomMember.mbr_usr_id == current_user.id,
+            ChatRoomMember.mbr_is_active == True
         )
     ).first()
-    
+
     if not membership:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to view this message"
         )
-    
+
     return message
 
 
-@router.post("/messages", response_model=ChatMessageResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/messages",
+    response_model=ChatMessageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_message(
     message_data: ChatMessageCreate,
     db: Session = Depends(get_db),
@@ -149,32 +160,32 @@ async def create_message(
     # Verify user is a member of the room
     membership = db.query(ChatRoomMember).filter(
         and_(
-            ChatRoomMember.room_id == message_data.room_id,
-            ChatRoomMember.user_id == current_user.id,
-            ChatRoomMember.is_active == True
+            ChatRoomMember.mbr_room_id == message_data.room_id,
+            ChatRoomMember.mbr_usr_id == current_user.id,
+            ChatRoomMember.mbr_is_active == True
         )
     ).first()
-    
+
     if not membership:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this chat room"
         )
-    
+
     # Create the message
-    message = ChatMessage(
-        room_id=message_data.room_id,
-        sender_id=current_user.id,
-        content=message_data.content,
-        message_type=message_data.message_type or "text",
-        created_at=datetime.utcnow(),
-        is_deleted=False
+    message = ChatRoomMessage(
+        cmsg_room_id=message_data.room_id,
+        cmsg_usr_id=current_user.id,
+        cmsg_content=message_data.content,
+        cmsg_type=message_data.message_type or "text",
+        cmsg_d_creation=datetime.utcnow(),
+        cmsg_is_deleted=False
     )
-    
+
     db.add(message)
     db.commit()
     db.refresh(message)
-    
+
     return message
 
 
@@ -188,36 +199,36 @@ async def update_message(
     """
     Update a chat message. Only the sender can update their own messages.
     """
-    message = db.query(ChatMessage).filter(
+    message = db.query(ChatRoomMessage).filter(
         and_(
-            ChatMessage.id == message_id,
-            ChatMessage.is_deleted == False
+            ChatRoomMessage.cmsg_id == message_id,
+            ChatRoomMessage.cmsg_is_deleted == False
         )
     ).first()
-    
+
     if not message:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Message not found"
         )
-    
+
     # Only the sender can update their message
-    if message.sender_id != current_user.id:
+    if message.cmsg_usr_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only update your own messages"
         )
-    
+
     # Update the message
     if message_data.content is not None:
-        message.content = message_data.content
-    
-    message.updated_at = datetime.utcnow()
-    message.is_edited = True
-    
+        message.cmsg_content = message_data.content
+
+    message.cmsg_d_update = datetime.utcnow()
+    message.cmsg_is_edited = True
+
     db.commit()
     db.refresh(message)
-    
+
     return message
 
 
@@ -229,67 +240,67 @@ async def delete_message(
 ):
     """
     Delete a chat message (soft delete).
-    
+
     Only the message sender can delete their own messages.
     Room admins/owners may also delete messages in their rooms.
-    
+
     Args:
         message_id: The ID of the message to delete
         db: Database session
         current_user: The authenticated user making the request
-    
+
     Returns:
         204 No Content on success
-    
+
     Raises:
         404: Message not found
         403: User not authorized to delete this message
     """
     # Find the message
-    message = db.query(ChatMessage).filter(
+    message = db.query(ChatRoomMessage).filter(
         and_(
-            ChatMessage.id == message_id,
-            ChatMessage.is_deleted == False
+            ChatRoomMessage.cmsg_id == message_id,
+            ChatRoomMessage.cmsg_is_deleted == False
         )
     ).first()
-    
+
     if not message:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Message not found"
         )
-    
+
     # Check authorization: sender can always delete their own messages
-    is_sender = message.sender_id == current_user.id
-    
+    is_sender = message.cmsg_usr_id == current_user.id
+
     # Check if user is a room admin/owner
     is_room_admin = False
     if not is_sender:
         membership = db.query(ChatRoomMember).filter(
             and_(
-                ChatRoomMember.room_id == message.room_id,
-                ChatRoomMember.user_id == current_user.id,
-                ChatRoomMember.is_active == True
+                ChatRoomMember.mbr_room_id == message.cmsg_room_id,
+                ChatRoomMember.mbr_usr_id == current_user.id,
+                ChatRoomMember.mbr_is_active == True
             )
         ).first()
-        
-        if membership and membership.role in ("admin", "owner"):
+
+        if membership and membership.mbr_role in ("admin", "owner"):
             is_room_admin = True
-    
+
     # Authorize the deletion
     if not is_sender and not is_room_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to delete this message"
         )
-    
+
     # Soft delete the message
-    message.is_deleted = True
-    message.deleted_at = datetime.utcnow()
-    message.deleted_by_id = current_user.id
-    
+    message.cmsg_is_deleted = True
+    message.cmsg_deleted_at = datetime.utcnow()
+    message.cmsg_deleted_by_id = current_user.id
+
     db.commit()
-    
+
     return None
 
 
@@ -309,12 +320,12 @@ async def list_rooms(
     rooms = db.query(ChatRoom).join(
         ChatRoomMember,
         and_(
-            ChatRoom.id == ChatRoomMember.room_id,
-            ChatRoomMember.user_id == current_user.id,
-            ChatRoomMember.is_active == True
+            ChatRoom.room_id == ChatRoomMember.mbr_room_id,
+            ChatRoomMember.mbr_usr_id == current_user.id,
+            ChatRoomMember.mbr_is_active == True
         )
-    ).filter(ChatRoom.is_active == True).all()
-    
+    ).filter(ChatRoom.room_is_active == True).all()
+
     return rooms
 
 
@@ -330,35 +341,39 @@ async def get_room(
     # Verify membership
     membership = db.query(ChatRoomMember).filter(
         and_(
-            ChatRoomMember.room_id == room_id,
-            ChatRoomMember.user_id == current_user.id,
-            ChatRoomMember.is_active == True
+            ChatRoomMember.mbr_room_id == room_id,
+            ChatRoomMember.mbr_usr_id == current_user.id,
+            ChatRoomMember.mbr_is_active == True
         )
     ).first()
-    
+
     if not membership:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this chat room"
         )
-    
+
     room = db.query(ChatRoom).filter(
         and_(
-            ChatRoom.id == room_id,
-            ChatRoom.is_active == True
+            ChatRoom.room_id == room_id,
+            ChatRoom.room_is_active == True
         )
     ).first()
-    
+
     if not room:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Chat room not found"
         )
-    
+
     return room
 
 
-@router.post("/rooms", response_model=ChatRoomResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/rooms",
+    response_model=ChatRoomResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_room(
     room_data: ChatRoomCreate,
     db: Session = Depends(get_db),
@@ -368,40 +383,40 @@ async def create_room(
     Create a new chat room.
     """
     room = ChatRoom(
-        name=room_data.name,
-        description=room_data.description,
+        room_name=room_data.name,
+        room_description=room_data.description,
         room_type=room_data.room_type or "group",
-        created_by_id=current_user.id,
-        created_at=datetime.utcnow(),
-        is_active=True
+        usr_creator_id=current_user.id,
+        room_d_creation=datetime.utcnow(),
+        room_is_active=True
     )
-    
+
     db.add(room)
     db.flush()  # Get the room ID
-    
+
     # Add creator as owner
     owner_membership = ChatRoomMember(
-        room_id=room.id,
-        user_id=current_user.id,
-        role="owner",
-        joined_at=datetime.utcnow(),
-        is_active=True
+        mbr_room_id=room.room_id,
+        mbr_usr_id=current_user.id,
+        mbr_role="owner",
+        mbr_joined_at=datetime.utcnow(),
+        mbr_is_active=True
     )
     db.add(owner_membership)
-    
+
     # Add other members if specified
     if room_data.member_ids:
         for member_id in room_data.member_ids:
             if member_id != current_user.id:
                 member = ChatRoomMember(
-                    room_id=room.id,
-                    user_id=member_id,
-                    role="member",
-                    joined_at=datetime.utcnow(),
-                    is_active=True
+                    mbr_room_id=room.room_id,
+                    mbr_usr_id=member_id,
+                    mbr_role="member",
+                    mbr_joined_at=datetime.utcnow(),
+                    mbr_is_active=True
                 )
                 db.add(member)
-    
+
     db.commit()
     db.refresh(room)
 
@@ -412,7 +427,10 @@ async def create_room(
 # Read Receipts Endpoints (for Thread-based chat)
 # ============================================================================
 
-@router.post("/threads/{thread_id}/messages/{message_id}/read", status_code=status.HTTP_200_OK)
+@router.post(
+    "/threads/{thread_id}/messages/{message_id}/read",
+    status_code=status.HTTP_200_OK,
+)
 async def mark_message_read(
     thread_id: int,
     message_id: int,
@@ -471,7 +489,9 @@ async def mark_message_read(
     existing_receipts = db.query(ChatMessageReadReceipt.rcpt_msg_id).filter(
         and_(
             ChatMessageReadReceipt.rcpt_usr_id == current_user.id,
-            ChatMessageReadReceipt.rcpt_msg_id.in_([m.msg_id for m in messages_to_mark])
+            ChatMessageReadReceipt.rcpt_msg_id.in_(
+                [m.msg_id for m in messages_to_mark]
+            )
         )
     ).all()
     existing_msg_ids = {r[0] for r in existing_receipts}
@@ -596,11 +616,13 @@ async def get_message_read_receipts(
     # Get user info for each receipt
     read_by = []
     for receipt in receipts:
-        user = db.query(User).filter(User.id == receipt.rcpt_usr_id).first()
+        user = db.query(User).filter(
+            User.usr_id == receipt.rcpt_usr_id
+        ).first()
         if user:
             read_by.append({
                 "user_id": user.id,
-                "username": user.usr_login if hasattr(user, 'usr_login') else str(user.id),
+                "username": user.usr_login,
                 "read_at": receipt.rcpt_read_at.isoformat()
             })
 

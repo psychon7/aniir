@@ -1,45 +1,51 @@
-# Execution Plan – Legacy Parity Gaps
-Generated: 2026-02-04
+# Execution Plan – Legacy Parity Gaps (Revalidated)
+Generated: 2026-02-09
 
-This plan lists missing tasks required to reach functional parity with the legacy ERP. Tasks are grouped by priority and reference concrete evidence in the codebase.
+This plan lists missing tasks required to reach functional parity with the legacy ERP. It aligns with `TASK-DEPENDENCY-GRAPH.md` and references concrete evidence in the codebase.
 
-## P0 – Blockers (Data Model and API Correctness)
+## P0 – Blockers (Data Model + Router Correctness)
 | ID | Task | Evidence | Dependencies |
 | --- | --- | --- | --- |
-| P0-01 | Align warehouse stock/movements to legacy inventory + shipping tables (TM_INV/TI_INVR/TI_PIV/TR_PSH/TM_SHE, TM_SRV/TM_SRL). Update repository, service, and warehouse endpoints. **DONE (backend alignment)** | `backend/app/models/inventory.py`, `backend/app/repositories/warehouse_repository.py`, `backend/app/services/warehouse_service.py` | None |
-| P0-05 | Replace chat and drive modules with legacy Message/Album tables (TM_MSG, TM_ALB, TM_PHO) or disable UI/routes until mapped. | `backend/app/models/chat.py`, `backend/app/models/drive.py` | None |
-| P0-06 | Fix email logs by creating a real table or removing email log endpoints/UI. | `backend/app/models/email_log.py`, `frontend/src/routes/_authenticated/settings/email-logs.tsx` | None |
-| P0-07 | Resolve UnitOfMeasure and BusinessUnit lookups (create tables or remove from UI and schemas). | `backend/app/models/unit_of_measure.py`, `backend/app/models/business_unit.py` | None |
-| P0-09 | Re-enable accounting router only after backing models/queries exist; otherwise remove accounting UI routes. | `backend/app/api/v1/__init__.py`, `frontend/src/routes/_authenticated/accounting/*` | P0-07 |
+| P0-01 | Align accounting allocation data model (legacy TM_CPY/TR_SPR vs TM_PAY) and refactor `AccountingService`. | `backend/app/services/accounting_service.py`, `backend/app/api/v1/accounting.py` | None |
+| P0-02 | Implement missing accounting endpoints and mount `/accounting` router. | `backend/app/api/v1/__init__.py`, `frontend/src/api/accounting.ts`, `frontend/src/components/features/payments/PaymentAllocationModal.tsx` | P0-01 |
+| P0-03 | Create BusinessUnit + UnitOfMeasure tables or remove lookups. | `backend/app/models/business_unit.py`, `backend/app/models/unit_of_measure.py`, `backend/app/api/v1/lookups.py` | None |
+| P0-04 | Create `TM_SET_EmailLog` or disable email log endpoints/UI. | `backend/app/models/email_log.py`, `backend/app/api/v1/endpoints/email_logs.py`, `frontend/src/routes/_authenticated/settings/email-logs.tsx` | None |
+| P0-05 | Create `TM_CHT_*` chat tables or disable chat endpoints/UI. | `backend/app/models/chat.py`, `backend/app/api/v1/endpoints/chat.py`, `frontend/src/routes/_authenticated/chat/index.tsx` | None |
+| P0-06 | Create `TM_DRV_*` drive tables or disable drive endpoints/UI. | `backend/app/models/drive.py`, `backend/app/api/v1/drive.py`, `frontend/src/routes/_authenticated/drive/index.tsx` | None |
+| P0-07 | Create Shopify integration tables and re-enable models. | `backend/app/models/integrations/shopify.py`, `backend/app/models/integrations/shopify_store.py` | None |
+| P0-08 | Create supply lot/landed cost tables or map to legacy; re-enable landed cost router. | `backend/app/models/supply_lot.py`, `backend/app/api/v1/landed_cost.py` | None |
+| P0-09 | Mount `/integrations` router and verify Shopify/X3 routes are safe. | `backend/app/api/v1/__init__.py`, `backend/app/api/v1/integrations/__init__.py` | P0-07 |
 
 ## P1 – Core Legacy Parity (User-Facing Workflows)
 | ID | Task | Evidence | Dependencies |
 | --- | --- | --- | --- |
-| P1-01 | Add Enterprise Settings page and API (legacy Admin/EnterpriseSetting). | `Legacy/ERP.Web/Views/Admin/EnterpriseSetting.aspx`, `frontend/src/routes/_authenticated/settings` | None |
-| P1-02 | Implement Consignee CRUD/search and link to logistics/deliveries. **UI + API done; linking pending.** | `Legacy/ERP.Web/Views/Consignee/SearchConsignee.aspx`, `backend/app/api/v1/consignees.py`, `frontend/src/routes/_authenticated/consignees/index.tsx` | None |
-| P1-03 | Implement Credit Note workflow (ClientInvoiceA) and link to original invoice. | `Legacy/ERP.Web/Views/ClientInvoice/ClientInvoiceA.aspx`, `backend/app/models/invoice.py` | None |
-| P1-04 | Implement Invoice Statement generation (ClientInvoiceStatment). | `Legacy/ERP.Web/Views/ClientInvoice/ClientInvoiceStatment.aspx` | P0-09 |
-| P1-05 | Implement Supplier Order Payment Record workflow (SupplierOrderPR) with upload/download. | `Legacy/ERP.Web/Views/PaymentRecord/SupplierOrderPR.aspx` | None |
-| P1-06 | Implement SOD/CIN cross-payment allocation screen and API (SodCinPayment). | `Legacy/ERP.Web/Views/SupplierOrder/SodCinPayment.aspx` | P1-05 |
-| P1-07 | Implement SupplierOrderPayment and PinSodDetails flows. | `Legacy/ERP.Web/Views/SupplierOrder/SupplierOrderPayment.aspx`, `Legacy/ERP.Web/Views/SupplierOrder/PinSodDetails.aspx` | P1-05 |
-| P1-08 | Implement SupplierOrderSup and SearchSupplierOrderSup views. | `Legacy/ERP.Web/Views/SupplierOrder/SupplierOrderSup.aspx`, `Legacy/ERP.Web/Views/SupplierOrder/SearchSupplierOrderSup.aspx` | P1-05 |
-| P1-09 | Implement Purchase Intent creation UI and line editing; add conversion to Supplier Order. | `frontend/src/routes/_authenticated/purchase-intents/index.tsx` | P1-05 |
-| P1-10 | Implement Supplier Product list and search (SupplierProduct, SupplierProductSearch). | `Legacy/ERP.Web/Views/Supplier/SupplierProduct.aspx`, `Legacy/ERP.Web/Views/Supplier/SupplierProductSearch.aspx` | None |
-| P1-11 | Implement Product Attribute management UI and attribute-based search. | `Legacy/ERP.Web/Views/Product/ProductAttribute.aspx`, `Legacy/ERP.Web/Views/Product/SearchAttProduct.aspx` | None |
-| P1-12 | Implement Product Express, Recommended Product, and Site Project if still required. | `Legacy/ERP.Web/Views/Product/ProductExpress.aspx`, `Legacy/ERP.Web/Views/Product/RecommandedProduct.aspx`, `Legacy/ERP.Web/Views/Product/SiteProject.aspx` | None |
-| P1-16 | Wire Order → Delivery and Order → Invoice actions (invoice wired; delivery create now loads orders/carriers/lines but save is still stubbed). | `frontend/src/routes/_authenticated/orders/$orderId.tsx`, `frontend/src/routes/_authenticated/deliveries/new.tsx` | None |
-| P1-17 | Wire Delivery PDF and status actions. | `frontend/src/routes/_authenticated/deliveries/$deliveryId.tsx` | P0-01 |
-| P1-18 | Wire Invoice PDF/email/payment actions; ensure PDF generation returns real files. | `frontend/src/routes/_authenticated/invoices/$invoiceId.tsx`, `backend/app/api/v1/invoices.py` | P0-02 |
-| P1-19 | Wire Quote PDF/email actions and implement actual PDF generation. | `frontend/src/routes/_authenticated/quotes/$quoteId.tsx`, `backend/app/api/v1/endpoints/pdf.py` | None |
-| P1-20 | Implement row-level permission filtering (commercial hierarchy) on list/search endpoints. | `Legacy/ERP.Repositories/SqlServer/ClientOrderRepository.cs`, `backend/app/api/v1/*` | None |
-| P1-21 | Implement client multi-type assignment and persistence. | `Legacy/ERP.Repositories/SqlServer/ClientRepository.cs` | None |
-| P1-22 | Implement contact address type flags (delivery/invoicing) in forms and APIs. | `Legacy/ERP.Repositories/SqlServer/ClientRepository.cs` | None |
-| P1-23 | Complete Warehouse UI workflows: shelves management, product inventory views, warehouse vouchers, and voucher search. | `Legacy/ERP.Web/Views/Warehouse/*`, `frontend/src/routes/_authenticated/warehouse/*` | P0-01 |
+| P1-01 | Implement credit note workflow (ClientInvoiceA) and link to original invoice. | `backend/app/models/invoice.py`, `frontend/src/routes/_authenticated/invoices/$invoiceId.tsx` | None |
+| P1-02 | Add missing relation endpoints (by-project, by-quote) for quotes/orders/invoices or update UI to match existing APIs. | `frontend/src/api/quotes.ts`, `frontend/src/api/orders.ts`, `frontend/src/api/invoices.ts` | None |
+| P1-03 | Wire PDF/email/payment actions for quote/order/delivery/invoice screens. | `frontend/src/routes/_authenticated/quotes/$quoteId.tsx`, `frontend/src/routes/_authenticated/invoices/$invoiceId.tsx`, `backend/app/api/v1/endpoints/pdf.py` | None |
+| P1-04 | Add Purchase Intent creation route and conversion to Supplier Order. | `frontend/src/routes/_authenticated/purchase-intents/index.tsx`, `backend/app/services/purchase_intent_service.py` | None |
+| P1-05 | Implement supplier order payment record workflow and SOD/CIN allocation screens. | `backend/app/models/supplier_order_payment_record.py`, `Legacy/ERP.Web/Views/SupplierOrder/SodCinPayment.aspx` | None |
+| P1-06 | Implement Supplier Product list/search screens. | `Legacy/ERP.Web/Views/Supplier/SupplierProduct.aspx`, `frontend/src/routes/_authenticated/suppliers/$supplierId.tsx` | None |
+| P1-07 | Implement Product Attribute management UI and attribute-based search. | `backend/app/api/v1/product_attributes.py`, `Legacy/ERP.Web/Views/Product/ProductAttribute.aspx` | None |
+| P1-08 | Complete warehouse shelves/bin + voucher workflows. | `Legacy/ERP.Web/Views/Warehouse/*`, `frontend/src/routes/_authenticated/warehouse/*` | None |
+| P1-09 | Complete logistics send/receive/stock-in actions + consignee linking. | `backend/app/models/logistics.py`, `frontend/src/routes/_authenticated/logistics/$shipmentId.tsx` | None |
+| P1-10 | Add Enterprise Settings page and API. | `Legacy/ERP.Web/Views/Admin/EnterpriseSetting.aspx`, `frontend/src/routes/_authenticated/settings` | None |
 
-## P2 – Secondary Parity (Quality and Completeness)
+## P2 – Secondary Parity (Quality + Completeness)
 | ID | Task | Evidence | Dependencies |
 | --- | --- | --- | --- |
-| P2-01 | Add full CRUD UI for client/supplier prices and delegates. | `frontend/src/routes/_authenticated/clients/$clientId.tsx`, `frontend/src/routes/_authenticated/suppliers/$supplierId.tsx` | None |
-| P2-02 | Add missing PDF viewer/download pages equivalent to PageDownLoad/PageForPDF. | `Legacy/ERP.Web/Views/Common/PageDownLoad.aspx`, `Legacy/ERP.Web/Views/Common/PageForPDF.aspx` | P1-17, P1-18, P1-19 |
-| P2-03 | Standardize lookup routing and remove `/lookup/` alias after migration. | `backend/app/api/v1/__init__.py` | P0-07 |
-| P2-04 | Validate Calendar/Tasks parity and add missing UI behaviors from legacy calendar edit flow. | `Legacy/ERP.Web/Views/Calendar/edit.aspx`, `frontend/src/routes/_authenticated/calendar/*` | None |
+| P2-01 | Implement row-level security (commercial hierarchy filtering). | `Legacy/ERP.Repositories/SqlServer/ClientOrderRepository.cs`, `backend/app/api/v1/*` | None |
+| P2-02 | Implement client multi-type assignment and contact address flags. | `Legacy/ERP.Repositories/SqlServer/ClientRepository.cs` | None |
+| P2-03 | Add category CRUD + product image management. | `backend/app/api/v1/lookups.py`, `frontend/src/routes/_authenticated/products/*` | None |
+| P2-04 | Implement multi-business theming + business-unit links. | `backend/app/models/business_unit.py`, `frontend/src` | P0-03 |
+| P2-05 | Enable accounting statements/aging UI after router alignment. | `frontend/src/routes/_authenticated/accounting/*`, `backend/app/services/statement_service.py` | P0-01, P0-02 |
+| P2-06 | Add PDF viewer/download pages (PageDownLoad/PageForPDF). | `Legacy/ERP.Web/Views/Common/PageDownLoad.aspx` | P1-03 |
+
+## P3 – Integrations & Automation
+| ID | Task | Evidence | Dependencies |
+| --- | --- | --- | --- |
+| P3-01 | Shopify sync workflows + auto order→invoice; remove TODOs in tasks. | `backend/app/tasks/shopify_tasks.py` | P0-07, P0-09 |
+| P3-02 | X3 export payments + bulk mapping import. | `backend/app/services/x3_export_service.py`, `frontend/src/routes/_authenticated/integrations/x3/mappings.tsx` | P0-09 |
+| P3-03 | SuperPDP e-invoicing integration. | `backend/app/api/v1/integrations/*` | P0-09 |
+| P3-04 | AI catalog import + translation pipeline. | `gapanalysis.md` | None |
+| P3-05 | Technical sheet PDF generation. | `gapanalysis.md` | None |
+| P3-06 | Landed cost allocation workflow. | `backend/app/api/v1/landed_cost.py`, `frontend/src/routes/_authenticated/supply-lots/*` | P0-08 |

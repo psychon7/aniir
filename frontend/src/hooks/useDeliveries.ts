@@ -142,6 +142,51 @@ export function useDeliverDelivery() {
   })
 }
 
+// ==================== PDF & Send Hooks ====================
+
+/**
+ * Hook to download delivery form PDF
+ */
+export function useDownloadDeliveryPdf() {
+  return useMutation({
+    mutationFn: (id: number) => deliveriesApi.downloadPdf(id),
+    onSuccess: (blob, deliveryId) => {
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `delivery-${deliveryId}.pdf`
+      link.click()
+      URL.revokeObjectURL(link.href)
+    },
+  })
+}
+
+/**
+ * Hook to send delivery form via email
+ */
+export function useSendDelivery() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      toEmail,
+      subject,
+      body,
+      cc,
+    }: {
+      id: number
+      toEmail: string
+      subject?: string
+      body?: string
+      cc?: string
+    }) => deliveriesApi.send(id, toEmail, subject, body, cc),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: deliveryKeys.detail(id) })
+      queryClient.invalidateQueries({ queryKey: deliveryKeys.lists() })
+    },
+  })
+}
+
 // ==================== Delivery Lines Mutations ====================
 
 /**

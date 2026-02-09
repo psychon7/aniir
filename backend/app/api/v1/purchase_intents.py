@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.api.deps import get_current_user, MockUser
 from app.services.purchase_intent_service import (
     PurchaseIntentService,
     get_purchase_intent_service,
@@ -19,13 +20,15 @@ from app.services.purchase_intent_service import (
     PurchaseIntentNotFoundError,
     PurchaseIntentCodeNotFoundError,
     PurchaseIntentValidationError,
-    PurchaseIntentLineNotFoundError
+    PurchaseIntentLineNotFoundError,
+    PurchaseIntentClosedError,
 )
 from app.schemas.purchase_intent import (
     PurchaseIntentCreate, PurchaseIntentUpdate, PurchaseIntentResponse,
     PurchaseIntentListResponse, PurchaseIntentListPaginatedResponse,
     PurchaseIntentWithLinesResponse, PurchaseIntentSearchParams,
-    PurchaseIntentLineCreate, PurchaseIntentLineUpdate, PurchaseIntentLineResponse
+    PurchaseIntentLineCreate, PurchaseIntentLineUpdate, PurchaseIntentLineResponse,
+    ConvertToSupplierOrderRequest, ConvertToSupplierOrderResponse,
 )
 
 router = APIRouter(prefix="/purchase-intents", tags=["Purchase Intents"])
@@ -43,6 +46,8 @@ def handle_purchase_intent_error(error: PurchaseIntentServiceError) -> HTTPExcep
         status_code = status.HTTP_404_NOT_FOUND
     elif isinstance(error, PurchaseIntentValidationError):
         status_code = status.HTTP_422_UNPROCESSABLE_ENTITY
+    elif isinstance(error, PurchaseIntentClosedError):
+        status_code = status.HTTP_409_CONFLICT
 
     return HTTPException(
         status_code=status_code,
@@ -288,6 +293,51 @@ async def reopen_purchase_intent(
     try:
         purchase_intent = await service.reopen_purchase_intent(purchase_intent_id)
         return purchase_intent
+    except PurchaseIntentServiceError as e:
+        raise handle_purchase_intent_error(e)
+
+
+# ==========================================================================
+# Purchase Intent Conversion Endpoints
+# ==========================================================================
+
+@router.post(
+    "/{purchase_intent_id}/convert-to-supplier-order",
+    response_model=ConvertToSupplierOrderResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Convert purchase intent to supplier order",
+    description="""
+    Convert a purchase intent into a new supplier order.
+
+    This will:
+    - Create a new supplier order linked to the purchase intent
+    - Copy all purchase intent lines to supplier order lines
+    - Mark the purchase intent as closed
+    - Generate a reference code for the new supplier order
+
+    The purchase intent must not already be closed.
+    """
+)
+async def convert_to_supplier_order(
+    purchase_intent_id: int = Path(..., gt=0, description="Purchase Intent ID"),
+    request: ConvertToSupplierOrderRequest = ...,
+    current_user: MockUser = Depends(get_current_user),
+    service: PurchaseIntentService = Depends(get_purchase_intent_service),
+):
+    """Convert a purchase intent to a supplier order."""
+    try:
+        supplier_order = await service.convert_to_supplier_order(
+            purchase_intent_id=purchase_intent_id,
+            supplier_id=request.supplier_id,
+            currency_id=request.currency_id,
+            vat_id=request.vat_id,
+            user_id=current_user.usr_id,
+        )
+        return ConvertToSupplierOrderResponse(
+            supplier_order_id=supplier_order.sod_id,
+            supplier_order_code=supplier_order.sod_code,
+            message=f"Purchase intent {purchase_intent_id} successfully converted to supplier order {supplier_order.sod_code}",
+        )
     except PurchaseIntentServiceError as e:
         raise handle_purchase_intent_error(e)
 

@@ -1,61 +1,62 @@
 # Migration Gap Analysis – Round 2 (Legacy ERP vs React/FastAPI)
-Generated: 2026-02-04
+Generated: 2026-02-09
 Scope: Legacy codebase under `Legacy/` and current implementation under `backend/` and `frontend/`.
 
 ## Executive Summary
-- The Round 1 report (`Refactor/migration/migration-gap-analysis.md`) states full parity, but the codebase does not support that claim.
-- Multiple legacy modules are missing or partial, and several enabled APIs depend on disabled models that do not map to real DB tables.
-- The task graph (`TASK-DEPENDENCY-GRAPH.md`) still shows 54 pending and 14 backlog items, with P3 only 28% complete, which contradicts “full parity.”
+- Round 1 parity claim is not supported by current code; P3 integrations remain ~28% complete (see `TASK-DEPENDENCY-GRAPH.md`).
+- Recent commits fixed list/detail endpoints (camelCase + totals), enabled attachments, and corrected supplier order/invoice endpoints.
+- Major gaps persist in integrations, accounting router, and disabled data models (chat/drive/email logs/shopify/supply lots).
 
 ## Key Contradictions to Round 1 Report
-- Warehouse was marked complete, but the APIs depended on disabled stock models. The backend is now aligned to legacy inventory/shipping tables; remaining gaps are UI workflows (shelves, vouchers) and stock movement semantics.
-- Payments now use legacy tables (TM_CPY/ TR_SPR) but allocation workflows and accounting routes remain missing.
-- Chat/Drive are marked complete, but their models are disabled and do not map to legacy tables (`backend/app/models/chat.py`, `backend/app/models/drive.py`).
-- Attachments and email logs are presented in the UI, but their routers are not mounted or depend on disabled tables (`backend/app/api/v1/__init__.py`, `backend/app/models/email_log.py`).
+- `/accounting` and `/integrations` routers are commented out while UI relies on `/accounting/*` and `/integrations/*`.
+- Chat/Drive/EmailLog models are disabled; routers are mounted but fail at runtime.
+- Project/quote relation endpoints (`/quotes|orders|invoices` by-project/by-quote) are referenced by UI but not implemented.
+- PDF/email actions exist in UI but are not wired to PDF endpoints.
+- Shopify tasks exist but integration tables are disabled and webhooks remain TODO.
 
-## Legacy Screen Coverage (Round 2)
+## Legacy Screen Coverage (Round 2.1)
 | Module | Legacy Screens | Current Status | Evidence / Gaps |
 | --- | --- | --- | --- |
-| Client | SearchClient, Client, ClientPrice, ClientApplication | Partial | List/detail exist in `frontend/src/routes/_authenticated/clients/*`. Prices/delegates are list-only and actions are stubbed. `ClientApplication` has no route. |
-| Product | SearchProduct, Product, ProductAttribute, SearchAttProduct, ProductExpress, RecommandedProduct, SiteProject | Partial | Basic list/detail exist. No product attribute UI or attribute search. Express/recommended/site-project routes are missing. |
-| Project | SearchProject, Project, ProjectCostPlanList, ProjectClientOrderList, ProjectClientInvoiceList | Partial | Detail page now includes quotes, orders, and invoices lists using new `/quotes/by-project`, `/orders/by-project`, and `/invoices/by-project` endpoints. Verify permissions and pagination. |
-| Quote (CostPlan) | SearchCostPlan, CostPlan, CostPlanClientOrderList, CostPlanClientInvoiceList | Partial | Detail page now shows related orders and invoices. Convert action is wired; PDF/email actions are still not wired. |
-| Client Order | SearchClientOrder, ClientOrder, ClientOrderDeliveryFormList | Partial | Detail page shows deliveries and now wires Create Invoice; Delivery action navigates to new delivery screen (form still stubbed). |
-| Delivery | SearchDeliveryForm, DeliveryForm | Partial | List/detail exist; create screen now loads orders/carriers and line items; PDF and status actions are stubbed. |
-| Client Invoice | SearchClientInvoice, ClientInvoice, ClientInvoiceA, ClientInvoiceStatment | Partial | Detail page exists; PDF/email/payment actions are stubbed. Credit notes and statements are missing. |
-| Supplier | SearchSupplier, Supplier, SupplierPrice, SupplierProduct, SupplierProductSearch | Partial | Detail page lists prices only. Supplier products/search screens are missing. |
-| Supplier Orders | SearchSupplierOrder, SupplierOrder, SupplierOrderDetails, SupplierOrderStatus, SupplierOrderPayment, PinSodDetails, SodCinPayment, SupplierOrderSup, SearchSupplierOrderSup | Partial | Core CRUD exists, but payment record workflow, supplier view/search, and cross-payment screens are missing. |
-| Supplier Invoices | SearchSupplierInvoice, SupplierInvoice | Partial | CRUD exists; payment allocation and integration with supplier order payment records are missing. |
-| Purchase Intent | SearchPurchaseIntent, PurchaseIntent | Partial | List/detail exist. Create route referenced but missing (`/purchase-intents/new`). Conversion to supplier order not present. |
-| Warehouse | Warehouse, Shelves, ProductInventory, WarehouseVoucher, SearchVoucher | Partial | Backend now maps stock to TM_INV/TI_INVR/TI_PIV/TR_PSH/TM_SHE and movements to TM_SRV/TM_SRL. UI still lacks shelves/voucher flows and movement semantics are simplified. |
-| Logistics | SearchLogistics, Logistics | Partial / Aligned | API now uses TM_LGS/TM_LGL legacy logistics tables; UI still lacks consignee association, send/receive/stock-in actions, and PDF outputs. |
-| Payment Record | SupplierOrderPR | Missing | No equivalent workflow or UI in current app. |
-| Admin | EnterpriseSetting, ImportData, Users | Partial | Import and Users exist. Enterprise settings page is missing. Email logs rely on disabled model. |
-| Calendar | Calendar, edit | Partial | Task feature exists but needs verification against legacy task schema and UI parity. |
-| Message | Message | Missing | Chat models are disabled and not mapped to legacy TM_MSG_Message. |
-| Album | Album | Missing | Drive models are disabled and not mapped to legacy TM_ALB/TM_PHO. |
-| Category/Brands | Category, SearchCategory | Partial | Brands UI exists; verify mapping to legacy categories. |
-| Consignee | SearchConsignee | Partial | Consignee CRUD/search API and UI are now implemented; still needs linking to logistics/deliveries workflows if required by legacy. |
-| Common PDF | PageDownLoad, PageForPDF | Partial | PDF endpoints exist but UI does not wire download/view actions. |
+| Client | SearchClient, Client, ClientPrice, ClientApplication | Partial | List/detail exist; prices/delegates list-only; ClientApplication missing |
+| Product | SearchProduct, Product, ProductAttribute, SearchAttProduct | Partial | List/detail exist; product attributes API enabled but no UI |
+| Project | SearchProject, Project, ProjectCostPlanList, ProjectClientOrderList, ProjectClientInvoiceList | Partial | Detail exists; `/quotes|orders|invoices/by-project` missing |
+| Quote (CostPlan) | SearchCostPlan, CostPlan, CostPlanClientOrderList, CostPlanClientInvoiceList | Partial | Convert wired; `/orders|invoices/by-quote` missing; PDF/email not wired |
+| Client Order | SearchClientOrder, ClientOrder, ClientOrderDeliveryFormList | Partial | Create invoice wired; delivery creation basic; no PDF/email |
+| Delivery | SearchDeliveryForm, DeliveryForm | Partial | CRUD exists; status/PDF actions missing |
+| Client Invoice | SearchClientInvoice, ClientInvoice, ClientInvoiceA, ClientInvoiceStatement | Partial | CRUD exists; credit notes + statements missing; PDF/email not wired |
+| Supplier | SearchSupplier, Supplier, SupplierPrice, SupplierProduct | Partial | Prices list-only; supplier products/search screens missing |
+| Supplier Orders | SearchSupplierOrder, SupplierOrder, SupplierOrderDetails, SupplierOrderStatus | Partial | CRUD exists; payment allocation + supplier portal missing |
+| Supplier Invoices | SearchSupplierInvoice, SupplierInvoice | Partial | CRUD exists; allocation to supplier orders missing |
+| Purchase Intent | SearchPurchaseIntent, PurchaseIntent | Partial | List/detail exist; `/purchase-intents/new` missing; no conversion |
+| Warehouse | Warehouse, Shelves, ProductInventory, WarehouseVoucher, SearchVoucher | Partial | Stock/movements/adjustments exist; shelves/bin + voucher workflows incomplete |
+| Logistics | SearchLogistics, Logistics | Partial | CRUD exists; consignee/send/receive/stock-in actions missing; no PDF |
+| Payment Record | SupplierOrderPR | Partial | `/payments` CRUD exists; allocation UI uses `/accounting` endpoints not mounted |
+| Admin | EnterpriseSetting, ImportData, Users, EmailLogs | Partial | Import + Users exist; Enterprise settings missing; EmailLog model disabled |
+| Calendar | Calendar, edit | Partial | Task module exists; parity unverified |
+| Message / Album | Message, Album | Missing | Chat/Drive models disabled |
+| Consignee | SearchConsignee | Partial | API/UI exists; not linked into logistics/deliveries |
+| Common PDF | PageDownLoad, PageForPDF | Partial | Endpoints exist; UI not wired |
 
 ## API/UI Mismatches and Broken Paths
-- Quote endpoints `/quotes/by-project/{id}`, `/quotes/in-progress`, `/quotes/recent-in-progress` are now implemented; verify UI payload alignment and permissions.
-- Attachments API (`/attachments/*`) is now mounted; requires `TM_DOC_DocumentAttachment` migration before use.
-- Accounting routes exist in UI (`frontend/src/routes/_authenticated/accounting/*`), but `accounting` router is commented out in `backend/app/api/v1/__init__.py`.
-- `/purchase-intents/new` is referenced in `frontend/src/routes/_authenticated/purchase-intents/index.tsx` but no route file exists.
+- `/quotes/by-project/{id}`, `/orders/by-project/{id}`, `/invoices/by-project/{id}` referenced by UI but not implemented.
+- `/orders/by-quote/{id}` and `/invoices/by-quote/{id}` referenced by quote detail UI but not implemented.
+- `/accounting/*` routes not mounted (allocations, statements, aging) while UI depends on them.
+- `/integrations/*` routes not mounted; Shopify/X3 UI uses mocks.
+- PDF/email actions exist in UI but no API wiring.
 
 ## Data Model Gaps (Enabled Routes Using Disabled Models)
-- Warehouse stock and movements now map to legacy inventory/shipping tables; remaining gaps are UI workflows (shelves/vouchers) and richer movement semantics.
-- Chat and Drive APIs depend on disabled models (`backend/app/models/chat.py`, `backend/app/models/drive.py`).
-- Email logs depend on disabled `EmailLog` (`backend/app/models/email_log.py`).
-- Unit of Measure and Business Unit are disabled (`backend/app/models/unit_of_measure.py`, `backend/app/models/business_unit.py`).
+- Chat models (`TM_CHT_*`), Drive models (`TM_DRV_*`), EmailLog (`TM_SET_EmailLog`).
+- Shopify integration tables (`TR_SHP_*`, `TM_SHP_*`, `TM_INT_ShopifyStore`).
+- Supply lot models (`TM_SUP_SupplyLot*`).
+- Business unit (`TR_BU_BusinessUnit`) and unit of measure.
 
 ## Business Logic Gaps
-- Reference code generation exists but is not consistently applied across entities.
-- Cascade delete validation exists in `backend/app/utils/cascade_validator.py` but is not used by delete endpoints.
-- Row-level permission filtering (commercial hierarchy) is not implemented on list/search endpoints.
-- Client multi-type assignment and contact address type flags from legacy are not reflected in UI or service logic.
-- Supplier order payment record workflow and SOD/CIN cross allocation are not implemented.
+- Reference generator exists but not consistently applied.
+- Cascade delete validator exists but not used by delete endpoints.
+- Row-level permission filtering not implemented.
+- Purchase intent → supplier order conversion missing.
+- Supplier order payment allocation (SOD/CIN) missing.
+- Landed cost allocation workflow missing.
 
 ## Conclusion
-Current implementation is not at legacy feature parity. Core CRUD exists for many entities, but multiple legacy workflows are missing, several modules are blocked by disabled models, and several UI paths call missing backend endpoints. Parity requires a focused execution plan (see `executionplan.md`).
+Current implementation is not at legacy feature parity. Core CRUD and most P1/P2 flows exist, but integrations and automation remain blocked by missing tables, unmounted routers, and unimplemented relation endpoints.

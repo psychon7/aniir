@@ -1041,7 +1041,28 @@
     "invoiceSettings": "Invoice Settings",
     "emailTemplates": "Email Templates",
     "saveChanges": "Save Changes",
-    "changesSaved": "Changes saved successfully"
+    "changesSaved": "Changes saved successfully",
+    "enterprise": {
+      "title": "Enterprise Settings",
+      "description": "Manage your company information",
+      "shortLabel": "Short Label",
+      "capital": "Share Capital",
+      "address1": "Address Line 1",
+      "address2": "Address Line 2",
+      "postcode": "Postal Code",
+      "city": "City",
+      "county": "County / Region",
+      "contactInfo": "Contact Information",
+      "cellphone": "Mobile Phone",
+      "fax": "Fax",
+      "taxLegalInfo": "Tax & Legal Information",
+      "siret": "SIRET",
+      "rcs": "RCS",
+      "vatIntra": "Intra-community VAT",
+      "quickInfo": "Quick Info",
+      "notFound": "No enterprise configured",
+      "updateError": "Failed to update settings"
+    }
   },
   "drive": {
     "title": "Drive",

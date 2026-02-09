@@ -1,5 +1,5 @@
 # ERP2025 Gap Analysis Report
-**Date:** 2025-02-02  
+**Date:** 2026-02-09  
 **Scope:** Functional Requirements vs Current Implementation  
 **Focus:** Business Logic, Features & Capabilities (Stack-Agnostic)
 
@@ -7,12 +7,12 @@
 
 ## Executive Summary
 
-Your vision describes a **comprehensive multi-business ERP platform** with advanced automation, multi-site e-commerce integration, international logistics, and role-based workflows. The current ERP2025 implementation provides a **solid foundation** (~60% coverage) but has significant gaps in automation, logistics tracking, multi-tenancy, and advanced document generation.
+Your vision describes a comprehensive multi-business ERP platform with advanced automation, multi-site e-commerce integration, international logistics, and role-based workflows. The current ERP2025 implementation provides a solid foundation (~65% coverage) with strong core flows, but there are still meaningful gaps in multi-business support, automation, and integrations.
 
-**Overall Maturity:** 🟡 **60% Complete**
-- ✅ Strong: Core CRM, invoicing, product catalog, RBAC
-- 🟡 Partial: Shopify sync, warehouse, supplier orders, file management
-- ❌ Missing: Auto technical sheets, AI catalog import, logistics tracking, multi-site theming, real-time chat, automated emails
+**Overall Maturity:** 🟡 **65% Complete**
+- ✅ Strong: Core CRM, quote → order → delivery → invoice flow, supplier orders/invoices, purchase intents, warehouse stock/movements, payment recording, attachments
+- 🟡 Partial: Logistics workflows, Shopify integration, accounting statements/allocations, product attributes, drive/chat
+- ❌ Missing: Credit notes, automated technical sheets, AI catalog import/translation, multi-business theming, landed cost, French e-invoicing
 
 ---
 
@@ -22,19 +22,21 @@ Your vision describes a **comprehensive multi-business ERP platform** with advan
 
 | Feature | Required | Current Status | Gap |
 |---------|----------|----------------|-----|
-| **Quotations (Devis)** | ✅ | ✅ `TM_CPL_Cost_Plan` + API | None |
-| **Client Orders (BC Client)** | ✅ | ✅ `TM_COD_Client_Order` + API | None |
-| **Supplier Orders (BC Fournisseur)** | ✅ | ✅ `TM_SUP_Supplier` + basic schema | ⚠️ No dedicated supplier order workflow |
-| **Delivery Notes (BL)** | ✅ | ✅ `TM_DFO_Delivery_Form` + API | None |
-| **Invoices (Factures)** | ✅ | ✅ `TM_CIN_Client_Invoice` + API | None |
-| **Credit Notes (Avoirs)** | ✅ | ❌ Not implemented | 🔴 **Missing** |
+| **Quotations (Devis)** | ✅ | ✅ `TM_CPL_Cost_Plan` + API/UI | PDF/email actions not wired |
+| **Client Orders (BC Client)** | ✅ | ✅ `TM_COD_Client_Order` + API/UI | PDF/email actions not wired |
+| **Supplier Orders (BC Fournisseur)** | ✅ | ✅ `TM_SOD_Supplier_Order` + API/UI | No purchase intent conversion; payment allocation partial |
+| **Purchase Intents** | ✅ | ✅ `TM_PIN_Purchase_Intent` + API/UI | `/purchase-intents/new` route missing |
+| **Delivery Notes (BL)** | ✅ | ✅ `TM_DFO_Delivery_Form` + API/UI | Status/PDF actions not wired |
+| **Invoices (Factures)** | ✅ | ✅ `TM_CIN_Client_Invoice` + API/UI | Payment/PDF/email actions not wired |
+| **Credit Notes (Avoirs)** | ✅ | ❌ Not implemented | 🔴 **Missing workflow/UI** |
 | **Technical Sheets in Quotes** | ✅ | ❌ No auto-generation | 🔴 **Missing** |
 
-**Verdict:** 🟡 **70% Complete**  
+**Verdict:** 🟡 **75% Complete**  
 **Critical Gaps:**
-- No credit note (avoir) model or workflow
-- No automated technical sheet generation linked to quotes
-- Supplier order workflow exists but lacks purchase intent → logistics tracking chain
+- Credit note workflow and UI
+- Automated technical sheet generation
+- Purchase intent → supplier order conversion
+- PDF/email actions not wired in UI
 
 ---
 
@@ -44,20 +46,21 @@ Your vision describes a **comprehensive multi-business ERP platform** with advan
 |---------|----------|----------------|-----|
 | **Product Types** | ✅ | ✅ `TM_PTY_Product_Type` | None |
 | **Products + Variants** | ✅ | ✅ `TM_PRD_Product` + `TM_PIT_Product_Instance` | None |
-| **Categories** | ✅ | ✅ `TM_CAT_Category` | None |
-| **Supplier Pricing** | ✅ | ✅ `TM_SUP_Supplier_Product` | None |
-| **Images** | ✅ | ✅ `TI_PIM_Product_Image` | None |
+| **Categories** | ✅ | ⚠️ Lookup only (`lookups`); no CRUD UI | 🟡 **Partial** |
+| **Supplier Pricing** | ✅ | ✅ `TM_SPP_Supplier_Product_Price` + list UI | None |
+| **Images** | ✅ | ⚠️ Attachments exist, no product image UI | 🟡 **Partial** |
+| **Product Attributes** | ✅ | ⚠️ API enabled, no UI | 🟡 **Partial** |
 | **Auto Catalog Import** | ✅ | ❌ Manual CSV only | 🔴 **Missing AI-powered import** |
 | **Auto Technical Sheets** | ✅ | ❌ Not implemented | 🔴 **Missing** |
 | **Multi-Language Catalog** | ✅ | ⚠️ i18n exists (FR/EN/ZH) but no auto-translation | 🟡 **Partial** |
-| **Product Accessories/Bundles** | ✅ | ❌ No product relationship model | 🔴 **Missing** |
+| **Product Accessories/Bundles** | ✅ | ❌ No relationship model | 🔴 **Missing** |
 
-**Verdict:** 🟡 **60% Complete**  
+**Verdict:** 🟡 **55% Complete**  
 **Critical Gaps:**
-- No AI-powered catalog import (supplier Excel → ERP format)
-- No automated technical sheet PDF generation with product images
-- No product relationship model (accessories, bundles, cross-sells)
-- No automatic translation of product descriptions
+- AI-powered catalog import and translation
+- Automated technical sheet PDF generation
+- Product relationship model (accessories/bundles)
+- Product attributes UI
 
 ---
 
@@ -65,18 +68,17 @@ Your vision describes a **comprehensive multi-business ERP platform** with advan
 
 | Feature | Required | Current Status | Gap |
 |---------|----------|----------------|-----|
-| **Business Segmentation** | LED / Domotique / Accessoires / PAC | ❌ No business unit model | 🔴 **Missing** |
-| **Multi-Site Shopify** | 1 Shopify per business | ⚠️ Single Shopify config in `.env` | 🔴 **Missing multi-tenant config** |
+| **Business Segmentation** | LED / Domotique / Accessoires / PAC | ❌ Business unit model disabled (`TR_BU_BusinessUnit`) | 🔴 **Missing** |
+| **Multi-Site Shopify** | 1 Shopify per business | ❌ Shopify integration tables disabled | 🔴 **Missing** |
 | **Color Theming per Business** | Orange/Blue/Pink/Violet | ❌ No dynamic theming | 🔴 **Missing** |
 | **Separate Warehouses** | Per business unit | ✅ `TM_WAR_Warehouse` exists | 🟡 **Model exists, no business link** |
 | **Client Business Assignment** | Client can buy from multiple businesses | ❌ No client-business junction | 🔴 **Missing** |
 
 **Verdict:** 🔴 **20% Complete**  
 **Critical Gaps:**
-- No business unit entity (`TM_BUS_Business_Unit`)
-- No multi-Shopify configuration (currently hardcoded single store)
-- No dynamic theming system based on business context
-- No client-to-business-unit relationship
+- No business unit entity or links
+- No multi-Shopify configuration
+- No dynamic theming system
 
 ---
 
@@ -84,17 +86,18 @@ Your vision describes a **comprehensive multi-business ERP platform** with advan
 
 | Feature | Required | Current Status | Gap |
 |---------|----------|----------------|-----|
-| **Product Sync** | ✅ | ✅ Celery task exists | None |
-| **Order Sync** | ✅ | ✅ Webhook handler exists | None |
-| **Inventory Sync** | ✅ | ✅ Celery task exists | None |
-| **Customer Sync** | ✅ | ✅ Celery task exists | None |
-| **Multi-Store Support** | 3-4 Shopify stores | ❌ Single store only | 🔴 **Missing** |
-| **Auto Order → Invoice** | ✅ | ⚠️ Webhook handler has `TODO` comments | 🟡 **Incomplete** |
+| **Product Sync** | ✅ | ⚠️ Tasks exist; integration tables disabled | 🟡 **Partial** |
+| **Order Sync** | ✅ | ⚠️ Webhook handlers stubbed (`TODO`) | 🟡 **Partial** |
+| **Inventory Sync** | ✅ | ⚠️ Tasks exist; integration tables disabled | 🟡 **Partial** |
+| **Customer Sync** | ✅ | ⚠️ Tasks exist; integration tables disabled | 🟡 **Partial** |
+| **Multi-Store Support** | 3-4 Shopify stores | ❌ No active multi-store tables/routers | 🔴 **Missing** |
+| **Auto Order → Invoice** | ✅ | ❌ Not implemented | 🔴 **Missing** |
 
-**Verdict:** 🟡 **70% Complete**  
+**Verdict:** 🟡 **40% Complete**  
 **Critical Gaps:**
-- Multi-store Shopify support (need `TM_SHP_Shopify_Store` table)
-- Webhook handlers have placeholder logic (see `backend/app/tasks/shopify_tasks.py:L89-L106`)
+- Shopify integration tables are disabled (`TR_SHP_*`, `TM_SHP_*`)
+- Integrations router is not mounted in `backend/app/api/v1/__init__.py`
+- Webhook handlers still contain placeholder logic
 
 ---
 
@@ -102,34 +105,25 @@ Your vision describes a **comprehensive multi-business ERP platform** with advan
 
 | Feature | Required | Current Status | Gap |
 |---------|----------|----------------|-----|
-| **Supplier Orders (China)** | ✅ | ⚠️ Basic supplier model only | 🟡 **No purchase workflow** |
-| **Shipment Tracking** | Container/Flight numbers | ❌ No shipment model | 🔴 **Missing** |
-| **Logistics Costs** | Transport invoices, weight, cost/kg | ❌ No landed cost tracking | 🔴 **Missing** |
+| **Supplier Orders (China)** | ✅ | ✅ Supplier orders + purchase intents exist | ⚠️ No conversion workflow |
+| **Shipment Tracking** | Container/Flight numbers | ⚠️ `TM_LGS_Logistic` + UI | 🟡 **No send/receive/stock-in workflow** |
+| **Logistics Costs** | Transport invoices, cost/kg | ❌ Landed cost/supply lots disabled | 🔴 **Missing** |
 | **Sourcing Office Access** | Chinese UI, update shipment status | ❌ No role-based UI localization | 🔴 **Missing** |
-| **Document Upload** | Scan transport invoices | ✅ Drive API exists (`/api/v1/drive`) | 🟡 **Generic, not logistics-specific** |
-| **Profitability Tracking** | Purchase + logistics + delivery costs | ❌ No cost aggregation model | 🔴 **Missing** |
+| **Document Upload** | Scan transport invoices | ⚠️ Attachments API exists | 🟡 **No logistics-specific flow** |
+| **Profitability Tracking** | Purchase + logistics + delivery costs | ❌ No landed cost aggregation | 🔴 **Missing** |
 
-**Verdict:** 🔴 **30% Complete**  
+**Verdict:** 🟡 **45% Complete**  
 **Critical Gaps:**
-- No `TM_SHP_Shipment` model (container/flight tracking)
-- No `TM_LGC_Logistics_Cost` model (transport invoices, customs)
-- No landed cost calculation service
-- No sourcing office role with Chinese UI
-- No profitability dashboard (purchase → sale margin analysis)
+- Landed cost/supply lot workflow
+- Shipment send/receive/stock-in actions
+- Profitability dashboard and costing
 
-**Recommended Models:**
+**Recommended Next Models/Services:**
 ```python
-# TM_SHP_Shipment
-shp_id, sup_id, shp_type (sea/air), shp_container_nb, 
-shp_flight_nb, shp_weight_kg, shp_departure_date, shp_arrival_date
-
-# TM_LGC_Logistics_Cost
-lgc_id, shp_id, lgc_type (freight/customs/insurance), 
-lgc_amount, lgc_invoice_file_id, lgc_cost_per_kg
-
-# TM_LDC_Landed_Cost (per product in shipment)
-ldc_id, shp_id, prd_id, ldc_purchase_price, ldc_logistics_cost, 
-ldc_total_landed_cost, ldc_margin_pct
+# Landed cost / allocation (enable TM_SUP_SupplyLot* or map to legacy)
+lot_id, lot_reference, lot_status, lot_created_at
+lot_line_id, lot_id, prd_id, quantity, purchase_price
+lot_cost_id, lot_id, cost_type, amount, currency_id
 ```
 
 ---
@@ -139,16 +133,15 @@ ldc_total_landed_cost, ldc_margin_pct
 | Feature | Required | Current Status | Gap |
 |---------|----------|----------------|-----|
 | **Warehouses** | ✅ | ✅ `TM_WAR_Warehouse` | None |
-| **Warehouse Zones/Aisles** | ✅ | ❌ No zone/aisle model | 🔴 **Missing** |
-| **Stock Movements** | ✅ | ✅ `TM_SRE_Shipping_Receiving` | None |
-| **Stock Adjustments** | Manual corrections | ⚠️ No dedicated adjustment API | 🟡 **Missing** |
+| **Warehouse Zones/Aisles** | ✅ | ❌ No shelf/bin endpoints/UI | 🔴 **Missing** |
+| **Stock Movements** | ✅ | ✅ `TM_SRV/TM_SRL` + UI | None |
+| **Stock Adjustments** | Manual corrections | ✅ `/warehouse/stock/adjust` | None |
 | **Multi-Warehouse Inventory** | Per business unit | ⚠️ No business-warehouse link | 🟡 **Partial** |
 
-**Verdict:** 🟡 **60% Complete**  
+**Verdict:** 🟡 **70% Complete**  
 **Critical Gaps:**
-- No warehouse zone/aisle/bin location model
-- No stock adjustment workflow (currently only shipping/receiving)
-- No business-unit-to-warehouse assignment
+- Shelf/bin location management
+- Business unit link to inventory
 
 ---
 
@@ -157,16 +150,15 @@ ldc_total_landed_cost, ldc_margin_pct
 | Feature | Required | Current Status | Gap |
 |---------|----------|----------------|-----|
 | **Admin Role** | Full access | ✅ `TR_ROL_Role` + `TR_RIT_Right` | None |
-| **Logistics Role** | Warehouse, stock, shipments | ✅ RBAC system exists | 🟡 **Need specific rights** |
-| **Sales Role** | View own quotes/orders only | ✅ RBAC system exists | 🟡 **Need row-level security** |
-| **Sourcing Office Role** | Chinese UI, shipment updates | ❌ No Chinese UI variant | 🔴 **Missing** |
-| **Accounting Role** | Payments, invoice exports | ✅ RBAC system exists | 🟡 **Need specific rights** |
+| **Logistics Role** | Warehouse, stock, shipments | ✅ RBAC system exists | 🟡 **Need granular rights** |
+| **Sales Role** | View own quotes/orders only | ✅ RBAC system exists | 🟡 **No row-level security** |
+| **Sourcing Office Role** | Chinese UI, shipment updates | ❌ No localized UI variant | 🔴 **Missing** |
+| **Accounting Role** | Payments, statements, exports | ✅ RBAC exists | 🟡 **Rights + routes incomplete** |
 
 **Verdict:** 🟡 **70% Complete**  
 **Critical Gaps:**
-- No row-level security (sales users see all quotes, not just theirs)
-- No role-based UI localization (Chinese for sourcing office)
-- Need to define granular rights for logistics/accounting roles
+- Row-level security and commercial hierarchy rules
+- Role-specific UI localization for sourcing office
 
 ---
 
@@ -174,19 +166,18 @@ ldc_total_landed_cost, ldc_margin_pct
 
 | Feature | Required | Current Status | Gap |
 |---------|----------|----------------|-----|
-| **Payment Tracking** | ✅ | ✅ `TM_CPY_Client_Payment` | None |
-| **Outstanding Invoices** | ✅ | ⚠️ No dashboard/report | 🟡 **Missing UI** |
-| **Invoice Statements** | Per client | ❌ No statement generation | 🔴 **Missing** |
-| **Sage Export** | Accounting software integration | ❌ No Sage export format | 🔴 **Missing** |
-| **French E-Invoicing** | API with `superpdp.tech` | ❌ Not implemented | 🔴 **Missing** |
+| **Payment Tracking** | ✅ | ✅ `TM_CPY` + `TR_SPR` + UI | None |
+| **Outstanding Invoices** | ✅ | ⚠️ Stats in services; no dashboard | 🟡 **Missing UI** |
+| **Invoice Statements** | Per client | ⚠️ Service + templates exist | 🟡 **Router not mounted** |
+| **Sage Export (X3)** | Accounting integration | ⚠️ Code exists | 🟡 **Integrations router disabled** |
+| **French E-Invoicing** | `superpdp.tech` | ❌ Not implemented | 🔴 **Missing** |
 | **Multi-Society Accounting** | Separate books per business | ✅ `TR_SOC_Society` exists | 🟡 **No accounting separation** |
 
-**Verdict:** 🟡 **50% Complete**  
+**Verdict:** 🟡 **55% Complete**  
 **Critical Gaps:**
-- No invoice statement generation (relevé de factures)
-- No Sage export service
-- No French e-invoicing API integration
-- No accounting dashboard for outstanding payments
+- `/accounting` router not mounted (statements, allocations, aging)
+- Sage/X3 export integration disabled
+- French e-invoicing integration missing
 
 ---
 
@@ -199,39 +190,13 @@ ldc_total_landed_cost, ldc_margin_pct
 | **Auto Translation** | Supplier catalogs (ZH → FR/EN) | ❌ Not implemented | 🔴 **Missing** |
 | **Daily Invoice Emails** | Auto-send invoices at 21:00 | ✅ Celery task exists | ✅ **Implemented** |
 | **Overdue Reminders** | Auto-send at 9:00 AM | ✅ Celery task exists | ✅ **Implemented** |
-| **AI Copilot** | Natural language ERP queries | ⚠️ Planned in `aiplan.md` | 🟡 **In design phase** |
+| **Email Logs** | Audit sent emails | ❌ `TM_SET_EmailLog` missing | 🔴 **Missing** |
+| **AI Copilot** | Natural language ERP queries | ⚠️ Planned in `aiplan.md` | 🟡 **In design** |
 
 **Verdict:** 🟡 **40% Complete**  
 **Critical Gaps:**
-- No automated technical sheet generation (major requirement)
-- No AI-powered catalog import (supplier files → products)
-- No automatic translation service
-
-**Recommended Implementation:**
-````python path=backend/app/services/technical_sheet_service.py mode=EDIT
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from app.models import Product, ProductInstance
-from app.services.drive_service import DriveService
-
-class TechnicalSheetService:
-    async def generate_pdf(self, product_id: int) -> str:
-        """Generate technical sheet PDF with product images and specs."""
-        product = await self.get_product_with_images(product_id)
-        
-        # Create PDF with product images from S3/MinIO
-        pdf_path = f"/tmp/tech_sheet_{product_id}.pdf"
-        c = canvas.Canvas(pdf_path, pagesize=A4)
-        
-        # Add product images, specs, color-coded by category
-        # ...
-        
-        # Upload to drive
-        drive_service = DriveService(self.db)
-        file_id = await drive_service.upload_file(pdf_path, "technical_sheets")
-        
-        return file_id
-````
+- Technical sheets, AI import/translation
+- Email log table and audit UI
 
 ---
 
@@ -239,15 +204,16 @@ class TechnicalSheetService:
 
 | Feature | Required | Current Status | Gap |
 |---------|----------|----------------|-----|
-| **Internal Chat** | Real-time WebSocket chat | ❌ Not implemented | 🔴 **Missing** |
-| **File Sharing** | Dropbox-like internal drive | ✅ Drive API exists | 🟡 **No folder permissions** |
+| **Internal Chat** | Real-time chat | ❌ Models disabled (`TM_CHT_*`) | 🔴 **Missing** |
+| **File Sharing** | Drive module | ❌ Models disabled (`TM_DRV_*`) | 🔴 **Missing** |
+| **Document Attachments** | File attachments | ✅ `TM_DOC_DocumentAttachment` + UI | None |
 | **Email Notifications** | Auto-send invoices, reminders | ✅ Celery tasks exist | None |
 | **Accounting CC Emails** | Copy accountant on invoices | ✅ Config exists (`ACCOUNTING_CC_EMAIL`) | None |
 
-**Verdict:** 🟡 **60% Complete**  
+**Verdict:** 🟡 **50% Complete**  
 **Critical Gaps:**
-- No real-time chat (WebSocket infrastructure exists but no chat service)
-- No folder-level permissions in drive
+- Chat/Drive tables not available in DB
+- Folder permissions and sharing
 
 ---
 
@@ -257,13 +223,13 @@ class TechnicalSheetService:
 |---------|----------|----------------|-----|
 | **Left Sidebar Menu** | ✅ | ✅ React app has sidebar | None |
 | **Top Menu** | ✅ | ✅ React app has top nav | None |
-| **Color Theming** | Orange/Blue/Pink/Violet per business | ❌ No dynamic theming | 🔴 **Missing** |
+| **Color Theming** | Per business unit | ❌ No dynamic theming | 🔴 **Missing** |
 | **Multi-Language** | FR/EN/ZH | ✅ i18next configured | None |
 | **Responsive Design** | ✅ | ✅ Tailwind CSS | None |
 
-**Verdict:** 🟡 **70% Complete**  
+**Verdict:** 🟡 **75% Complete**  
 **Critical Gaps:**
-- No dynamic color theming based on business unit context
+- No dynamic color theming based on business context
 
 ---
 
@@ -271,82 +237,71 @@ class TechnicalSheetService:
 
 ### 🔴 Critical Missing Features (Must Have)
 
-1. **Credit Notes (Avoirs)** - No model or workflow
-2. **Automated Technical Sheets** - Core requirement for quotes
-3. **AI Catalog Import** - Supplier Excel → Products
-4. **Multi-Shopify Support** - Need business-unit-to-store mapping
-5. **Shipment Tracking** - Container/flight logistics
-6. **Landed Cost Calculation** - Purchase + logistics profitability
-7. **French E-Invoicing API** - `superpdp.tech` integration
-8. **Product Relationships** - Accessories, bundles, cross-sells
-9. **Real-Time Chat** - Internal collaboration
-10. **Dynamic Color Theming** - Per business unit
+1. Credit notes workflow (UI + API)
+2. Automated technical sheet generation
+3. AI catalog import and translation
+4. Business unit model + multi-store Shopify integration
+5. Landed cost / supply lots (cost allocation)
+6. `/accounting` router (statements + allocations + aging)
+7. Chat/Drive database tables
+8. French e-invoicing integration
+9. Product relationships (bundles/accessories)
+10. Dynamic theming per business unit
 
 ### 🟡 Incomplete Features (Should Have)
 
-1. **Supplier Order Workflow** - Model exists, no full workflow
-2. **Warehouse Zones/Aisles** - Need location tracking
-3. **Row-Level Security** - Sales users see only their data
-4. **Invoice Statements** - Relevé de factures generation
-5. **Sage Export** - Accounting software integration
-6. **Stock Adjustment API** - Manual inventory corrections
-7. **Sourcing Office UI** - Chinese localization
-8. **Outstanding Payment Dashboard** - Accounting view
+1. Purchase intent → supplier order conversion
+2. PDF/email actions for quotes, orders, deliveries, invoices
+3. Warehouse shelf/bin management
+4. Row-level security for sales users
+5. Accounting dashboards (outstanding, aging)
+6. Logistics send/receive/stock-in actions
+7. Product attributes UI
 
 ### ✅ Well-Implemented Features
 
 1. Core CRM (clients, suppliers, contacts)
-2. Product catalog with variants
-3. Quote → Order → Delivery → Invoice flow
-4. Shopify sync (single store)
-5. RBAC system
-6. Email automation (daily invoices, reminders)
-7. Multi-language support (FR/EN/ZH)
-8. Drive/file management
+2. Quote → order → delivery → invoice flow
+3. Supplier orders/invoices + purchase intents (CRUD)
+4. Warehouse stock and movements
+5. Payment recording (client + supplier)
+6. Attachments for documents
+7. Multi-language scaffolding
 
 ---
 
 ## 11. Recommended Implementation Roadmap
 
-### Phase 1: Critical Business Logic (4-6 weeks)
-1. Add `TM_CRN_Credit_Note` model + API
-2. Implement automated technical sheet PDF generation
-3. Build AI catalog import service (OpenAI + pandas)
-4. Add `TM_BUS_Business_Unit` model + multi-Shopify config
-5. Create `TM_SHP_Shipment` + `TM_LGC_Logistics_Cost` models
+### Phase 1: Parity and Wiring (4-6 weeks)
+1. Mount `/accounting` and `/integrations` routers in `backend/app/api/v1/__init__.py`
+2. Add missing endpoints for project/quote relations (`/quotes|orders|invoices` by-project/by-quote)
+3. Wire PDF/email actions in UI (quotes, orders, deliveries, invoices)
+4. Add credit notes workflow to invoices (API + UI)
 
-### Phase 2: Advanced Features (6-8 weeks)
-6. Implement landed cost calculation service
-7. Add French e-invoicing API integration
-8. Build product relationship model (accessories/bundles)
-9. Implement real-time WebSocket chat
-10. Add dynamic color theming system
+### Phase 2: Data Model Enablement (6-8 weeks)
+5. Create/migrate missing tables: `TR_BU_BusinessUnit`, `TM_DRV_*`, `TM_CHT_*`, `TM_SET_EmailLog`
+6. Enable Shopify integration tables (`TR_SHP_*`, `TM_SHP_*`) and connect UI
+7. Add landed cost tables or map to legacy equivalents (supply lots)
 
-### Phase 3: UX & Automation (4-6 weeks)
-11. Build warehouse zone/aisle management
-12. Implement row-level security for sales users
-13. Create invoice statement generation
-14. Add Sage export service
-15. Build sourcing office Chinese UI variant
+### Phase 3: Advanced Automation (6-8 weeks)
+8. Technical sheet PDF generation
+9. AI catalog import + translation pipeline
+10. French e-invoicing integration and Sage/X3 export
 
 ---
 
 ## 12. Conclusion
 
-**Current State:** Your ERP2025 has a **solid foundation** with excellent core CRM, product catalog, and document workflow capabilities. The FastAPI + React architecture is well-structured and scalable.
+**Current State:** ERP2025 delivers reliable core operations and purchasing, but integration-heavy and automation features remain incomplete. The biggest blockers are disabled integration tables/routers, missing credit notes, and unimplemented landed cost workflows.
 
 **Key Strengths:**
-- ✅ Clean layered architecture (endpoints → services → repositories)
-- ✅ Comprehensive database schema (67 tables)
-- ✅ RBAC system ready for extension
-- ✅ Shopify integration framework exists
-- ✅ Email automation working
+- Strong core sales and purchasing flows
+- Warehouse and logistics foundations aligned to legacy tables
+- Payment recording and document attachments in place
 
 **Key Weaknesses:**
-- ❌ No multi-business/multi-site support
-- ❌ Missing critical automation (technical sheets, catalog import)
-- ❌ Incomplete logistics tracking
-- ❌ No French e-invoicing compliance
-- ❌ Limited collaboration tools
+- Multi-business/multi-site support missing
+- Integrations (Shopify/X3/accounting) not wired end-to-end
+- Automation (technical sheets, AI import, translation) absent
 
-**Estimated Completion:** With focused development, you can reach **90% feature parity** in **14-20 weeks** by following the phased roadmap above.
+**Estimated Completion:** With focused development and database alignment, reaching 85-90% parity is feasible in ~12-18 weeks.

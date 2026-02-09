@@ -8,7 +8,6 @@ from multiple reference tables into a consistent format for frontend use.
 NOTE: Uses synchronous database operations with asyncio.to_thread wrapper
 to maintain async interface while using pymssql (synchronous driver).
 
-NOTE: UnitOfMeasure table does not exist in database - returns empty list.
 """
 import asyncio
 from typing import List, Optional, Dict, Any
@@ -21,8 +20,7 @@ from app.models.currency import Currency
 from app.models.status import Status
 from app.models.category import Category
 from app.models.client_type import ClientType
-# NOTE: UnitOfMeasure model is disabled - table TR_UOM_UnitOfMeasure does not exist
-# from app.models.unit_of_measure import UnitOfMeasure
+from app.models.unit_of_measure import UnitOfMeasure
 from app.models.vat_rate import VatRate
 from app.models.payment_mode import PaymentMode
 from app.models.payment_term import PaymentTerm
@@ -331,22 +329,42 @@ class LookupService:
         )
 
     # ==========================================================================
-    # Unit of Measure Lookups - DISABLED
+    # Unit of Measure Lookups
     # ==========================================================================
+
+    def _sync_get_units_of_measure(
+        self,
+        active_only: bool = True,
+        search: Optional[str] = None,
+        limit: int = 100
+    ) -> List[UnitOfMeasure]:
+        """Synchronous implementation of get_units_of_measure."""
+        query = select(UnitOfMeasure).order_by(UnitOfMeasure.uom_name).limit(limit)
+
+        filters = []
+        if active_only:
+            filters.append(UnitOfMeasure.uom_is_active == True)
+        if search:
+            search_term = f"%{search}%"
+            filters.append(
+                (UnitOfMeasure.uom_name.ilike(search_term)) |
+                (UnitOfMeasure.uom_code.ilike(search_term))
+            )
+
+        if filters:
+            query = query.where(*filters)
+
+        result = self.db.execute(query)
+        return list(result.scalars().all())
 
     async def get_units_of_measure(
         self,
         active_only: bool = True,
         search: Optional[str] = None,
         limit: int = 100
-    ) -> List:
+    ) -> List[UnitOfMeasure]:
         """
         Get units of measure for lookup.
-
-        NOTE: Table TR_UOM_UnitOfMeasure does NOT exist in the database.
-        This method returns an empty list.
-
-        To enable: Create the database table and restore the UnitOfMeasure model.
 
         Args:
             active_only: If True, only return active UOMs.
@@ -354,10 +372,11 @@ class LookupService:
             limit: Maximum number of records to return.
 
         Returns:
-            Empty list (table does not exist).
+            List of UnitOfMeasure objects.
         """
-        # Table TR_UOM_UnitOfMeasure does not exist in database
-        return []
+        return await asyncio.to_thread(
+            self._sync_get_units_of_measure, active_only, search, limit
+        )
 
     # ==========================================================================
     # VAT Rate Lookups

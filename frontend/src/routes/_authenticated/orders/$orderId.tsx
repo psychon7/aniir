@@ -9,6 +9,7 @@ import { DocumentAttachments } from '@/components/attachments'
 import { AttachFileButton } from '@/components/attachments'
 import { useDeliveriesByOrder } from '@/hooks/useDeliveries'
 import { useCreateInvoiceFromOrder } from '@/hooks/useInvoices'
+import { useExportOrderPDF } from '@/hooks/useOrders'
 import { useToast } from '@/components/ui/feedback/Toast'
 import apiClient from '@/api/client'
 
@@ -32,6 +33,7 @@ function OrderDetailPage() {
 
   const { data: deliveries = [] } = useDeliveriesByOrder(Number(orderId))
   const createInvoiceMutation = useCreateInvoiceFromOrder()
+  const downloadPdf = useExportOrderPDF()
 
   if (isLoading) {
     return (
@@ -67,6 +69,13 @@ function OrderDetailPage() {
         entityId={parseInt(orderId, 10)}
         variant="outline"
       />
+      <button
+        className="btn-secondary"
+        disabled={downloadPdf.isPending}
+        onClick={() => downloadPdf.mutate(parseInt(orderId, 10))}
+      >
+        {downloadPdf.isPending ? 'Generating...' : 'Download PDF'}
+      </button>
       <button
         className="btn-secondary"
         onClick={() => navigate({ to: '/deliveries/new' as any, search: { orderId: Number(orderId) } })}

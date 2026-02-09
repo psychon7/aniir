@@ -272,6 +272,51 @@ export function useDeleteQuoteLine() {
   })
 }
 
+// ==================== PDF & Send Hooks ====================
+
+/**
+ * Hook to download quote PDF
+ */
+export function useDownloadQuotePdf() {
+  return useMutation({
+    mutationFn: (id: number) => quotesApi.downloadPdf(id),
+    onSuccess: (blob, quoteId) => {
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `quote-${quoteId}.pdf`
+      link.click()
+      URL.revokeObjectURL(link.href)
+    },
+  })
+}
+
+/**
+ * Hook to send quote via email
+ */
+export function useSendQuote() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      toEmail,
+      subject,
+      body,
+      cc,
+    }: {
+      id: number
+      toEmail: string
+      subject?: string
+      body?: string
+      cc?: string
+    }) => quotesApi.send(id, toEmail, subject, body, cc),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: quoteKeys.detail(id) })
+      queryClient.invalidateQueries({ queryKey: quoteKeys.lists() })
+    },
+  })
+}
+
 /**
  * Hook to duplicate a quote line
  */

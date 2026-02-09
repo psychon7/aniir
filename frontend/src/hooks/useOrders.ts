@@ -278,6 +278,33 @@ export function useExportOrders() {
 }
 
 /**
+ * Hook to send order via email
+ */
+export function useSendOrder() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      toEmail,
+      subject,
+      body,
+      cc,
+    }: {
+      id: number
+      toEmail: string
+      subject?: string
+      body?: string
+      cc?: string
+    }) => ordersApi.send(id, toEmail, subject, body, cc),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(id) })
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() })
+    },
+  })
+}
+
+/**
  * Hook to export order to PDF
  */
 export function useExportOrderPDF() {

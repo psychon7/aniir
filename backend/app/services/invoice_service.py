@@ -978,6 +978,151 @@ class InvoiceService:
         return invoice, order_reference
 
 
+    # ==========================================================================
+    # Credit Note (Avoir)
+    # ==========================================================================
+
+    def _sync_create_credit_note(self, invoice_id: int, user_id: int) -> ClientInvoice:
+        """
+        Create a credit note (avoir) from an existing invoice.
+
+        Clones the invoice with negated line amounts and links
+        back to the original via cin_avoir_id.
+
+        Args:
+            invoice_id: The ID of the original invoice.
+            user_id: The ID of the user creating the credit note.
+
+        Returns:
+            The created credit note (ClientInvoice).
+
+        Raises:
+            InvoiceNotFoundError: If the original invoice is not found.
+            InvoiceValidationError: If a credit note already exists for this invoice.
+        """
+        from sqlalchemy.orm import selectinload as _sel
+
+        # Load original invoice with lines
+        stmt = select(ClientInvoice).options(
+            _sel(ClientInvoice.lines)
+        ).where(ClientInvoice.cin_id == invoice_id)
+
+        result = self.db.execute(stmt)
+        invoice = result.scalar_one_or_none()
+
+        if not invoice:
+            raise InvoiceNotFoundError(invoice_id)
+
+        # Check if credit note already exists for this invoice
+        existing_cn = self.db.execute(
+            select(ClientInvoice).where(ClientInvoice.cin_avoir_id == invoice_id)
+        ).scalar_one_or_none()
+
+        if existing_cn:
+            raise InvoiceValidationError(
+                f"Credit note already exists for invoice {invoice_id} (CN: {existing_cn.cin_code})",
+                details={"existing_credit_note_id": existing_cn.cin_id}
+            )
+
+        # Create credit note - clone invoice with AV- prefix
+        credit_note = ClientInvoice(
+            cin_code=f"AV-{invoice.cin_code}",
+            cin_name=f"Avoir - {invoice.cin_name or ''}",
+            cli_id=invoice.cli_id,
+            cod_id=invoice.cod_id,
+            usr_creator_id=user_id,
+            cur_id=invoice.cur_id,
+            pco_id=invoice.pco_id,
+            pmo_id=invoice.pmo_id,
+            vat_id=invoice.vat_id,
+            soc_id=invoice.soc_id,
+            prj_id=invoice.prj_id,
+            dfo_id=invoice.dfo_id,
+            cin_d_creation=datetime.now(),
+            cin_d_invoice=datetime.now(),
+            cin_account=False,
+            cin_isinvoice=False,  # False = credit note
+            cin_invoiced=False,
+            cin_is_full_paid=False,
+            cin_avoir_id=invoice.cin_id,  # Link to original invoice
+            cin_header_text=invoice.cin_header_text,
+            cin_footer_text=invoice.cin_footer_text,
+            cin_client_comment=invoice.cin_client_comment,
+            cin_inter_comment=f"Credit note for invoice {invoice.cin_code}",
+            cin_discount_percentage=invoice.cin_discount_percentage,
+            cin_discount_amount=invoice.cin_discount_amount,
+            # Address snapshot
+            cin_inv_cco_firstname=invoice.cin_inv_cco_firstname,
+            cin_inv_cco_lastname=invoice.cin_inv_cco_lastname,
+            cin_inv_cco_address1=invoice.cin_inv_cco_address1,
+            cin_inv_cco_address2=invoice.cin_inv_cco_address2,
+            cin_inv_cco_postcode=invoice.cin_inv_cco_postcode,
+            cin_inv_cco_city=invoice.cin_inv_cco_city,
+            cin_inv_cco_country=invoice.cin_inv_cco_country,
+            cin_inv_cco_tel1=invoice.cin_inv_cco_tel1,
+            cin_inv_cco_fax=invoice.cin_inv_cco_fax,
+            cin_inv_cco_cellphone=invoice.cin_inv_cco_cellphone,
+            cin_inv_cco_email=invoice.cin_inv_cco_email,
+            # Commercial users
+            usr_com_1=invoice.usr_com_1,
+            usr_com_2=invoice.usr_com_2,
+            usr_com_3=invoice.usr_com_3,
+        )
+        self.db.add(credit_note)
+        self.db.flush()
+
+        # Clone lines with negated amounts
+        for line in (invoice.lines or []):
+            credit_line = ClientInvoiceLine(
+                cin_id=credit_note.cin_id,
+                prd_id=line.prd_id,
+                vat_id=line.vat_id,
+                ltp_id=line.ltp_id,
+                cii_level1=line.cii_level1,
+                cii_level2=line.cii_level2,
+                cii_description=line.cii_description,
+                cii_ref=line.cii_ref,
+                cii_prd_name=line.cii_prd_name,
+                cii_prd_des=line.cii_prd_des,
+                cii_quantity=-(line.cii_quantity or 0),  # Negate quantity
+                cii_unit_price=line.cii_unit_price,
+                cii_purchase_price=line.cii_purchase_price,
+                cii_discount_percentage=line.cii_discount_percentage,
+                cii_discount_amount=line.cii_discount_amount,
+                cii_total_price=-(line.cii_total_price or 0),  # Negate
+                cii_total_crude_price=-(line.cii_total_crude_price or 0) if line.cii_total_crude_price else None,
+                cii_price_with_discount_ht=-(line.cii_price_with_discount_ht or 0) if line.cii_price_with_discount_ht else None,
+                cii_margin=-(line.cii_margin or 0) if line.cii_margin else None,
+                cii_av_id=line.cii_id,  # Link to original line
+            )
+            self.db.add(credit_line)
+
+        # Compute rest_to_pay for credit note (negated total)
+        total = sum(
+            float(l.cii_price_with_discount_ht or l.cii_total_price or 0)
+            for l in (invoice.lines or [])
+        )
+        credit_note.cin_rest_to_pay = Decimal(str(-total))
+
+        self.db.commit()
+        self.db.refresh(credit_note)
+        return credit_note
+
+    async def create_credit_note(self, invoice_id: int, user_id: int) -> ClientInvoice:
+        """
+        Create a credit note (avoir) from an existing invoice (async wrapper).
+
+        Args:
+            invoice_id: The ID of the original invoice.
+            user_id: The ID of the user creating the credit note.
+
+        Returns:
+            The created credit note (ClientInvoice).
+        """
+        import asyncio
+        return await asyncio.to_thread(self._sync_create_credit_note, invoice_id, user_id)
+
+
 def get_invoice_service(db: Session = Depends(get_db)) -> InvoiceService:
     """Dependency to get InvoiceService instance."""
     return InvoiceService(db)

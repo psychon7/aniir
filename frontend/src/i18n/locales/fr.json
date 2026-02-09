@@ -1039,7 +1039,28 @@
     "invoiceSettings": "Paramètres de facturation",
     "emailTemplates": "Modèles d'email",
     "saveChanges": "Enregistrer les modifications",
-    "changesSaved": "Modifications enregistrées avec succès"
+    "changesSaved": "Modifications enregistrées avec succès",
+    "enterprise": {
+      "title": "Paramètres de l'entreprise",
+      "description": "Gérer les informations de votre entreprise",
+      "shortLabel": "Libellé court",
+      "capital": "Capital social",
+      "address1": "Adresse ligne 1",
+      "address2": "Adresse ligne 2",
+      "postcode": "Code postal",
+      "city": "Ville",
+      "county": "Département / Région",
+      "contactInfo": "Informations de contact",
+      "cellphone": "Téléphone mobile",
+      "fax": "Fax",
+      "taxLegalInfo": "Informations fiscales et juridiques",
+      "siret": "SIRET",
+      "rcs": "RCS",
+      "vatIntra": "TVA intracommunautaire",
+      "quickInfo": "Aperçu rapide",
+      "notFound": "Aucune entreprise configurée",
+      "updateError": "Erreur lors de la mise à jour des paramètres"
+    }
   },
   "drive": {
     "title": "Documents",

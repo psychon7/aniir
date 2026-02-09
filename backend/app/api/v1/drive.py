@@ -11,7 +11,7 @@ Provides REST API endpoints for:
 """
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services.drive_service import (
@@ -42,7 +42,7 @@ router = APIRouter(prefix="/drive", tags=["Drive"])
 # Dependency Injection
 # ==========================================================================
 
-async def get_drive_service(db: AsyncSession = Depends(get_db)) -> DriveService:
+async def get_drive_service(db: Session = Depends(get_db)) -> DriveService:
     """Get drive service instance."""
     return DriveService(db)
 

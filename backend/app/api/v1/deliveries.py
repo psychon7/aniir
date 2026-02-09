@@ -19,6 +19,7 @@ from app.database import get_db
 from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.models.client import Client
 from app.models.order import ClientOrder, ClientOrderLine
+from app.schemas.document import SendDocumentRequest, SendDocumentResponse
 from app.services.delivery_service import (
     DeliveryService,
     DeliveryServiceError,
@@ -529,6 +530,120 @@ async def delete_delivery(
         await service.delete_delivery(delivery_id)
     except DeliveryServiceError as e:
         raise handle_delivery_error(e)
+
+
+# ==========================================================================
+# Delivery PDF & Send Endpoints
+# ==========================================================================
+
+
+@router.get(
+    "/{delivery_id}/pdf",
+    summary="Download delivery PDF",
+    description="Generate and download PDF for a delivery form.",
+    responses={
+        200: {"content": {"application/pdf": {}}, "description": "PDF file"},
+        404: {"description": "Delivery not found"},
+    }
+)
+async def download_delivery_pdf(
+    delivery_id: int = Path(..., gt=0, description="Delivery form ID"),
+    db: Session = Depends(get_db)
+):
+    """Generate and return PDF for this delivery form."""
+    import io
+    from fastapi.responses import StreamingResponse
+    from app.services.pdf_service import TemplatePDFService
+
+    # Get delivery detail for context
+    delivery_data = await asyncio.to_thread(_sync_get_delivery_detail, db, delivery_id)
+    if not delivery_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Delivery {delivery_id} not found"
+        )
+
+    reference = delivery_data.get("reference", f"delivery-{delivery_id}")
+    filename = f"{reference}.pdf"
+
+    # Generate PDF using template service
+    template_pdf = TemplatePDFService()
+    pdf_content = template_pdf.generate_pdf(
+        template_name="deliveries/delivery.html",
+        context=delivery_data,
+    )
+
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_content)),
+        }
+    )
+
+
+@router.post(
+    "/{delivery_id}/send",
+    summary="Send delivery form via email",
+    description="Generate PDF and send delivery form via email to the specified recipient.",
+    responses={
+        200: {"description": "Delivery form sent successfully"},
+        404: {"description": "Delivery not found"},
+    }
+)
+async def send_delivery(
+    delivery_id: int = Path(..., gt=0, description="Delivery form ID"),
+    request: SendDocumentRequest = ...,
+    db: Session = Depends(get_db)
+):
+    """Send delivery form via email with PDF attachment."""
+    from app.services.email_service import EmailService
+    from app.schemas.email_log import EmailLogCreate
+
+    # Get delivery detail
+    delivery_data = await asyncio.to_thread(_sync_get_delivery_detail, db, delivery_id)
+    if not delivery_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Delivery {delivery_id} not found"
+        )
+
+    reference = delivery_data.get("reference", f"Delivery-{delivery_id}")
+    client_name = delivery_data.get("clientName", "")
+
+    # Build email
+    subject = request.subject or f"Delivery Note {reference}"
+    body = request.body or f"Please find attached delivery note {reference}."
+
+    # Create email log and send
+    try:
+        email_service = EmailService(db)
+        email_log_data = EmailLogCreate(
+            recipient_email=request.to_email,
+            recipient_name=client_name,
+            subject=subject,
+            body=body,
+            entity_type="DELIVERY",
+            entity_id=delivery_id,
+        )
+        email_log = await asyncio.to_thread(
+            email_service.create_email_log, email_log_data
+        )
+        await asyncio.to_thread(email_service.send_email, email_log)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to send delivery email: {e}")
+
+    return SendDocumentResponse(
+        success=True,
+        message="Delivery note sent successfully",
+        document_id=delivery_id,
+        document_type="delivery",
+        sent_to=request.to_email,
+        sent_at=datetime.now(),
+    )
 
 
 # ==========================================================================

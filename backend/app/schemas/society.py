@@ -276,3 +276,64 @@ class SocietySecondaryBankAccountUpdate(BaseModel):
     soc_rib_key_2: Optional[str] = Field(None, max_length=50)
     soc_rib_domiciliation_agency_2: Optional[str] = Field(None, max_length=200)
     soc_rib_abbre_2: Optional[str] = Field(None, max_length=50)
+
+
+# ==========================================================================
+# Settings Response Schema (camelCase for frontend)
+# ==========================================================================
+
+class SocietySettingsResponse(BaseModel):
+    """
+    Schema for enterprise settings response - camelCase output for frontend.
+    Used for GET /settings/enterprise endpoint.
+    """
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    # Core identification
+    id: int = Field(..., validation_alias="soc_id", description="Society ID")
+    companyName: str = Field(..., validation_alias="soc_society_name", description="Company name")
+    shortLabel: Optional[str] = Field(None, validation_alias="soc_short_label", description="Short label")
+    currencyId: int = Field(..., validation_alias="cur_id", description="Currency ID")
+    languageId: int = Field(..., validation_alias="lng_id", description="Language ID")
+    isActive: bool = Field(..., validation_alias="soc_is_actived", description="Is active")
+
+    # Address
+    address1: Optional[str] = Field(None, validation_alias="soc_address1", description="Address line 1")
+    address2: Optional[str] = Field(None, validation_alias="soc_address2", description="Address line 2")
+    postcode: Optional[str] = Field(None, validation_alias="soc_postcode", description="Postal code")
+    city: Optional[str] = Field(None, validation_alias="soc_city", description="City")
+    county: Optional[str] = Field(None, validation_alias="soc_county", description="County/Region")
+
+    # Contact
+    phone: Optional[str] = Field(None, validation_alias="soc_tel", description="Phone")
+    fax: Optional[str] = Field(None, validation_alias="soc_fax", description="Fax")
+    cellphone: Optional[str] = Field(None, validation_alias="soc_cellphone", description="Mobile")
+    email: Optional[str] = Field(None, validation_alias="soc_email", description="Email")
+    website: Optional[str] = Field(None, validation_alias="soc_site", description="Website")
+
+    # Legal/Tax
+    siret: Optional[str] = Field(None, validation_alias="soc_siret", description="SIRET")
+    rcs: Optional[str] = Field(None, validation_alias="soc_rcs", description="RCS")
+    vatIntra: Optional[str] = Field(None, validation_alias="soc_tva_intra", description="Intra-community VAT")
+    capital: Optional[str] = Field(None, validation_alias="soc_capital", description="Share capital")
+
+    # Flags
+    emailAuto: Optional[bool] = Field(None, validation_alias="soc_email_auto", description="Auto email")
+    maskCommission: Optional[bool] = Field(None, validation_alias="soc_mask_commission", description="Mask commission")
+
+    @computed_field
+    @property
+    def fullAddress(self) -> Optional[str]:
+        """Get formatted full address."""
+        parts = []
+        if self.address1:
+            parts.append(self.address1)
+        if self.address2:
+            parts.append(self.address2)
+        if self.postcode or self.city:
+            city_line = " ".join(filter(None, [self.postcode, self.city]))
+            if city_line:
+                parts.append(city_line)
+        if self.county:
+            parts.append(self.county)
+        return ", ".join(parts) if parts else None

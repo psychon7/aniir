@@ -200,3 +200,13 @@ try:
     __all__.extend(["UserService", "get_user_service"])
 except ImportError as e:
     logger.warning(f"Failed to import user_service: {e}")
+
+# Supplier Payment Service
+try:
+    from app.services.supplier_payment_service import (
+        SupplierPaymentService,
+        get_supplier_payment_service,
+    )
+    __all__.extend(["SupplierPaymentService", "get_supplier_payment_service"])
+except ImportError as e:
+    logger.warning(f"Failed to import supplier_payment_service: {e}")

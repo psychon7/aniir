@@ -24,9 +24,9 @@ from app.api.v1 import (
     invoices,
     deliveries,
     payments,  # ENABLED: Wave 2 Payment Recording
-    # accounting,
+    accounting,  # ENABLED: Accounting Pipeline (P0-01/P0-02)
     currencies,
-    # landed_cost,
+    landed_cost,  # ENABLED: P0-08 Landed Cost
     warehouse,  # ENABLED: Wave 1 Quick Win
     logistics,  # ENABLED: Wave 1 Quick Win
     projects,
@@ -37,6 +37,7 @@ from app.api.v1 import (
     purchase_intents,
     tasks,  # ENABLED: Wave 3 Calendar/Tasks
     product_attributes,  # ENABLED: Wave 3 Product Attributes
+    settings,  # ENABLED: Enterprise/Society Settings
 )
 
 # =============================================================================
@@ -101,10 +102,10 @@ api_router.include_router(supplier_invoices.router)
 # -----------------------------------------------------------------------------
 # Finance & Accounting
 # -----------------------------------------------------------------------------
-# api_router.include_router(accounting.router)
+api_router.include_router(accounting.router)  # ENABLED: Accounting Pipeline (P0-01/P0-02)
 api_router.include_router(payments.router)  # ENABLED: Wave 2 Payment Recording
 api_router.include_router(currencies.router)
-# api_router.include_router(landed_cost.router)
+api_router.include_router(landed_cost.router)  # ENABLED: P0-08 Landed Cost
 
 # -----------------------------------------------------------------------------
 # Operations & Warehouse
@@ -135,6 +136,7 @@ api_router.include_router(i18n.router)
 api_router.include_router(email.router)  # ENABLED: Wave 1 Quick Win
 api_router.include_router(email_logs.router)  # ENABLED: Wave 1 Quick Win
 api_router.include_router(import_data.router)  # ENABLED: Wave 4 Data Import
+api_router.include_router(settings.router)  # ENABLED: Enterprise/Society Settings
 
 # -----------------------------------------------------------------------------
 # PDF Generation

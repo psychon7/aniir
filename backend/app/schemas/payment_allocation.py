@@ -1,93 +1,60 @@
 """
 Pydantic schemas for payment allocation operations.
+
+Uses ClientInvoicePayment (TM_CPY_ClientInvoice_Payment) model.
 """
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 
-class AllocationItem(BaseModel):
-    """Single allocation item - links payment to an invoice."""
-    invoice_id: int = Field(..., description="ID of the invoice to allocate to")
-    amount: Decimal = Field(..., gt=0, description="Amount to allocate to this invoice")
-    notes: Optional[str] = Field(None, max_length=500, description="Optional notes for this allocation")
-
-    @field_validator("amount")
-    @classmethod
-    def validate_amount(cls, v: Decimal) -> Decimal:
-        if v <= 0:
-            raise ValueError("Allocation amount must be greater than zero")
-        return round(v, 2)
+class AllocatePaymentRequest(BaseModel):
+    """Request schema for allocating a payment to an invoice."""
+    invoice_id: int = Field(..., description="ID of the invoice to allocate payment to")
+    amount: float = Field(..., gt=0, description="Payment amount to allocate")
+    comment: Optional[str] = Field(None, max_length=400, description="Optional comment for the payment")
+    payment_date: Optional[datetime] = Field(None, description="Payment date (defaults to now)")
 
 
-class PaymentAllocationRequest(BaseModel):
-    """Request schema for allocating a payment to invoices."""
-    allocations: List[AllocationItem] = Field(
-        ..., 
-        min_length=1,
-        description="List of invoice allocations"
-    )
+class PaymentResponse(BaseModel):
+    """Response schema for a payment record (ClientInvoicePayment)."""
+    cpy_id: int = Field(..., description="Payment ID")
+    cin_id: int = Field(..., description="Invoice ID")
+    cpy_amount: Decimal = Field(..., description="Payment amount")
+    cpy_d_create: datetime = Field(..., description="Payment creation date")
+    cpy_comment: Optional[str] = Field(None, description="Payment comment")
+    cpy_file: Optional[str] = Field(None, description="Attached file path")
+    cpy_guid: Optional[str] = Field(None, description="External GUID reference")
 
-    @model_validator(mode="after")
-    def validate_allocations(self):
-        # Check for duplicate invoice IDs
-        invoice_ids = [a.invoice_id for a in self.allocations]
-        if len(invoice_ids) != len(set(invoice_ids)):
-            raise ValueError("Duplicate invoice IDs in allocation request")
-        return self
+    model_config = {"from_attributes": True}
 
 
-class AllocationResultItem(BaseModel):
-    """Result of a single allocation."""
+class PaymentListResponse(BaseModel):
+    """Response for listing payments for an invoice."""
+    invoice_id: int
+    payments: List[PaymentResponse]
+    total_paid: float
+    count: int
+
+
+class UnpaidInvoiceItem(BaseModel):
+    """An unpaid invoice for a client."""
     invoice_id: int
     invoice_reference: str
-    allocated_amount: Decimal
-    invoice_balance_before: Decimal
-    invoice_balance_after: Decimal
-    invoice_fully_paid: bool
+    invoice_date: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+    rest_to_pay: float
+    total_paid: float
+    is_overdue: bool
 
 
-class PaymentAllocationResponse(BaseModel):
-    """Response schema for payment allocation."""
-    payment_id: int
-    payment_reference: str
-    total_allocated: Decimal
-    remaining_unallocated: Decimal
-    payment_fully_allocated: bool
-    allocations: List[AllocationResultItem]
-    message: str
-
-    class Config:
-        from_attributes = True
-
-
-class PaymentAllocationDetail(BaseModel):
-    """Detail of an existing allocation."""
-    allocation_id: int
-    invoice_id: int
-    invoice_reference: str
-    amount: Decimal
-    allocated_at: datetime
-    allocated_by: Optional[int]
-    notes: Optional[str]
-
-    class Config:
-        from_attributes = True
-
-
-class PaymentWithAllocations(BaseModel):
-    """Payment with its allocations."""
-    payment_id: int
-    payment_reference: str
-    payment_amount: Decimal
-    total_allocated: Decimal
-    remaining_unallocated: Decimal
-    is_fully_allocated: bool
-    allocations: List[PaymentAllocationDetail]
-
-    class Config:
-        from_attributes = True
+class UnpaidInvoicesResponse(BaseModel):
+    """Response for client unpaid invoices."""
+    client_id: int
+    invoices: List[UnpaidInvoiceItem]
+    total_outstanding: float
+    count: int
 
 
 class ErrorResponse(BaseModel):

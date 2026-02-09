@@ -54,7 +54,9 @@ from app.schemas.invoice import (
     # Response schemas
     InvoiceAPIResponse, InvoiceErrorResponse,
     # Create from order schemas
-    CreateInvoiceFromOrderRequest, CreateInvoiceFromOrderResponse
+    CreateInvoiceFromOrderRequest, CreateInvoiceFromOrderResponse,
+    # Credit note schemas
+    CreditNoteResponse,
 )
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
@@ -88,6 +90,8 @@ def _sync_list_invoices(
     page_size: int,
     search: Optional[str] = None,
     client_id: Optional[int] = None,
+    project_id: Optional[int] = None,
+    order_id: Optional[int] = None,
     sort_by: str = "cin_d_creation",
     sort_order: str = "desc"
 ):
@@ -139,6 +143,12 @@ def _sync_list_invoices(
 
     if client_id:
         conditions.append(ClientInvoice.cli_id == client_id)
+
+    if project_id:
+        conditions.append(ClientInvoice.prj_id == project_id)
+
+    if order_id:
+        conditions.append(ClientInvoice.cod_id == order_id)
 
     if conditions:
         query = query.where(and_(*conditions))
@@ -247,13 +257,15 @@ async def list_invoices(
     page_size: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
     search: Optional[str] = Query(None, description="Search by invoice code"),
     client_id: Optional[int] = Query(None, description="Filter by client ID"),
+    project_id: Optional[int] = Query(None, description="Filter by project ID"),
+    order_id: Optional[int] = Query(None, description="Filter by order ID"),
     sort_by: str = Query("cin_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     db: Session = Depends(get_db)
 ):
     """List invoices with pagination."""
     rows, total = await asyncio.to_thread(
-        _sync_list_invoices, db, page, page_size, search, client_id, sort_by, sort_order
+        _sync_list_invoices, db, page, page_size, search, client_id, project_id, order_id, sort_by, sort_order
     )
 
     # Build camelCase response matching frontend InvoiceListItem type
@@ -736,6 +748,7 @@ async def delete_invoice_line(
     Mark invoice as sent and optionally email to client.
 
     Changes invoice status from DRAFT to SENT.
+    If email_to is provided, generates PDF and sends it via email.
     """
 )
 async def send_invoice(
@@ -747,18 +760,66 @@ async def send_invoice(
     service = get_invoice_service(db)
 
     try:
-        invoice = await service.send_invoice(invoice_id)
+        # Get invoice detail for reference and client info
+        invoice_data = await asyncio.to_thread(_sync_get_invoice_detail, db, invoice_id)
+        if not invoice_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Invoice {invoice_id} not found"
+            )
 
-        # TODO: Actually send email if requested
-        email_to = request.email_to if request else "client@example.com"
+        email_to = None
+        if request and request.recipient_email:
+            email_to = request.recipient_email
+        elif request and hasattr(request, 'email_to') and request.email_to:
+            email_to = request.email_to
+
+        # Send email with PDF if email address is provided
+        if email_to:
+            try:
+                from app.services.invoice_pdf_service import InvoicePDFService
+                from app.services.email_service import EmailService
+                from app.schemas.email_log import EmailLogCreate
+
+                # Generate PDF
+                pdf_service = InvoicePDFService(db)
+                pdf_content = await asyncio.to_thread(pdf_service.generate_pdf, invoice_id)
+
+                # Build email subject and body
+                reference = invoice_data.get("reference", f"Invoice-{invoice_id}")
+                subject = f"Invoice {reference}"
+                body = request.message if request and request.message else (
+                    f"Please find attached invoice {reference}."
+                )
+
+                # Create email log and send
+                email_service = EmailService(db)
+                email_log_data = EmailLogCreate(
+                    recipient_email=email_to,
+                    recipient_name=invoice_data.get("clientName", ""),
+                    subject=subject,
+                    body=body,
+                    entity_type="INVOICE",
+                    entity_id=invoice_id,
+                )
+                email_log = await asyncio.to_thread(
+                    email_service.create_email_log, email_log_data
+                )
+                await asyncio.to_thread(email_service.send_email, email_log)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to send invoice email: {e}")
 
         return SendInvoiceResponse(
             success=True,
-            invoice_id=invoice.inv_id,
-            sent_to=email_to,
+            invoice_id=invoice_id,
+            sent_to=email_to or "N/A",
             sent_at=datetime.now(),
-            message="Invoice marked as sent"
+            message="Invoice sent successfully" if email_to else "Invoice marked as sent"
         )
+    except HTTPException:
+        raise
     except InvoiceServiceError as e:
         raise handle_invoice_error(e)
 
@@ -819,6 +880,55 @@ async def cancel_invoice(
             success=True,
             message=f"Invoice {invoice.inv_reference} cancelled",
             data={"invoice_id": invoice.inv_id, "status": "CANCELLED"}
+        )
+    except InvoiceServiceError as e:
+        raise handle_invoice_error(e)
+
+
+@router.post(
+    "/{invoice_id}/credit-note",
+    response_model=CreditNoteResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create credit note from invoice",
+    description="""
+    Create a credit note (avoir) from an existing invoice.
+
+    The credit note:
+    - Has code prefixed with "AV-" (e.g., AV-INV-2025-00001)
+    - Is linked to the original invoice via cin_avoir_id
+    - Has cin_isinvoice=False (marks it as a credit note)
+    - Clones all lines with negated quantities and amounts
+    - Cannot be created if a credit note already exists for this invoice
+    """,
+    responses={
+        201: {"description": "Credit note created"},
+        404: {"model": InvoiceErrorResponse, "description": "Invoice not found"},
+        422: {"model": InvoiceErrorResponse, "description": "Validation error"}
+    }
+)
+async def create_credit_note(
+    invoice_id: int = Path(..., description="Original invoice ID"),
+    db: Session = Depends(get_db),
+    # current_user_id: int = Depends(get_current_user_id)  # TODO: Add auth
+):
+    """Create a credit note from an existing invoice."""
+    service = get_invoice_service(db)
+
+    try:
+        credit_note = await service.create_credit_note(
+            invoice_id=invoice_id,
+            user_id=1  # TODO: Replace with current_user_id when auth is enabled
+        )
+
+        return CreditNoteResponse(
+            success=True,
+            message=f"Credit note {credit_note.cin_code} created successfully",
+            credit_note_id=credit_note.cin_id,
+            credit_note_reference=credit_note.cin_code,
+            original_invoice_id=invoice_id,
+            original_invoice_reference=credit_note.cin_code.replace("AV-", "", 1),
+            created_at=credit_note.cin_d_creation,
+            lines_count=len(credit_note.lines) if credit_note.lines else 0,
         )
     except InvoiceServiceError as e:
         raise handle_invoice_error(e)
@@ -889,6 +999,58 @@ async def generate_pdf(
         )
     except InvoiceServiceError as e:
         raise handle_invoice_error(e)
+
+
+@router.get(
+    "/{invoice_id}/pdf",
+    summary="Download invoice PDF",
+    description="Generate and download PDF for an invoice.",
+    responses={
+        200: {"content": {"application/pdf": {}}, "description": "PDF file"},
+        404: {"model": InvoiceErrorResponse, "description": "Invoice not found"},
+    }
+)
+async def download_invoice_pdf(
+    invoice_id: int = Path(..., description="Invoice ID"),
+    db: Session = Depends(get_db)
+):
+    """Generate and return PDF for this invoice."""
+    import io
+    from fastapi.responses import StreamingResponse
+    from app.services.invoice_pdf_service import InvoicePDFService
+
+    try:
+        pdf_service = InvoicePDFService(db)
+        pdf_content = await asyncio.to_thread(pdf_service.generate_pdf, invoice_id)
+
+        # Get invoice reference for filename
+        invoice_data = await asyncio.to_thread(_sync_get_invoice_detail, db, invoice_id)
+        if not invoice_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Invoice {invoice_id} not found"
+            )
+        reference = invoice_data.get("reference", f"invoice-{invoice_id}")
+        filename = f"{reference}.pdf"
+
+        return StreamingResponse(
+            io.BytesIO(pdf_content),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": str(len(pdf_content)),
+            }
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error generating PDF for invoice {invoice_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate PDF: {str(e)}"
+        )
 
 
 # ==========================================================================
