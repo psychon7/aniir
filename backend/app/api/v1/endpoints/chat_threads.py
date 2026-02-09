@@ -177,35 +177,52 @@ async def list_threads(
     current_user: User = Depends(get_current_user),
 ):
     """List all threads the current user is a participant of."""
-    # Get thread IDs where user is an active participant
-    participant_thread_ids = db.query(ChatParticipant.prt_thr_id).filter(
-        and_(
-            ChatParticipant.prt_usr_id == current_user.id,
-            ChatParticipant.prt_is_active == True
+    try:
+        # Get thread IDs where user is an active participant
+        participant_thread_ids = db.query(ChatParticipant.prt_thr_id).filter(
+            and_(
+                ChatParticipant.prt_usr_id == current_user.id,
+                ChatParticipant.prt_is_active == True
+            )
+        ).subquery()
+
+        query = db.query(ChatThread).filter(
+            ChatThread.cht_id.in_(participant_thread_ids)
         )
-    ).subquery()
 
-    query = db.query(ChatThread).filter(
-        ChatThread.cht_id.in_(participant_thread_ids)
-    )
+        if not include_archived:
+            query = query.filter(ChatThread.cht_is_archived == False)
+        
+        if thread_type:
+            query = query.filter(ChatThread.cht_thread_type == thread_type)
+        
+        if search:
+            query = query.filter(ChatThread.cht_title.ilike(f"%{search}%"))
 
-    if not include_archived:
-        query = query.filter(ChatThread.cht_is_archived == False)
-    
-    if thread_type:
-        query = query.filter(ChatThread.cht_thread_type == thread_type)
-    
-    if search:
-        query = query.filter(ChatThread.cht_title.ilike(f"%{search}%"))
+        query = query.order_by(
+            ChatThread.cht_last_message_at.desc().nullsfirst(),
+            ChatThread.cht_d_creation.desc()
+        )
 
-    query = query.order_by(
-        ChatThread.cht_last_message_at.desc().nullsfirst(),
-        ChatThread.cht_d_creation.desc()
-    )
+        threads = query.offset(offset).limit(limit).all()
 
-    threads = query.offset(offset).limit(limit).all()
-
-    return [_get_thread_response(t, current_user.id, db) for t in threads]
+        return [_get_thread_response(t, current_user.id, db) for t in threads]
+    except Exception as e:
+        # Log the error for debugging
+        import logging
+        logging.error(f"Error listing threads: {e}")
+        
+        # Check if this is a table-not-found error
+        error_msg = str(e).lower()
+        if "invalid object name" in error_msg or "does not exist" in error_msg:
+            # Chat tables not yet created - return empty list gracefully
+            return []
+        
+        # Re-raise other errors
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load threads. Please try again later."
+        )
 
 
 @router.get("/{thread_id}", response_model=ThreadResponse)
@@ -326,42 +343,61 @@ async def find_or_create_direct_thread(
             detail="Cannot create a direct message thread with yourself"
         )
 
-    target_user = db.query(User).filter(User.usr_id == request.user_id).first()
-    if not target_user:
+    try:
+        target_user = db.query(User).filter(User.usr_id == request.user_id).first()
+        if not target_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        existing_thread = _find_direct_thread(db, current_user.id, request.user_id)
+        if existing_thread:
+            return _get_thread_response(existing_thread, current_user.id, db)
+
+        # Create new direct thread
+        thread = ChatThread(
+            cht_title=None,
+            cht_thread_type="direct",
+            usr_creator_id=current_user.id,
+            cht_d_creation=datetime.utcnow(),
+            cht_is_archived=False
+        )
+        db.add(thread)
+        db.flush()
+
+        for user_id in [current_user.id, request.user_id]:
+            participant = ChatParticipant(
+                prt_thr_id=thread.cht_id,
+                prt_usr_id=user_id,
+                prt_is_admin=(user_id == current_user.id),
+                prt_is_active=True,
+                prt_joined_at=datetime.utcnow()
+            )
+            db.add(participant)
+
+        db.commit()
+        db.refresh(thread)
+
+        return _get_thread_response(thread, current_user.id, db)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        import logging
+        logging.error(f"Error creating direct thread: {e}")
+        
+        error_msg = str(e).lower()
+        if "invalid object name" in error_msg or "does not exist" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Chat feature is not yet available. Database migration required."
+            )
+        
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create conversation. Please try again later."
         )
-
-    existing_thread = _find_direct_thread(db, current_user.id, request.user_id)
-    if existing_thread:
-        return _get_thread_response(existing_thread, current_user.id, db)
-
-    # Create new direct thread
-    thread = ChatThread(
-        cht_title=None,
-        cht_thread_type="direct",
-        usr_creator_id=current_user.id,
-        cht_d_creation=datetime.utcnow(),
-        cht_is_archived=False
-    )
-    db.add(thread)
-    db.flush()
-
-    for user_id in [current_user.id, request.user_id]:
-        participant = ChatParticipant(
-            prt_thr_id=thread.cht_id,
-            prt_usr_id=user_id,
-            prt_is_admin=(user_id == current_user.id),
-            prt_is_active=True,
-            prt_joined_at=datetime.utcnow()
-        )
-        db.add(participant)
-
-    db.commit()
-    db.refresh(thread)
-
-    return _get_thread_response(thread, current_user.id, db)
 
 
 @router.post("/{thread_id}/participants", response_model=ThreadResponse)

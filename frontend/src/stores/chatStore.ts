@@ -1,6 +1,11 @@
 /**
  * Chat store with Socket.IO connection management
  * Handles real-time messaging, typing indicators, and user presence
+ * 
+ * Production-grade implementation with:
+ * - Circuit breaker pattern to prevent connection flooding
+ * - Graceful degradation when WebSocket is unavailable
+ * - Manual reconnection with exponential backoff
  */
 
 import { create } from 'zustand'
@@ -27,10 +32,66 @@ import type {
 // Socket.IO instance (singleton)
 let socket: Socket | null = null
 
+// Connection state management
+let connectionAttempts = 0
+let lastConnectionAttempt = 0
+let isCircuitBroken = false
+let circuitBrokenUntil = 0
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+// Configuration
+const MAX_CONSECUTIVE_FAILURES = 3 // Open circuit after this many failures
+const CIRCUIT_RESET_TIME = 60000 // 1 minute before trying again
+const MIN_RETRY_INTERVAL = 5000 // Minimum 5s between attempts
+const MAX_RETRY_INTERVAL = 120000 // Maximum 2 minutes between attempts
+
 // Get the WebSocket URL from environment or use default
 const getSocketUrl = () => {
   const baseUrl = import.meta.env.VITE_API_URL || window.location.origin
   return baseUrl.replace(/^http/, 'ws').replace(/\/api\/v1$/, '') || baseUrl
+}
+
+// Calculate retry delay with exponential backoff
+const getRetryDelay = (attempt: number): number => {
+  const delay = Math.min(MIN_RETRY_INTERVAL * Math.pow(2, attempt), MAX_RETRY_INTERVAL)
+  return delay + Math.random() * 1000 // Add jitter
+}
+
+// Reset connection state
+const resetConnectionState = () => {
+  connectionAttempts = 0
+  isCircuitBroken = false
+  circuitBrokenUntil = 0
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer)
+    reconnectTimer = null
+  }
+}
+
+// Check if we can attempt connection
+const canAttemptConnection = (): { allowed: boolean; reason?: string } => {
+  const now = Date.now()
+  
+  // Check circuit breaker
+  if (isCircuitBroken) {
+    if (now < circuitBrokenUntil) {
+      const remainingSeconds = Math.ceil((circuitBrokenUntil - now) / 1000)
+      return { 
+        allowed: false, 
+        reason: `WebSocket unavailable. Retry in ${remainingSeconds}s` 
+      }
+    }
+    // Circuit reset - allow one attempt
+    isCircuitBroken = false
+    connectionAttempts = 0
+  }
+  
+  // Rate limit connection attempts
+  if (now - lastConnectionAttempt < MIN_RETRY_INTERVAL) {
+    return { allowed: false, reason: 'Too many connection attempts' }
+  }
+  
+  return { allowed: true }
 }
 
 interface ChatStore extends ChatState, ChatActions {}
@@ -49,30 +110,43 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   readReceipts: new Map(),
   unreadCounts: new Map(),
 
-  // Connect to Socket.IO server
+  // Connect to Socket.IO server with circuit breaker protection
   connect: (token: string) => {
     // Prevent multiple connections
     if (socket?.connected || get().isConnecting) {
       return
     }
 
+    // Check circuit breaker
+    const connectionCheck = canAttemptConnection()
+    if (!connectionCheck.allowed) {
+      set({ connectionError: connectionCheck.reason || 'Connection blocked' })
+      return
+    }
+
+    // Track connection attempt
+    lastConnectionAttempt = Date.now()
+    connectionAttempts++
+
     set({ isConnecting: true, connectionError: null })
 
-    // Create socket connection with Socket.IO built-in reconnection
+    // Create socket connection - DISABLE auto-reconnection, we manage it ourselves
     const socketUrl = getSocketUrl()
     socket = io(socketUrl, {
       path: '/ws/socket.io',
       auth: { token },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
-      reconnectionDelayMax: 10000,
+      transports: ['websocket'], // Start with WebSocket only
+      reconnection: false, // Disable auto-reconnection - we manage it
       timeout: 10000,
+      forceNew: true,
     })
 
-    // Connection established
+    let hasConnected = false
+
+    // Connection established successfully
     socket.on('connection_established', (data: ConnectionEstablishedResponse) => {
+      hasConnected = true
+      resetConnectionState() // Reset circuit breaker on success
       set({
         isConnected: true,
         isConnecting: false,
@@ -81,43 +155,109 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       })
     })
 
+    // Socket.IO connect event (transport level)
+    socket.on('connect', () => {
+      // Transport connected, waiting for server acknowledgment
+      hasConnected = true
+      resetConnectionState()
+      set({ isConnecting: false, isConnected: true, connectionError: null })
+    })
+
     // Connection error
     socket.on('connect_error', (error: Error) => {
-      console.warn('WebSocket connection error:', error.message)
+      const errorMsg = error.message || 'Connection failed'
+      
+      // Check if this is a transport/infrastructure error
+      const isInfrastructureError = 
+        errorMsg.includes('websocket') ||
+        errorMsg.includes('transport') ||
+        errorMsg.includes('xhr poll error') ||
+        !hasConnected
+      
+      if (isInfrastructureError) {
+        // Increment failure count
+        if (connectionAttempts >= MAX_CONSECUTIVE_FAILURES) {
+          // Open circuit breaker
+          isCircuitBroken = true
+          circuitBrokenUntil = Date.now() + CIRCUIT_RESET_TIME
+          
+          console.warn(
+            `WebSocket: Circuit breaker opened after ${connectionAttempts} failures. ` +
+            `Will retry in ${CIRCUIT_RESET_TIME / 1000}s`
+          )
+          
+          set({
+            isConnected: false,
+            isConnecting: false,
+            connectionError: 'Real-time features unavailable. Will retry automatically.',
+          })
+          
+          // Cleanup socket
+          if (socket) {
+            socket.disconnect()
+            socket = null
+          }
+          
+          // Schedule circuit reset attempt
+          reconnectTimer = setTimeout(() => {
+            if (isCircuitBroken) {
+              console.log('WebSocket: Attempting circuit reset...')
+              get().connect(token)
+            }
+          }, CIRCUIT_RESET_TIME)
+          
+          return
+        }
+        
+        // Schedule retry with exponential backoff
+        const retryDelay = getRetryDelay(connectionAttempts)
+        console.log(`WebSocket: Connection failed. Retry ${connectionAttempts}/${MAX_CONSECUTIVE_FAILURES} in ${Math.round(retryDelay / 1000)}s`)
+        
+        set({
+          isConnected: false,
+          isConnecting: false,
+          connectionError: `Connecting... (attempt ${connectionAttempts}/${MAX_CONSECUTIVE_FAILURES})`,
+        })
+        
+        // Cleanup and retry
+        if (socket) {
+          socket.disconnect()
+          socket = null
+        }
+        
+        reconnectTimer = setTimeout(() => {
+          get().connect(token)
+        }, retryDelay)
+        
+        return
+      }
+      
+      // For other errors (auth, server rejection), don't retry automatically
+      console.warn('WebSocket connection error:', errorMsg)
       set({
         isConnected: false,
         isConnecting: false,
-        connectionError: error.message || 'Connection failed',
+        connectionError: errorMsg,
       })
     })
 
     // Disconnected
     socket.on('disconnect', (reason: string) => {
+      const wasConnected = hasConnected
+      
       set({
         isConnected: false,
         isConnecting: false,
         connectionError: reason === 'io server disconnect' ? 'Server disconnected' : null,
       })
-    })
-
-    // Reconnecting
-    socket.on('reconnect_attempt', (attempt: number) => {
-      console.log(`WebSocket reconnecting... attempt ${attempt}`)
-      set({ isConnecting: true })
-    })
-
-    // Reconnected
-    socket.on('reconnect', () => {
-      set({ isConnected: true, isConnecting: false, connectionError: null })
-    })
-
-    // Failed to reconnect after all attempts
-    socket.on('reconnect_failed', () => {
-      console.warn('WebSocket: Max reconnection attempts reached')
-      set({
-        isConnecting: false,
-        connectionError: 'Connection failed. Please refresh the page.',
-      })
+      
+      // If we were connected and got disconnected, attempt one reconnect
+      if (wasConnected && reason !== 'io client disconnect') {
+        console.log('WebSocket: Disconnected, will attempt reconnect...')
+        reconnectTimer = setTimeout(() => {
+          get().connect(token)
+        }, MIN_RETRY_INTERVAL)
+      }
     })
 
     // Joined thread confirmation
@@ -316,6 +456,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   // Disconnect from Socket.IO server
   disconnect: () => {
+    // Clear any pending reconnection timers
+    resetConnectionState()
+    
     if (socket) {
       socket.disconnect()
       socket = null
