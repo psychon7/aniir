@@ -28,6 +28,10 @@
     "refresh": "Refresh",
     "view": "View",
     "details": "Details",
+    "more": "more",
+    "created": "Created",
+    "updated": "Updated",
+    "required": "This field is required",
     "copy": "Copy",
     "duplicate": "Duplicate",
     "archive": "Archive",
@@ -1967,9 +1971,11 @@
     "viewWeek": "Week",
     "viewDay": "Day",
     "allDay": "All Day",
-    "startTime": "Start Time",
-    "endTime": "End Time",
-    "dueDate": "Due Date"
+    "startTime": "Start",
+    "endTime": "End",
+    "dueDate": "Due Date",
+    "kanban": "Kanban",
+    "schedule": "Schedule"
   },
   "tasks": {
     "title": "Tasks",
@@ -2015,7 +2021,8 @@
     "taskCompleted": "Task completed",
     "confirmDeleteTask": "Are you sure you want to delete this task?",
     "noTasksFound": "No tasks found",
-    "noTasksDescription": "Create a task to get started"
+    "noTasksDescription": "Create a task to get started",
+    "assignment": "Assignment"
   },
   "productAttributes": {
     "title": "Product Attributes",

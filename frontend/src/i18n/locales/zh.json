@@ -1683,9 +1683,11 @@
     "viewWeek": "周",
     "viewDay": "日",
     "allDay": "全天",
-    "startTime": "开始时间",
-    "endTime": "结束时间",
-    "dueDate": "截止日期"
+    "startTime": "开始",
+    "endTime": "结束",
+    "dueDate": "截止日期",
+    "kanban": "看板",
+    "schedule": "日程"
   },
   "tasks": {
     "title": "任务",
@@ -1731,7 +1733,8 @@
     "taskCompleted": "任务已完成",
     "confirmDeleteTask": "您确定要删除此任务吗？",
     "noTasksFound": "未找到任务",
-    "noTasksDescription": "创建一个任务开始使用"
+    "noTasksDescription": "创建一个任务开始使用",
+    "assignment": "分配"
   },
   "productAttributes": {
     "title": "产品属性",

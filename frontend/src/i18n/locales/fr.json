@@ -1845,9 +1845,11 @@
     "viewWeek": "Semaine",
     "viewDay": "Jour",
     "allDay": "Journée entière",
-    "startTime": "Heure de début",
-    "endTime": "Heure de fin",
-    "dueDate": "Date d'échéance"
+    "startTime": "Début",
+    "endTime": "Fin",
+    "dueDate": "Date d'échéance",
+    "kanban": "Kanban",
+    "schedule": "Planification"
   },
   "tasks": {
     "title": "Tâches",
@@ -1893,7 +1895,8 @@
     "taskCompleted": "Tâche terminée",
     "confirmDeleteTask": "Êtes-vous sûr de vouloir supprimer cette tâche ?",
     "noTasksFound": "Aucune tâche trouvée",
-    "noTasksDescription": "Créez une tâche pour commencer"
+    "noTasksDescription": "Créez une tâche pour commencer",
+    "assignment": "Affectation"
   },
   "productAttributes": {
     "title": "Attributs de produit",
