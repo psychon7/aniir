@@ -132,7 +132,6 @@ async def create_supplier(
 
 @router.get(
     "",
-    response_model=SupplierListPaginatedResponse,
     summary="List all suppliers",
     description="""
     Get a paginated list of all suppliers with optional filtering.
@@ -199,16 +198,38 @@ async def list_suppliers(
     has_next = page < total_pages
     has_previous = page > 1
 
-    return SupplierListPaginatedResponse(
-        success=True,
-        data=[SupplierListResponse.model_validate(s) for s in suppliers],
-        page=page,
-        pageSize=pageSize,
-        totalCount=total,
-        totalPages=total_pages,
-        hasNextPage=has_next,
-        hasPreviousPage=has_previous
-    )
+    # Build camelCase response items matching frontend Supplier type
+    items = []
+    for s in suppliers:
+        items.append({
+            "id": s.sup_id,
+            "reference": s.sup_ref or "",
+            "companyName": s.sup_company_name,
+            "abbreviation": getattr(s, "sup_abbreviation", None),
+            "email": s.sup_email,
+            "phone": s.sup_tel1,
+            "city": s.sup_city,
+            "country": s.sup_country,
+            "supplierTypeId": s.sty_id,
+            "supplierTypeName": None,  # TODO: Resolve from lookup
+            "societyId": s.soc_id,
+            "isActive": s.sup_isactive,
+            "isBlocked": s.sup_isblocked,
+            "hasContacts": False,  # TODO: Check contacts relationship
+            "createdAt": s.sup_d_creation.isoformat() if s.sup_d_creation else None,
+            "updatedAt": s.sup_d_update.isoformat() if s.sup_d_update else None,
+        })
+
+    return {
+        "success": True,
+        "data": items,
+        "page": page,
+        "pageSize": pageSize,
+        "totalCount": total,
+        "totalPages": total_pages,
+        "hasNextPage": has_next,
+        "hasPreviousPage": has_previous,
+    }
 
 
 @router.get(
