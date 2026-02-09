@@ -262,13 +262,21 @@ class MigrationRunner:
         return execution_time
     
     def _record_migration(self, cursor, migration: Migration, execution_time: int, success: bool) -> None:
-        """Record a migration execution in the history table."""
+        """Record a migration execution in the history table.
+
+        Uses IF NOT EXISTS guard to avoid duplicate key errors when
+        a migration's SQL already self-records into the history table.
+        """
         cursor.execute(f"""
-            INSERT INTO [dbo].[{self.HISTORY_TABLE}] 
-                ([version], [description], [filename], [checksum], [execution_time_ms], [success])
-            VALUES 
-                (%s, %s, %s, %s, %s, %s)
+            IF NOT EXISTS (SELECT 1 FROM [dbo].[{self.HISTORY_TABLE}] WHERE [version] = %s)
+            BEGIN
+                INSERT INTO [dbo].[{self.HISTORY_TABLE}]
+                    ([version], [description], [filename], [checksum], [execution_time_ms], [success])
+                VALUES
+                    (%s, %s, %s, %s, %s, %s)
+            END
         """, (
+            migration.version,
             migration.version,
             migration.description,
             migration.filename,
