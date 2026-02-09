@@ -133,13 +133,11 @@ class SupplierInvoice(Base):
     supplier: Mapped["Supplier"] = relationship(
         "Supplier",
         foreign_keys=[sup_id],
-        lazy="joined"
     )
 
     order: Mapped[Optional["SupplierOrder"]] = relationship(
         "SupplierOrder",
         foreign_keys=[sod_id],
-        lazy="joined"
     )
 
     def __repr__(self) -> str:

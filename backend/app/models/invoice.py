@@ -126,19 +126,17 @@ class ClientInvoice(Base):
     tte_id: Mapped[Optional[int]] = mapped_column("tte_id", Integer, ForeignKey("TR_TTE_TRADE_TERMS.tte_id"), nullable=True)
     cin_delegator_id: Mapped[Optional[int]] = mapped_column("cin_delegator_id", Integer, nullable=True)
 
-    # Relationships
+    # Relationships (lazy="select" = load on access, not on every query)
     lines: Mapped[List["ClientInvoiceLine"]] = relationship(
         "ClientInvoiceLine",
         back_populates="invoice",
         cascade="all, delete-orphan",
-        lazy="selectin"
     )
 
     payments: Mapped[List["ClientInvoicePayment"]] = relationship(
         "ClientInvoicePayment",
         back_populates="invoice",
         cascade="all, delete-orphan",
-        lazy="selectin"
     )
 
     # Property aliases for API compatibility

@@ -120,7 +120,6 @@ class SupplierOrder(Base):
     supplier: Mapped["Supplier"] = relationship(
         "Supplier",
         foreign_keys=[sup_id],
-        lazy="joined"
     )
 
     def __repr__(self) -> str:

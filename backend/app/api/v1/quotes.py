@@ -79,13 +79,14 @@ def _sync_list_quotes(
     sort_order: str = "desc"
 ):
     """Sync function to list quotes with pagination, joining client and status."""
-    # Correlated subquery for totalAmount from line items
-    total_amount_sq = (
-        select(func.coalesce(func.sum(CostPlanLine.cln_price_with_discount_ht), 0))
-        .where(CostPlanLine.cpl_id == CostPlan.cpl_id)
-        .correlate(CostPlan)
-        .scalar_subquery()
-        .label("total_amount")
+    # Pre-aggregated subquery for totalAmount (runs once, not per-row)
+    line_totals = (
+        select(
+            CostPlanLine.cpl_id,
+            func.coalesce(func.sum(CostPlanLine.cln_price_with_discount_ht), 0).label("total_amount"),
+        )
+        .group_by(CostPlanLine.cpl_id)
+        .subquery()
     )
 
     query = (
@@ -103,10 +104,11 @@ def _sync_list_quotes(
             CostPlan.cpl_d_update,
             Client.cli_company_name,
             CostPlanStatus.cst_designation,
-            total_amount_sq,
+            func.coalesce(line_totals.c.total_amount, 0).label("total_amount"),
         )
         .outerjoin(Client, CostPlan.cli_id == Client.cli_id)
         .outerjoin(CostPlanStatus, CostPlan.cst_id == CostPlanStatus.cst_id)
+        .outerjoin(line_totals, CostPlan.cpl_id == line_totals.c.cpl_id)
     )
     count_query = select(func.count(CostPlan.cpl_id))
 

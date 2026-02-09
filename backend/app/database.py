@@ -25,13 +25,15 @@ DATABASE_URL = os.getenv(
 # Engine with pymssql for SQL Server 2008
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_pre_ping=False,   # Removes SELECT 1 latency on every checkout
+    pool_size=20,          # More connections for concurrent requests
+    max_overflow=40,       # Allow burst to 60 total connections
+    pool_recycle=1800,     # Recycle stale connections every 30 minutes
+    pool_timeout=10,       # Fail fast if pool exhausted
     echo=False,
     connect_args={
         "tds_version": "7.0",  # SQL Server 2008 compatibility
-        "login_timeout": 15,
+        "login_timeout": 10,
     }
 )
 

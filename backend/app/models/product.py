@@ -96,12 +96,12 @@ class Product(Base):
     prd_carton_height = Column("prd_carton_height", Numeric(18, 4), nullable=True)
     prd_carton_weight = Column("prd_carton_weight", Numeric(18, 4), nullable=True)
 
-    # Relationships
-    instances = relationship("ProductInstance", back_populates="product", lazy="selectin")
+    # Relationships (load on access, not eagerly)
+    instances = relationship("ProductInstance", back_populates="product")
 
     # Pricing relationships
-    client_prices = relationship("ClientProductPrice", back_populates="product", lazy="selectin")
-    supplier_prices = relationship("SupplierProductPrice", back_populates="product", lazy="selectin")
+    client_prices = relationship("ClientProductPrice", back_populates="product")
+    supplier_prices = relationship("SupplierProductPrice", back_populates="product")
 
     # Property aliases for API compatibility
     @property

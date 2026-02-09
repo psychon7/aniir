@@ -168,13 +168,14 @@ def _sync_list_orders(
     sort_order: str = "desc"
 ):
     """Sync function to list orders with pagination, joining client."""
-    # Correlated subquery for totalAmount from line items
-    total_amount_sq = (
-        select(func.coalesce(func.sum(ClientOrderLine.col_price_with_discount_ht), 0))
-        .where(ClientOrderLine.cod_id == ClientOrder.cod_id)
-        .correlate(ClientOrder)
-        .scalar_subquery()
-        .label("total_amount")
+    # Pre-aggregated subquery for totalAmount (runs once, not per-row)
+    line_totals = (
+        select(
+            ClientOrderLine.cod_id,
+            func.coalesce(func.sum(ClientOrderLine.col_price_with_discount_ht), 0).label("total_amount"),
+        )
+        .group_by(ClientOrderLine.cod_id)
+        .subquery()
     )
 
     query = (
@@ -191,9 +192,10 @@ def _sync_list_orders(
             ClientOrder.cod_discount_percentage,
             ClientOrder.cod_discount_amount,
             Client.cli_company_name,
-            total_amount_sq,
+            func.coalesce(line_totals.c.total_amount, 0).label("total_amount"),
         )
         .outerjoin(Client, ClientOrder.cli_id == Client.cli_id)
+        .outerjoin(line_totals, ClientOrder.cod_id == line_totals.c.cod_id)
     )
     count_query = select(func.count(ClientOrder.cod_id))
 

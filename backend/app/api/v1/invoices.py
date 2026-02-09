@@ -92,13 +92,14 @@ def _sync_list_invoices(
     sort_order: str = "desc"
 ):
     """Sync function to list invoices with pagination, joining Client and Currency."""
-    # Correlated subquery for totalAmount from line items
-    total_amount_sq = (
-        select(func.coalesce(func.sum(ClientInvoiceLine.cii_price_with_discount_ht), 0))
-        .where(ClientInvoiceLine.cin_id == ClientInvoice.cin_id)
-        .correlate(ClientInvoice)
-        .scalar_subquery()
-        .label("total_amount")
+    # Pre-aggregated subquery for totalAmount (runs once, not per-row)
+    line_totals = (
+        select(
+            ClientInvoiceLine.cin_id,
+            func.coalesce(func.sum(ClientInvoiceLine.cii_price_with_discount_ht), 0).label("total_amount"),
+        )
+        .group_by(ClientInvoiceLine.cin_id)
+        .subquery()
     )
 
     query = (
@@ -122,10 +123,11 @@ def _sync_list_invoices(
             ClientInvoice.cin_name,
             Client.cli_company_name,
             Currency.cur_designation.label("currency_code"),
-            total_amount_sq,
+            func.coalesce(line_totals.c.total_amount, 0).label("total_amount"),
         )
         .outerjoin(Client, ClientInvoice.cli_id == Client.cli_id)
         .outerjoin(Currency, ClientInvoice.cur_id == Currency.cur_id)
+        .outerjoin(line_totals, ClientInvoice.cin_id == line_totals.c.cin_id)
     )
     count_query = select(func.count(ClientInvoice.cin_id))
 
