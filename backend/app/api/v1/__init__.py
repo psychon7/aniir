@@ -53,7 +53,7 @@ from app.api.v1.endpoints import (
     invoice_pdf,
     import_data,  # ENABLED: Wave 4 Data Import
     # invoice_status,
-    # attachments,
+    attachments,  # ENABLED: Document attachments
 )
 
 # =============================================================================
@@ -118,7 +118,7 @@ api_router.include_router(projects.router)
 # -----------------------------------------------------------------------------
 api_router.include_router(chat.router)  # ENABLED: Wave 1 Quick Win
 api_router.include_router(drive.router)  # ENABLED: Wave 1 Quick Win
-# api_router.include_router(attachments.router)
+api_router.include_router(attachments.router, prefix="/attachments", tags=["Attachments"])
 
 # -----------------------------------------------------------------------------
 # Calendar & Tasks

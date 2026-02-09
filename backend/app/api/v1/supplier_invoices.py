@@ -8,13 +8,22 @@ Provides REST API endpoints for:
 - Production status management
 - Search and filtering with pagination
 """
+import asyncio
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
+from sqlalchemy import select, func, or_, desc, and_
 
 from app.database import get_db
+from app.models.supplier_invoice import SupplierInvoice, SupplierInvoiceLine
+from app.models.supplier_order import SupplierOrder
+from app.models.supplier import Supplier
+from app.models.currency import Currency
+from app.models.vat_rate import VatRate
+from app.models.society import Society
+from app.models.user import User
 from app.services.supplier_invoice_service import (
     SupplierInvoiceService,
     get_supplier_invoice_service,
@@ -25,15 +34,12 @@ from app.services.supplier_invoice_service import (
     SupplierInvoiceStatusError
 )
 from app.schemas.supplier_invoice import (
-    SupplierInvoiceCreate, SupplierInvoiceUpdate, SupplierInvoiceResponse,
-    SupplierInvoiceDetailResponse, SupplierInvoiceListPaginatedResponse,
-    SupplierInvoiceSearchParams,
+    SupplierInvoiceCreate, SupplierInvoiceUpdate,
     SupplierInvoiceLineCreate, SupplierInvoiceLineUpdate, SupplierInvoiceLineResponse,
     MarkPaidRequest, MarkPaidResponse,
     MarkUnpaidRequest, MarkUnpaidResponse,
     StartProductionRequest, StartProductionResponse,
     CompleteProductionRequest, CompleteProductionResponse,
-    SupplierInvoiceAPIResponse, SupplierInvoiceErrorResponse
 )
 
 router = APIRouter(prefix="/supplier-invoices", tags=["Supplier Invoices"])
@@ -68,21 +74,217 @@ def handle_supplier_invoice_error(error: SupplierInvoiceServiceError) -> HTTPExc
 
 
 # ==========================================================================
+# Sync Database Helpers (bypass model_validate)
+# ==========================================================================
+
+
+def _sync_list_supplier_invoices(
+    db: Session,
+    page: int,
+    page_size: int,
+    search: Optional[str] = None,
+    supplier_id: Optional[int] = None,
+    is_paid: Optional[bool] = None,
+    production_started: Optional[bool] = None,
+    production_complete: Optional[bool] = None,
+):
+    """Sync helper to list supplier invoices with pagination, joining supplier + currency."""
+    query = (
+        select(
+            SupplierInvoice.sin_id,
+            SupplierInvoice.sin_code,
+            SupplierInvoice.sin_name,
+            SupplierInvoice.sup_id,
+            SupplierInvoice.sod_id,
+            SupplierInvoice.sin_d_creation,
+            SupplierInvoice.sin_d_update,
+            SupplierInvoice.sin_is_paid,
+            SupplierInvoice.sin_start_production,
+            SupplierInvoice.sin_complete_production,
+            SupplierInvoice.sin_bank_receipt_number,
+            SupplierInvoice.sin_discount_amount,
+            SupplierInvoice.cur_id,
+            Supplier.sup_company_name,
+            Currency.cur_designation,
+        )
+        .outerjoin(Supplier, SupplierInvoice.sup_id == Supplier.sup_id)
+        .outerjoin(Currency, SupplierInvoice.cur_id == Currency.cur_id)
+    )
+    count_query = select(func.count(SupplierInvoice.sin_id))
+
+    conditions = []
+    if search:
+        search_term = f"%{search}%"
+        conditions.append(
+            or_(
+                SupplierInvoice.sin_code.ilike(search_term),
+                SupplierInvoice.sin_name.ilike(search_term),
+            )
+        )
+    if supplier_id is not None:
+        conditions.append(SupplierInvoice.sup_id == supplier_id)
+    if is_paid is not None:
+        conditions.append(SupplierInvoice.sin_is_paid == is_paid)
+    if production_started is not None:
+        conditions.append(SupplierInvoice.sin_start_production == production_started)
+    if production_complete is not None:
+        conditions.append(SupplierInvoice.sin_complete_production == production_complete)
+
+    if conditions:
+        query = query.where(and_(*conditions))
+        count_query = count_query.where(and_(*conditions))
+
+    total = db.execute(count_query).scalar() or 0
+
+    query = query.order_by(desc(SupplierInvoice.sin_d_creation))
+    skip = (page - 1) * page_size
+    query = query.offset(skip).limit(page_size)
+
+    rows = db.execute(query).all()
+    return rows, total
+
+
+def _sync_get_supplier_invoice_detail(db: Session, invoice_id: int):
+    """Sync helper to get supplier invoice detail with lines, returning camelCase dict."""
+    query = (
+        select(
+            SupplierInvoice.sin_id,
+            SupplierInvoice.sin_code,
+            SupplierInvoice.sin_name,
+            SupplierInvoice.sup_id,
+            SupplierInvoice.sod_id,
+            SupplierInvoice.sin_d_creation,
+            SupplierInvoice.sin_d_update,
+            SupplierInvoice.sin_is_paid,
+            SupplierInvoice.sin_start_production,
+            SupplierInvoice.sin_d_start_production,
+            SupplierInvoice.sin_complete_production,
+            SupplierInvoice.sin_d_complete_production,
+            SupplierInvoice.sin_bank_receipt_number,
+            SupplierInvoice.sin_discount_amount,
+            SupplierInvoice.sin_inter_comment,
+            SupplierInvoice.sin_supplier_comment,
+            SupplierInvoice.usr_creator_id,
+            SupplierInvoice.cur_id,
+            SupplierInvoice.vat_id,
+            SupplierInvoice.soc_id,
+            Supplier.sup_company_name,
+            Currency.cur_designation,
+        )
+        .outerjoin(Supplier, SupplierInvoice.sup_id == Supplier.sup_id)
+        .outerjoin(Currency, SupplierInvoice.cur_id == Currency.cur_id)
+        .where(SupplierInvoice.sin_id == invoice_id)
+    )
+    row = db.execute(query).first()
+    if not row:
+        return None
+
+    # Resolve additional lookups
+    vat_rate = None
+    if row.vat_id:
+        vat = db.get(VatRate, row.vat_id)
+        if vat:
+            vat_rate = float(vat.vat_rate) if vat.vat_rate else None
+
+    society_name = None
+    if row.soc_id:
+        society = db.get(Society, row.soc_id)
+        if society:
+            society_name = society.soc_society_name
+
+    creator_name = None
+    if row.usr_creator_id:
+        user = db.get(User, row.usr_creator_id)
+        if user:
+            creator_name = f"{user.usr_first_name or ''} {user.usr_name or ''}".strip()
+
+    # Resolve supplier order code if linked
+    supplier_order_code = None
+    if row.sod_id:
+        sod = db.get(SupplierOrder, row.sod_id)
+        if sod:
+            supplier_order_code = sod.sod_code
+
+    # Fetch lines
+    lines_query = (
+        select(
+            SupplierInvoiceLine.sil_id,
+            SupplierInvoiceLine.sil_description,
+            SupplierInvoiceLine.sil_quantity,
+            SupplierInvoiceLine.sil_unit_price,
+            SupplierInvoiceLine.sil_discount_amount,
+            SupplierInvoiceLine.sil_total_price,
+            SupplierInvoiceLine.sil_price_with_dis,
+            SupplierInvoiceLine.sil_order,
+            SupplierInvoiceLine.prd_id,
+        )
+        .where(SupplierInvoiceLine.sin_id == invoice_id)
+        .order_by(SupplierInvoiceLine.sil_order)
+    )
+    line_rows = db.execute(lines_query).all()
+
+    lines = []
+    total_ht = Decimal("0")
+    for l in line_rows:
+        line_total = l.sil_price_with_dis or l.sil_total_price or Decimal("0")
+        total_ht += line_total
+        lines.append({
+            "id": l.sil_id,
+            "description": l.sil_description or "",
+            "quantity": l.sil_quantity or 0,
+            "unitPrice": float(l.sil_unit_price or 0),
+            "discountAmount": float(l.sil_discount_amount or 0),
+            "lineTotal": float(line_total),
+            "totalPrice": float(l.sil_total_price or 0),
+            "lineOrder": l.sil_order,
+        })
+
+    total_ht_float = float(total_ht)
+    discount = float(row.sin_discount_amount or 0)
+    # Estimate TTC as totalHt * (1 + vatRate/100) if vatRate known
+    total_ttc = total_ht_float - discount
+    if vat_rate:
+        total_ttc = (total_ht_float - discount) * (1 + vat_rate / 100)
+
+    return {
+        "id": row.sin_id,
+        "code": row.sin_code or "",
+        "displayName": row.sin_code or f"#{row.sin_id}",
+        "name": row.sin_name or "",
+        "supplierId": row.sup_id,
+        "supplierName": row.sup_company_name or "",
+        "createdAt": row.sin_d_creation.isoformat() if row.sin_d_creation else None,
+        "updatedAt": row.sin_d_update.isoformat() if row.sin_d_update else None,
+        "isPaid": bool(row.sin_is_paid),
+        "productionStarted": bool(row.sin_start_production),
+        "productionComplete": bool(row.sin_complete_production),
+        "productionStartDate": row.sin_d_start_production.isoformat() if row.sin_d_start_production else None,
+        "productionCompleteDate": row.sin_d_complete_production.isoformat() if row.sin_d_complete_production else None,
+        "bankReceiptNumber": row.sin_bank_receipt_number or "",
+        "totalHt": total_ht_float,
+        "discountAmount": discount,
+        "totalTtc": total_ttc,
+        "currencyCode": row.cur_designation or "EUR",
+        "currencySymbol": row.cur_designation or "EUR",
+        "vatRate": vat_rate,
+        "societyName": society_name or "",
+        "creatorName": creator_name or "",
+        "supplierOrderCode": supplier_order_code or "",
+        "internalComment": row.sin_inter_comment or "",
+        "supplierComment": row.sin_supplier_comment or "",
+        "lineCount": len(lines),
+        "lines": lines,
+    }
+
+
+# ==========================================================================
 # Supplier Invoice CRUD Endpoints
 # ==========================================================================
 
 @router.post(
     "",
-    response_model=SupplierInvoiceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new supplier invoice",
-    description="""
-    Create a new supplier invoice in the system.
-
-    A unique invoice code will be automatically generated if not provided.
-    Lines can be included in the creation request.
-    Optionally link to an existing supplier order via sod_id.
-    """
 )
 async def create_supplier_invoice(
     data: SupplierInvoiceCreate,
@@ -98,109 +300,78 @@ async def create_supplier_invoice(
 
 @router.get(
     "",
-    response_model=SupplierInvoiceListPaginatedResponse,
     summary="List all supplier invoices",
-    description="""
-    Get a paginated list of all supplier invoices with optional filtering.
-
-    Supports filtering by:
-    - Text search (code, name)
-    - Supplier ID
-    - Society ID
-    - Currency ID
-    - Supplier order ID
-    - Payment status
-    - Production status
-    - Creation date range
-    - Creator ID
-    """
 )
 async def list_supplier_invoices(
-    # Pagination (frontend style)
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     pageSize: int = Query(20, ge=1, le=500, alias="pageSize", description="Items per page"),
-    # Legacy pagination
-    skip: Optional[int] = Query(None, ge=0, description="Number of records to skip (legacy)"),
-    limit: Optional[int] = Query(None, ge=1, le=500, description="Maximum records to return (legacy)"),
-    # Filters
     search: Optional[str] = Query(None, max_length=100, description="Search term (code, name)"),
-    supplier_id: Optional[int] = Query(None, alias="supplierId", description="Filter by supplier ID"),
-    society_id: Optional[int] = Query(None, alias="societyId", description="Filter by society ID"),
-    currency_id: Optional[int] = Query(None, alias="currencyId", description="Filter by currency ID"),
-    supplier_order_id: Optional[int] = Query(None, alias="supplierOrderId", description="Filter by supplier order ID"),
-    is_paid: Optional[bool] = Query(None, alias="isPaid", description="Filter by paid status"),
-    production_started: Optional[bool] = Query(None, alias="productionStarted", description="Filter by production started"),
-    production_complete: Optional[bool] = Query(None, alias="productionComplete", description="Filter by production complete"),
-    date_from: Optional[datetime] = Query(None, alias="dateFrom", description="Filter by creation date from"),
-    date_to: Optional[datetime] = Query(None, alias="dateTo", description="Filter by creation date to"),
-    creator_id: Optional[int] = Query(None, alias="creatorId", description="Filter by creator ID"),
-    service: SupplierInvoiceService = Depends(get_supplier_invoice_service)
+    supplier_id: Optional[int] = Query(None, alias="supplierId"),
+    is_paid: Optional[bool] = Query(None, alias="isPaid"),
+    production_started: Optional[bool] = Query(None, alias="productionStarted"),
+    production_complete: Optional[bool] = Query(None, alias="productionComplete"),
+    db: Session = Depends(get_db),
 ):
     """List all supplier invoices with pagination and filtering."""
-    # Convert page/pageSize to skip/limit if not using legacy params
-    actual_skip = skip if skip is not None else (page - 1) * pageSize
-    actual_limit = limit if limit is not None else pageSize
-
-    search_params = SupplierInvoiceSearchParams(
-        search=search,
-        supplier_id=supplier_id,
-        society_id=society_id,
-        currency_id=currency_id,
-        supplier_order_id=supplier_order_id,
-        is_paid=is_paid,
-        production_started=production_started,
-        production_complete=production_complete,
-        date_from=date_from,
-        date_to=date_to,
-        creator_id=creator_id
+    rows, total = await asyncio.to_thread(
+        _sync_list_supplier_invoices, db, page, pageSize, search,
+        supplier_id, is_paid, production_started, production_complete
     )
 
-    invoices, total = await service.list_invoices(
-        skip=actual_skip,
-        limit=actual_limit,
-        search_params=search_params
-    )
+    items = []
+    for row in rows:
+        items.append({
+            "id": row.sin_id,
+            "code": row.sin_code or "",
+            "displayName": row.sin_code or f"#{row.sin_id}",
+            "name": row.sin_name or "",
+            "supplierName": row.sup_company_name or "",
+            "createdAt": row.sin_d_creation.isoformat() if row.sin_d_creation else None,
+            "updatedAt": row.sin_d_update.isoformat() if row.sin_d_update else None,
+            "isPaid": bool(row.sin_is_paid),
+            "productionStarted": bool(row.sin_start_production),
+            "productionComplete": bool(row.sin_complete_production),
+            "bankReceiptNumber": row.sin_bank_receipt_number or "",
+            "currencyCode": row.cur_designation or "EUR",
+            "currencySymbol": row.cur_designation or "EUR",
+            "discountAmount": float(row.sin_discount_amount or 0),
+        })
 
-    # Calculate pagination info
-    total_pages = (total + pageSize - 1) // pageSize if pageSize > 0 else 0
-    has_next = page < total_pages
-    has_previous = page > 1
+    total_pages = (total + pageSize - 1) // pageSize if total > 0 else 0
 
-    return SupplierInvoiceListPaginatedResponse(
-        success=True,
-        data=[SupplierInvoiceResponse.model_validate(i) for i in invoices],
-        page=page,
-        pageSize=pageSize,
-        totalCount=total,
-        totalPages=total_pages,
-        hasNextPage=has_next,
-        hasPreviousPage=has_previous
-    )
+    return {
+        "success": True,
+        "data": items,
+        "page": page,
+        "pageSize": pageSize,
+        "totalCount": total,
+        "totalPages": total_pages,
+        "hasNextPage": page < total_pages,
+        "hasPreviousPage": page > 1,
+    }
 
 
 @router.get(
     "/{invoice_id}",
-    response_model=SupplierInvoiceDetailResponse,
     summary="Get supplier invoice by ID",
-    description="Get detailed information about a specific supplier invoice with lines and resolved lookup names."
 )
 async def get_supplier_invoice(
     invoice_id: int = Path(..., gt=0, description="Supplier invoice ID"),
-    service: SupplierInvoiceService = Depends(get_supplier_invoice_service)
+    db: Session = Depends(get_db),
 ):
     """Get a specific supplier invoice by ID with resolved lookup names."""
-    try:
-        invoice_detail = await service.get_invoice_detail(invoice_id)
-        return invoice_detail
-    except SupplierInvoiceServiceError as e:
-        raise handle_supplier_invoice_error(e)
+    result = await asyncio.to_thread(_sync_get_supplier_invoice_detail, db, invoice_id)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier invoice {invoice_id} not found"
+        )
+    return result
 
 
 @router.put(
     "/{invoice_id}",
-    response_model=SupplierInvoiceResponse,
     summary="Update a supplier invoice",
-    description="Update an existing supplier invoice's information."
 )
 async def update_supplier_invoice(
     invoice_id: int = Path(..., gt=0, description="Supplier invoice ID"),

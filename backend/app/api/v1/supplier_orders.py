@@ -7,13 +7,21 @@ Provides REST API endpoints for:
 - Order status management (confirm, cancel)
 - Search and filtering with pagination
 """
+import asyncio
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
+from sqlalchemy import select, func, or_, desc, and_
 
 from app.database import get_db
+from app.models.supplier_order import SupplierOrder, SupplierOrderLine
+from app.models.supplier import Supplier
+from app.models.currency import Currency
+from app.models.vat_rate import VatRate
+from app.models.society import Society
+from app.models.user import User
 from app.services.supplier_order_service import (
     SupplierOrderService,
     get_supplier_order_service,
@@ -24,13 +32,11 @@ from app.services.supplier_order_service import (
     SupplierOrderStatusError
 )
 from app.schemas.supplier_order import (
-    SupplierOrderCreate, SupplierOrderUpdate, SupplierOrderResponse,
-    SupplierOrderDetailResponse, SupplierOrderListPaginatedResponse,
+    SupplierOrderCreate, SupplierOrderUpdate,
     SupplierOrderSearchParams,
-    SupplierOrderLineCreate, SupplierOrderLineUpdate, SupplierOrderLineResponse,
+    SupplierOrderLineCreate, SupplierOrderLineUpdate,
     ConfirmSupplierOrderRequest, ConfirmSupplierOrderResponse,
     CancelSupplierOrderRequest, CancelSupplierOrderResponse,
-    SupplierOrderAPIResponse, SupplierOrderErrorResponse
 )
 
 router = APIRouter(prefix="/supplier-orders", tags=["Supplier Orders"])
@@ -65,20 +71,203 @@ def handle_supplier_order_error(error: SupplierOrderServiceError) -> HTTPExcepti
 
 
 # ==========================================================================
+# Sync Database Helpers (bypass model_validate)
+# ==========================================================================
+
+
+def _sync_list_supplier_orders(
+    db: Session,
+    page: int,
+    page_size: int,
+    search: Optional[str] = None,
+    supplier_id: Optional[int] = None,
+    is_started: Optional[bool] = None,
+    is_canceled: Optional[bool] = None,
+):
+    """Sync helper to list supplier orders with pagination, joining supplier + currency."""
+    query = (
+        select(
+            SupplierOrder.sod_id,
+            SupplierOrder.sod_code,
+            SupplierOrder.sod_name,
+            SupplierOrder.sup_id,
+            SupplierOrder.sod_d_creation,
+            SupplierOrder.sod_d_update,
+            SupplierOrder.sod_d_exp_delivery,
+            SupplierOrder.sod_total_ht,
+            SupplierOrder.sod_total_ttc,
+            SupplierOrder.sod_started,
+            SupplierOrder.sod_canceled,
+            SupplierOrder.sod_paid,
+            SupplierOrder.sod_need2pay,
+            SupplierOrder.cur_id,
+            Supplier.sup_company_name,
+            Currency.cur_designation,
+        )
+        .outerjoin(Supplier, SupplierOrder.sup_id == Supplier.sup_id)
+        .outerjoin(Currency, SupplierOrder.cur_id == Currency.cur_id)
+    )
+    count_query = select(func.count(SupplierOrder.sod_id))
+
+    conditions = []
+    if search:
+        search_term = f"%{search}%"
+        conditions.append(
+            or_(
+                SupplierOrder.sod_code.ilike(search_term),
+                SupplierOrder.sod_name.ilike(search_term),
+            )
+        )
+    if supplier_id is not None:
+        conditions.append(SupplierOrder.sup_id == supplier_id)
+    if is_started is not None:
+        conditions.append(SupplierOrder.sod_started == is_started)
+    if is_canceled is not None:
+        conditions.append(SupplierOrder.sod_canceled == is_canceled)
+
+    if conditions:
+        query = query.where(and_(*conditions))
+        count_query = count_query.where(and_(*conditions))
+
+    total = db.execute(count_query).scalar() or 0
+
+    query = query.order_by(desc(SupplierOrder.sod_d_creation))
+    skip = (page - 1) * page_size
+    query = query.offset(skip).limit(page_size)
+
+    rows = db.execute(query).all()
+    return rows, total
+
+
+def _sync_get_supplier_order_detail(db: Session, order_id: int):
+    """Sync helper to get supplier order detail with lines, returning camelCase dict."""
+    # Fetch order header with joins
+    query = (
+        select(
+            SupplierOrder.sod_id,
+            SupplierOrder.sod_code,
+            SupplierOrder.sod_name,
+            SupplierOrder.sup_id,
+            SupplierOrder.sod_d_creation,
+            SupplierOrder.sod_d_update,
+            SupplierOrder.sod_d_exp_delivery,
+            SupplierOrder.sod_total_ht,
+            SupplierOrder.sod_total_ttc,
+            SupplierOrder.sod_discount_amount,
+            SupplierOrder.sod_started,
+            SupplierOrder.sod_canceled,
+            SupplierOrder.sod_paid,
+            SupplierOrder.sod_need2pay,
+            SupplierOrder.sod_inter_comment,
+            SupplierOrder.sod_supplier_comment,
+            SupplierOrder.usr_creator_id,
+            SupplierOrder.pin_id,
+            SupplierOrder.cur_id,
+            SupplierOrder.vat_id,
+            SupplierOrder.soc_id,
+            Supplier.sup_company_name,
+            Currency.cur_designation,
+        )
+        .outerjoin(Supplier, SupplierOrder.sup_id == Supplier.sup_id)
+        .outerjoin(Currency, SupplierOrder.cur_id == Currency.cur_id)
+        .where(SupplierOrder.sod_id == order_id)
+    )
+    row = db.execute(query).first()
+    if not row:
+        return None
+
+    # Resolve additional lookups
+    vat_rate = None
+    if row.vat_id:
+        vat = db.get(VatRate, row.vat_id)
+        if vat:
+            vat_rate = float(vat.vat_rate) if vat.vat_rate else None
+
+    society_name = None
+    if row.soc_id:
+        society = db.get(Society, row.soc_id)
+        if society:
+            society_name = society.soc_society_name
+
+    creator_name = None
+    if row.usr_creator_id:
+        user = db.get(User, row.usr_creator_id)
+        if user:
+            creator_name = f"{user.usr_first_name or ''} {user.usr_name or ''}".strip()
+
+    # Fetch lines
+    lines_query = (
+        select(
+            SupplierOrderLine.sol_id,
+            SupplierOrderLine.sol_description,
+            SupplierOrderLine.sol_quantity,
+            SupplierOrderLine.sol_unit_price,
+            SupplierOrderLine.sol_discount_amount,
+            SupplierOrderLine.sol_total_price,
+            SupplierOrderLine.sol_price_with_dis,
+            SupplierOrderLine.sol_order,
+            SupplierOrderLine.prd_id,
+        )
+        .where(SupplierOrderLine.sod_id == order_id)
+        .order_by(SupplierOrderLine.sol_order)
+    )
+    line_rows = db.execute(lines_query).all()
+
+    lines = []
+    total_quantity = 0
+    for l in line_rows:
+        qty = l.sol_quantity or 0
+        total_quantity += qty
+        lines.append({
+            "id": l.sol_id,
+            "description": l.sol_description or "",
+            "productName": l.sol_description or "",
+            "quantity": qty,
+            "unitPrice": float(l.sol_unit_price or 0),
+            "discountAmount": float(l.sol_discount_amount or 0),
+            "lineTotal": float(l.sol_price_with_dis or l.sol_total_price or 0),
+            "totalPrice": float(l.sol_total_price or 0),
+            "lineOrder": l.sol_order,
+        })
+
+    return {
+        "id": row.sod_id,
+        "code": row.sod_code or "",
+        "displayName": row.sod_code or f"#{row.sod_id}",
+        "name": row.sod_name or "",
+        "supplierId": row.sup_id,
+        "supplierName": row.sup_company_name or "",
+        "createdAt": row.sod_d_creation.isoformat() if row.sod_d_creation else None,
+        "updatedAt": row.sod_d_update.isoformat() if row.sod_d_update else None,
+        "expectedDeliveryDate": row.sod_d_exp_delivery.isoformat() if row.sod_d_exp_delivery else None,
+        "totalHt": float(row.sod_total_ht or 0),
+        "totalTtc": float(row.sod_total_ttc or 0),
+        "discountAmount": float(row.sod_discount_amount or 0),
+        "paidAmount": float(row.sod_paid or 0),
+        "balanceDue": float(row.sod_need2pay or 0),
+        "isStarted": bool(row.sod_started),
+        "isCanceled": bool(row.sod_canceled),
+        "currencyCode": row.cur_designation or "EUR",
+        "vatRate": vat_rate,
+        "societyName": society_name or "",
+        "creatorName": creator_name or "",
+        "purchaseIntentId": row.pin_id,
+        "internalComment": row.sod_inter_comment or "",
+        "supplierComment": row.sod_supplier_comment or "",
+        "lineCount": len(lines),
+        "totalQuantity": total_quantity,
+        "lines": lines,
+    }
+
+
+# ==========================================================================
 # Supplier Order CRUD Endpoints
 # ==========================================================================
 
 @router.post(
     "",
-    response_model=SupplierOrderResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new supplier order",
-    description="""
-    Create a new supplier order (purchase order) in the system.
-
-    A unique order code will be automatically generated if not provided.
-    Lines can be included in the creation request.
-    """
 )
 async def create_supplier_order(
     data: SupplierOrderCreate,
@@ -94,114 +283,77 @@ async def create_supplier_order(
 
 @router.get(
     "",
-    response_model=SupplierOrderListPaginatedResponse,
     summary="List all supplier orders",
-    description="""
-    Get a paginated list of all supplier orders with optional filtering.
-
-    Supports filtering by:
-    - Text search (code, name)
-    - Supplier ID
-    - Society ID
-    - Currency ID
-    - Started status
-    - Canceled status
-    - Creation date range
-    - Expected delivery date range
-    - Total amount range
-    - Creator ID
-    """
 )
 async def list_supplier_orders(
-    # Pagination (frontend style)
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     pageSize: int = Query(20, ge=1, le=500, alias="pageSize", description="Items per page"),
-    # Legacy pagination
-    skip: Optional[int] = Query(None, ge=0, description="Number of records to skip (legacy)"),
-    limit: Optional[int] = Query(None, ge=1, le=500, description="Maximum records to return (legacy)"),
-    # Filters
-    search: Optional[str] = Query(None, max_length=100, description="Search term (code, name)"),
-    supplier_id: Optional[int] = Query(None, alias="supplierId", description="Filter by supplier ID"),
-    society_id: Optional[int] = Query(None, alias="societyId", description="Filter by society ID"),
-    currency_id: Optional[int] = Query(None, alias="currencyId", description="Filter by currency ID"),
-    is_started: Optional[bool] = Query(None, alias="isStarted", description="Filter by started status"),
-    is_canceled: Optional[bool] = Query(None, alias="isCanceled", description="Filter by canceled status"),
-    date_from: Optional[datetime] = Query(None, alias="dateFrom", description="Filter by creation date from"),
-    date_to: Optional[datetime] = Query(None, alias="dateTo", description="Filter by creation date to"),
-    exp_delivery_from: Optional[datetime] = Query(None, alias="expDeliveryFrom", description="Filter by expected delivery from"),
-    exp_delivery_to: Optional[datetime] = Query(None, alias="expDeliveryTo", description="Filter by expected delivery to"),
-    min_amount: Optional[Decimal] = Query(None, alias="minAmount", ge=0, description="Filter by minimum total amount"),
-    max_amount: Optional[Decimal] = Query(None, alias="maxAmount", ge=0, description="Filter by maximum total amount"),
-    creator_id: Optional[int] = Query(None, alias="creatorId", description="Filter by creator ID"),
-    service: SupplierOrderService = Depends(get_supplier_order_service)
+    search: Optional[str] = Query(None, max_length=100, description="Search term"),
+    supplier_id: Optional[int] = Query(None, alias="supplierId"),
+    is_started: Optional[bool] = Query(None, alias="isStarted"),
+    is_canceled: Optional[bool] = Query(None, alias="isCanceled"),
+    db: Session = Depends(get_db),
 ):
     """List all supplier orders with pagination and filtering."""
-    # Convert page/pageSize to skip/limit if not using legacy params
-    actual_skip = skip if skip is not None else (page - 1) * pageSize
-    actual_limit = limit if limit is not None else pageSize
-
-    search_params = SupplierOrderSearchParams(
-        search=search,
-        supplier_id=supplier_id,
-        society_id=society_id,
-        currency_id=currency_id,
-        is_started=is_started,
-        is_canceled=is_canceled,
-        date_from=date_from,
-        date_to=date_to,
-        exp_delivery_from=exp_delivery_from,
-        exp_delivery_to=exp_delivery_to,
-        min_amount=min_amount,
-        max_amount=max_amount,
-        creator_id=creator_id
+    rows, total = await asyncio.to_thread(
+        _sync_list_supplier_orders, db, page, pageSize, search, supplier_id, is_started, is_canceled
     )
 
-    orders, total = await service.list_orders(
-        skip=actual_skip,
-        limit=actual_limit,
-        search_params=search_params
-    )
+    items = []
+    for row in rows:
+        items.append({
+            "id": row.sod_id,
+            "code": row.sod_code or "",
+            "displayName": row.sod_code or f"#{row.sod_id}",
+            "name": row.sod_name or "",
+            "supplierName": row.sup_company_name or "",
+            "createdAt": row.sod_d_creation.isoformat() if row.sod_d_creation else None,
+            "updatedAt": row.sod_d_update.isoformat() if row.sod_d_update else None,
+            "expectedDeliveryDate": row.sod_d_exp_delivery.isoformat() if row.sod_d_exp_delivery else None,
+            "totalHt": float(row.sod_total_ht or 0),
+            "totalTtc": float(row.sod_total_ttc or 0),
+            "isStarted": bool(row.sod_started),
+            "isCanceled": bool(row.sod_canceled),
+            "currencyCode": row.cur_designation or "EUR",
+            "paidAmount": float(row.sod_paid or 0),
+            "balanceDue": float(row.sod_need2pay or 0),
+        })
 
-    # Calculate pagination info
-    total_pages = (total + pageSize - 1) // pageSize if pageSize > 0 else 0
-    has_next = page < total_pages
-    has_previous = page > 1
+    total_pages = (total + pageSize - 1) // pageSize if total > 0 else 0
 
-    return SupplierOrderListPaginatedResponse(
-        success=True,
-        data=[SupplierOrderResponse.model_validate(o) for o in orders],
-        page=page,
-        pageSize=pageSize,
-        totalCount=total,
-        totalPages=total_pages,
-        hasNextPage=has_next,
-        hasPreviousPage=has_previous
-    )
+    return {
+        "success": True,
+        "data": items,
+        "page": page,
+        "pageSize": pageSize,
+        "totalCount": total,
+        "totalPages": total_pages,
+        "hasNextPage": page < total_pages,
+        "hasPreviousPage": page > 1,
+    }
 
 
 @router.get(
     "/{order_id}",
-    response_model=SupplierOrderDetailResponse,
     summary="Get supplier order by ID",
-    description="Get detailed information about a specific supplier order with lines and resolved lookup names."
 )
 async def get_supplier_order(
     order_id: int = Path(..., gt=0, description="Supplier order ID"),
-    service: SupplierOrderService = Depends(get_supplier_order_service)
+    db: Session = Depends(get_db),
 ):
     """Get a specific supplier order by ID with resolved lookup names."""
-    try:
-        order_detail = await service.get_order_detail(order_id)
-        return order_detail
-    except SupplierOrderServiceError as e:
-        raise handle_supplier_order_error(e)
+    result = await asyncio.to_thread(_sync_get_supplier_order_detail, db, order_id)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier order {order_id} not found"
+        )
+    return result
 
 
 @router.put(
     "/{order_id}",
-    response_model=SupplierOrderResponse,
     summary="Update a supplier order",
-    description="Update an existing supplier order's information."
 )
 async def update_supplier_order(
     order_id: int = Path(..., gt=0, description="Supplier order ID"),
@@ -220,11 +372,6 @@ async def update_supplier_order(
     "/{order_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a supplier order (soft delete)",
-    description="""
-    Soft delete a supplier order by ID.
-
-    This cancels the order but preserves the record for historical purposes.
-    """
 )
 async def delete_supplier_order(
     order_id: int = Path(..., gt=0, description="Supplier order ID"),
@@ -241,12 +388,6 @@ async def delete_supplier_order(
     "/{order_id}/permanent",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Permanently delete a supplier order",
-    description="""
-    Permanently delete a supplier order by ID.
-
-    WARNING: This cannot be undone.
-    Will also delete all related order lines.
-    """
 )
 async def hard_delete_supplier_order(
     order_id: int = Path(..., gt=0, description="Supplier order ID"),
@@ -265,15 +406,8 @@ async def hard_delete_supplier_order(
 
 @router.post(
     "/{order_id}/lines",
-    response_model=SupplierOrderLineResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Add a line to a supplier order",
-    description="""
-    Add a new line to an existing supplier order.
-
-    The line's pricing totals will be calculated automatically.
-    The order's totals will be recalculated after adding the line.
-    """
 )
 async def add_supplier_order_line(
     order_id: int = Path(..., gt=0, description="Supplier order ID"),
@@ -290,14 +424,7 @@ async def add_supplier_order_line(
 
 @router.put(
     "/{order_id}/lines/{line_id}",
-    response_model=SupplierOrderLineResponse,
     summary="Update a supplier order line",
-    description="""
-    Update an existing line on a supplier order.
-
-    The line's pricing totals will be recalculated if pricing fields change.
-    The order's totals will be recalculated after updating the line.
-    """
 )
 async def update_supplier_order_line(
     order_id: int = Path(..., gt=0, description="Supplier order ID"),
@@ -317,11 +444,6 @@ async def update_supplier_order_line(
     "/{order_id}/lines/{line_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a supplier order line",
-    description="""
-    Delete a line from a supplier order.
-
-    The order's totals will be recalculated after deleting the line.
-    """
 )
 async def delete_supplier_order_line(
     order_id: int = Path(..., gt=0, description="Supplier order ID"),
@@ -343,12 +465,6 @@ async def delete_supplier_order_line(
     "/{order_id}/confirm",
     response_model=ConfirmSupplierOrderResponse,
     summary="Confirm a supplier order",
-    description="""
-    Confirm a supplier order, marking it as started.
-
-    A confirmed order indicates it has been sent to the supplier.
-    Optional notes can be added for documentation purposes.
-    """
 )
 async def confirm_supplier_order(
     order_id: int = Path(..., gt=0, description="Supplier order ID"),
@@ -373,12 +489,6 @@ async def confirm_supplier_order(
     "/{order_id}/cancel",
     response_model=CancelSupplierOrderResponse,
     summary="Cancel a supplier order",
-    description="""
-    Cancel a supplier order.
-
-    A reason for cancellation is required for documentation purposes.
-    Canceled orders cannot be modified or confirmed.
-    """
 )
 async def cancel_supplier_order(
     order_id: int = Path(..., gt=0, description="Supplier order ID"),
