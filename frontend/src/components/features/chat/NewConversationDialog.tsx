@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import apiClient from '@/api/client'
 import { debounce } from '@/lib/utils'
+import { useAuthStore } from '@/stores/authStore'
 
 // API response matches backend UserLookup schema
 interface UserLookupResponse {
@@ -45,6 +46,7 @@ export function NewConversationDialog({
   onThreadCreated,
 }: NewConversationDialogProps) {
   const { t } = useTranslation()
+  const currentUser = useAuthStore((state) => state.user)
   const [search, setSearch] = useState('')
   const [users, setUsers] = useState<User[]>([])
   const [selectedUsers, setSelectedUsers] = useState<User[]>([])
@@ -75,8 +77,9 @@ export function NewConversationDialog({
       })
       const data: UserLookupResponse[] = response.data?.data || response.data || []
       const normalized = data.map(normalizeUser)
+      // Filter out current user and already selected users
       const filtered = normalized.filter(
-        (u) => !selectedUsers.some((s) => s.id === u.id)
+        (u) => u.id !== currentUser?.id && !selectedUsers.some((s) => s.id === u.id)
       )
       setUsers(filtered)
     } catch (err) {
@@ -85,7 +88,7 @@ export function NewConversationDialog({
     } finally {
       setIsLoading(false)
     }
-  }, [selectedUsers])
+  }, [selectedUsers, currentUser?.id])
 
   // Debounced user search
   const searchUsers = useCallback(
@@ -96,10 +99,10 @@ export function NewConversationDialog({
           params: { q: query || undefined, limit: 20 },
         })
         const data: UserLookupResponse[] = response.data?.data || response.data || []
-        // Normalize and filter out already selected users
+        // Normalize and filter out current user and already selected users
         const normalized = data.map(normalizeUser)
         const filtered = normalized.filter(
-          (u) => !selectedUsers.some((s) => s.id === u.id)
+          (u) => u.id !== currentUser?.id && !selectedUsers.some((s) => s.id === u.id)
         )
         setUsers(filtered)
       } catch (err) {
@@ -109,7 +112,7 @@ export function NewConversationDialog({
         setIsLoading(false)
       }
     }, 300),
-    [selectedUsers]
+    [selectedUsers, currentUser?.id]
   )
 
   // Load users when dialog opens
