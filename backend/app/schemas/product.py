@@ -403,6 +403,8 @@ class ProductDetailResponse(BaseModel):
     # =====================================================
     societyName: Optional[str] = Field(None, description="Resolved society name")
     productTypeName: Optional[str] = Field(None, description="Resolved product type name")
+    categoryName: Optional[str] = Field(None, description="Category name (product type name)")
+    stockQuantity: Optional[int] = Field(None, description="Total stock from inventory")
 
     # Product instances (populated by service layer)
     instances: List["ProductInstanceResponse"] = Field(default_factory=list, description="Product instances/variants")

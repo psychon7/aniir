@@ -1,20 +1,89 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
-import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
+import { Card, CardHeader, CardContent } from '@/components/ui/layout/Card'
 import { StatusBadge } from '@/components/ui/Badge'
+import { LoadingSkeletonCard } from '@/components/ui/feedback/LoadingSkeleton'
+import { EmptyStateError } from '@/components/ui/feedback/EmptyState'
+import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
+import { useToast } from '@/components/ui/feedback/Toast'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/products/$productId')({
   component: ProductDetailPage,
 })
 
+// ---------------------------------------------------------------------------
+// Helper components
+// ---------------------------------------------------------------------------
+
+function InfoItem({
+  label,
+  value,
+  mono,
+  className,
+}: {
+  label: string
+  value?: React.ReactNode
+  mono?: boolean
+  className?: string
+}) {
+  return (
+    <div className={className}>
+      <dt className="text-sm text-muted-foreground mb-1">{label}</dt>
+      <dd className={`text-foreground ${mono ? 'font-mono text-sm' : ''}`}>
+        {value ?? '-'}
+      </dd>
+    </div>
+  )
+}
+
+function formatCurrency(amount?: number | null): string {
+  if (amount == null) return '-'
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount)
+}
+
+function formatDate(dateStr?: string | null): string {
+  if (!dateStr) return '-'
+  try {
+    return new Date(dateStr).toLocaleDateString()
+  } catch {
+    return '-'
+  }
+}
+
+function formatDecimal(val?: number | string | null, unit?: string): string {
+  if (val == null || val === '') return '-'
+  const num = typeof val === 'string' ? parseFloat(val) : val
+  if (isNaN(num)) return '-'
+  return unit ? `${num} ${unit}` : String(num)
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
 function ProductDetailPage() {
   const { productId } = Route.useParams()
   const navigate = useNavigate()
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const { success, error: showError } = useToast()
 
-  const { data: product, isLoading } = useQuery({
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+
+  // Fetch product detail (enriched with resolved names)
+  const {
+    data: product,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['product', productId],
     queryFn: async () => {
       const response = await apiClient.get(`/products/${productId}`)
@@ -22,133 +91,303 @@ function ProductDetailPage() {
     },
   })
 
+  // Fetch product instances
+  const { data: instances = [] } = useQuery({
+    queryKey: ['product', productId, 'instances'],
+    queryFn: async () => {
+      const response = await apiClient.get(`/products/${productId}/instances`)
+      return response.data
+    },
+    enabled: !!product,
+  })
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: () => apiClient.delete(`/products/${productId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      success(
+        t('products.deleteSuccess', 'Product deleted'),
+        t('products.deleteSuccessDescription', 'The product has been deleted successfully.')
+      )
+      navigate({ to: '/products' })
+    },
+    onError: () => {
+      showError(t('common.error', 'Error'), t('products.deleteError', 'Failed to delete product.'))
+    },
+  })
+
+  // ---------------------------------------------------------------------------
+  // Loading & Error states
+  // ---------------------------------------------------------------------------
+
   if (isLoading) {
     return (
       <PageContainer>
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-muted rounded w-1/4"></div>
-          <div className="h-64 bg-muted rounded"></div>
-        </div>
+        <LoadingSkeletonCard />
+        <LoadingSkeletonCard />
       </PageContainer>
     )
   }
 
-  if (!product) {
+  if (error || !product) {
     return (
       <PageContainer>
-        <div className="text-center py-12">
-          <h2 className="text-xl font-semibold">Product not found</h2>
-          <button onClick={() => navigate({ to: '/products' as any })} className="btn-primary mt-4">
-            Back to Products
-          </button>
-        </div>
+        <EmptyStateError
+          message={t('products.notFound', 'Product not found')}
+          onRetry={() => navigate({ to: '/products' })}
+        />
       </PageContainer>
     )
   }
 
-  const actions = (
-    <div className="flex gap-2">
-      <button onClick={() => navigate({ to: '/products' as any })} className="btn-secondary">
-        Back
-      </button>
-      <button className="btn-primary">Edit Product</button>
-    </div>
-  )
+  // ---------------------------------------------------------------------------
+  // Derived values
+  // ---------------------------------------------------------------------------
+
+  const hasDimensions =
+    product.length || product.width || product.height || product.weight || product.outsideDiameter || product.depth || product.holeSize
+
+  const hasUnitDimensions =
+    product.unitLength || product.unitWidth || product.unitHeight || product.unitWeight
+
+  const hasCartonDimensions =
+    product.cartonLength || product.cartonWidth || product.cartonHeight || product.cartonWeight || product.quantityEachCarton
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <PageContainer>
       <PageHeader
-        title={product.name}
-        description={`Reference: ${product.reference}`}
-        actions={actions}
+        title={product.name || product.reference}
+        description={`${product.reference}${product.code ? ` - ${product.code}` : ''}`}
+        breadcrumbs={[
+          { label: t('products.title', 'Products'), href: '/products' },
+          { label: product.name || product.reference },
+        ]}
+        actions={
+          <>
+            <button
+              onClick={() => navigate({ to: '/products' })}
+              className="btn-secondary"
+            >
+              {t('common.back', 'Back')}
+            </button>
+            <button
+              onClick={() => setIsDeleteOpen(true)}
+              className="btn-secondary text-destructive hover:bg-destructive/10"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              {t('common.delete', 'Delete')}
+            </button>
+          </>
+        }
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ====== Main content (2 cols) ====== */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Product Information */}
           <Card>
-            <CardHeader title="Product Information" />
+            <CardHeader title={t('products.information', 'Product Information')} />
             <CardContent>
-              <dl className="grid grid-cols-2 gap-4">
-                <div>
-                  <dt className="text-sm text-muted-foreground">Reference</dt>
-                  <dd className="font-mono">{product.reference}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Name</dt>
-                  <dd>{product.name}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Category</dt>
-                  <dd>{product.categoryName || '-'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Brand</dt>
-                  <dd>{product.brandName || '-'}</dd>
-                </div>
-                <div className="col-span-2">
-                  <dt className="text-sm text-muted-foreground">Description</dt>
-                  <dd>{product.description || '-'}</dd>
-                </div>
+              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InfoItem label={t('products.reference', 'Reference')} value={product.reference} mono />
+                <InfoItem label={t('products.product', 'Name')} value={product.name} />
+                <InfoItem label={t('products.category', 'Category / Type')} value={product.categoryName || product.productTypeName || '-'} />
+                <InfoItem label={t('products.code', 'Code')} value={product.code} mono />
+                {product.subName && (
+                  <InfoItem label={t('products.subName', 'Sub-name / Family')} value={product.subName} />
+                )}
+                {product.supDescription && (
+                  <InfoItem label={t('products.supplierDescription', 'Supplier Description')} value={product.supDescription} />
+                )}
+                <InfoItem
+                  label={t('products.description', 'Description')}
+                  value={product.description}
+                  className="md:col-span-2"
+                />
               </dl>
             </CardContent>
           </Card>
 
+          {/* Pricing & Inventory */}
           <Card>
-            <CardHeader title="Pricing & Inventory" />
+            <CardHeader title={t('products.pricingInventory', 'Pricing & Inventory')} />
             <CardContent>
-              <dl className="grid grid-cols-2 gap-4">
+              <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <dt className="text-sm text-muted-foreground">Unit Price</dt>
-                  <dd className="text-lg font-semibold">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(product.unitPrice || 0)}
-                  </dd>
+                  <dt className="text-sm text-muted-foreground mb-1">{t('products.price', 'Selling Price')}</dt>
+                  <dd className="text-lg font-semibold text-foreground">{formatCurrency(product.price)}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-muted-foreground">Cost Price</dt>
-                  <dd className="text-lg font-semibold">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(product.costPrice || 0)}
-                  </dd>
+                  <dt className="text-sm text-muted-foreground mb-1">{t('products.costPrice', 'Purchase Price')}</dt>
+                  <dd className="text-lg font-semibold text-foreground">{formatCurrency(product.purchasePrice)}</dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-muted-foreground">Stock Quantity</dt>
-                  <dd className={`text-lg font-semibold ${product.stockQuantity < 10 ? 'text-destructive' : ''}`}>
+                  <dt className="text-sm text-muted-foreground mb-1">{t('products.stock', 'Stock Quantity')}</dt>
+                  <dd className={`text-lg font-semibold ${product.stockQuantity != null && product.stockQuantity < 10 ? 'text-destructive' : 'text-foreground'}`}>
                     {product.stockQuantity ?? 0}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Unit of Measure</dt>
-                  <dd>{product.unitOfMeasureName || '-'}</dd>
-                </div>
+                <InfoItem label={t('products.margin', 'Margin')} value={
+                  product.price && product.purchasePrice
+                    ? `${((product.price - product.purchasePrice) / product.price * 100).toFixed(1)}%`
+                    : undefined
+                } />
               </dl>
             </CardContent>
           </Card>
+
+          {/* Physical Dimensions */}
+          {hasDimensions && (
+            <Card>
+              <CardHeader title={t('products.dimensions', 'Physical Dimensions')} />
+              <CardContent>
+                <dl className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <InfoItem label={t('products.length', 'Length')} value={formatDecimal(product.length, 'mm')} />
+                  <InfoItem label={t('products.width', 'Width')} value={formatDecimal(product.width, 'mm')} />
+                  <InfoItem label={t('products.height', 'Height')} value={formatDecimal(product.height, 'mm')} />
+                  <InfoItem label={t('products.weight', 'Weight')} value={formatDecimal(product.weight, 'kg')} />
+                  <InfoItem label={t('products.outsideDiameter', 'Outside Diameter')} value={formatDecimal(product.outsideDiameter, 'mm')} />
+                  <InfoItem label={t('products.depth', 'Depth')} value={formatDecimal(product.depth, 'mm')} />
+                  <InfoItem label={t('products.holeSize', 'Hole Size')} value={formatDecimal(product.holeSize, 'mm')} />
+                </dl>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Unit & Carton Dimensions */}
+          {(hasUnitDimensions || hasCartonDimensions) && (
+            <Card>
+              <CardHeader title={t('products.packaging', 'Packaging Dimensions')} />
+              <CardContent>
+                {hasUnitDimensions && (
+                  <>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">{t('products.unitDimensions', 'Unit Dimensions')}</h4>
+                    <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <InfoItem label={t('products.length', 'Length')} value={formatDecimal(product.unitLength, 'mm')} />
+                      <InfoItem label={t('products.width', 'Width')} value={formatDecimal(product.unitWidth, 'mm')} />
+                      <InfoItem label={t('products.height', 'Height')} value={formatDecimal(product.unitHeight, 'mm')} />
+                      <InfoItem label={t('products.weight', 'Weight')} value={formatDecimal(product.unitWeight, 'kg')} />
+                    </dl>
+                  </>
+                )}
+                {hasCartonDimensions && (
+                  <>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">{t('products.cartonDimensions', 'Carton Dimensions')}</h4>
+                    <dl className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <InfoItem label={t('products.quantityPerCarton', 'Qty / Carton')} value={product.quantityEachCarton} />
+                      <InfoItem label={t('products.length', 'Length')} value={formatDecimal(product.cartonLength, 'mm')} />
+                      <InfoItem label={t('products.width', 'Width')} value={formatDecimal(product.cartonWidth, 'mm')} />
+                      <InfoItem label={t('products.height', 'Height')} value={formatDecimal(product.cartonHeight, 'mm')} />
+                      <InfoItem label={t('products.weight', 'Weight')} value={formatDecimal(product.cartonWeight, 'kg')} />
+                    </dl>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
+        {/* ====== Sidebar (1 col) ====== */}
         <div className="space-y-6">
+          {/* Status */}
           <Card>
-            <CardHeader title="Status" />
+            <CardHeader title={t('common.status', 'Status')} />
             <CardContent>
-              <StatusBadge status={product.isActive ? 'Active' : 'Inactive'} />
+              <StatusBadge status="Active" />
             </CardContent>
           </Card>
 
+          {/* Details */}
           <Card>
-            <CardHeader title="Metadata" />
+            <CardHeader title={t('products.details', 'Details')} />
             <CardContent>
-              <dl className="space-y-2">
-                <div>
-                  <dt className="text-sm text-muted-foreground">Created</dt>
-                  <dd className="text-sm">{new Date(product.createdAt).toLocaleDateString()}</dd>
+              <dl className="space-y-3">
+                <InfoItem label={t('products.society', 'Society')} value={product.societyName} />
+                <InfoItem label={t('products.productType', 'Product Type')} value={product.productTypeName} />
+                {product.fileName && (
+                  <InfoItem label={t('products.fileName', 'File')} value={product.fileName} />
+                )}
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Product Instances */}
+          <Card>
+            <CardHeader
+              title={t('products.instances', 'Variants / Instances')}
+              action={
+                <span className="text-sm text-muted-foreground">
+                  {instances.length}
+                </span>
+              }
+            />
+            <CardContent>
+              {instances.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t('products.noInstances', 'No variants defined')}
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {instances.slice(0, 10).map((inst: any) => (
+                    <div
+                      key={inst.pit_id}
+                      className="flex items-center justify-between py-2 border-b border-border last:border-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {inst.pit_ref || `#${inst.pit_id}`}
+                        </p>
+                        {inst.pit_description && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {inst.pit_description}
+                          </p>
+                        )}
+                      </div>
+                      {inst.pit_price != null && (
+                        <span className="text-sm font-medium text-foreground ml-2 flex-shrink-0">
+                          {formatCurrency(inst.pit_price)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {instances.length > 10 && (
+                    <p className="text-sm text-primary">
+                      +{instances.length - 10} {t('common.more', 'more')}
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <dt className="text-sm text-muted-foreground">Last Updated</dt>
-                  <dd className="text-sm">{new Date(product.updatedAt || product.createdAt).toLocaleDateString()}</dd>
-                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Record Information */}
+          <Card>
+            <CardHeader title={t('common.recordInfo', 'Record Information')} />
+            <CardContent>
+              <dl className="space-y-3">
+                <InfoItem label={t('common.created', 'Created')} value={formatDate(product.createdAt)} />
+                <InfoItem label={t('common.updated', 'Last Updated')} value={formatDate(product.updatedAt)} />
               </dl>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Delete Confirmation */}
+      <DeleteConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={() => deleteMutation.mutate()}
+        itemName={product.name || product.reference}
+        isLoading={deleteMutation.isPending}
+      />
     </PageContainer>
   )
 }

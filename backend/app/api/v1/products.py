@@ -160,10 +160,9 @@ async def search_products(
         sort_order=sortOrder
     )
 
-    products, total = await service.search_products(params)
+    items, total = await service.search_products(params)
 
-    # Build paginated response matching frontend format
-    items = [ProductListResponse.model_validate(p) for p in products]
+    # items are already enriched ProductListResponse objects from the service
     total_pages = (total + pageSize - 1) // pageSize if total > 0 else 0
 
     return ProductListPaginatedResponse(

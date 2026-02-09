@@ -13,7 +13,7 @@ from typing import Optional, List, Tuple
 from decimal import Decimal
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
@@ -123,6 +123,24 @@ class ProductService:
             product_type = result.scalar_one_or_none()
             if product_type:
                 response_data["productTypeName"] = product_type.pty_name
+                response_data["categoryName"] = product_type.pty_name
+
+        # Stock quantity from inventory
+        try:
+            from sqlalchemy import text
+            stock_row = self.db.execute(
+                text(
+                    "SELECT SUM(ISNULL(inv_quantity, 0)) as total_stock "
+                    "FROM TM_INV_Inventory WHERE prd_id = :prd_id"
+                ),
+                {"prd_id": product.prd_id}
+            ).first()
+            if stock_row and stock_row.total_stock:
+                response_data["stockQuantity"] = int(stock_row.total_stock)
+            else:
+                response_data["stockQuantity"] = 0
+        except Exception:
+            response_data["stockQuantity"] = 0
 
         # Get instances
         instances = self.repository.get_instances_by_product(product_id)
@@ -177,9 +195,55 @@ class ProductService:
     def _sync_search_products(
         self,
         params: ProductSearchParams
-    ) -> Tuple[List[Product], int]:
-        """Sync: Search products with filters and pagination."""
-        return self.repository.search_products(params)
+    ) -> Tuple[List[dict], int]:
+        """Sync: Search products with filters and pagination, enriched with category/stock."""
+        products, total = self.repository.search_products(params)
+        enriched = self._enrich_product_list(products)
+        return enriched, total
+
+    def _enrich_product_list(self, products: List[Product]) -> List[dict]:
+        """Enrich products with product type name (category) and stock quantity."""
+        if not products:
+            return []
+
+        prd_ids = [p.prd_id for p in products]
+        pty_ids = list({p.pty_id for p in products})
+
+        # Batch fetch product type names (acts as category in legacy)
+        pty_map: dict[int, str] = {}
+        if pty_ids:
+            rows = self.db.execute(
+                select(ProductType.pty_id, ProductType.pty_name)
+                .where(ProductType.pty_id.in_(pty_ids))
+            ).all()
+            pty_map = {r.pty_id: r.pty_name for r in rows}
+
+        # Batch fetch stock quantities from TM_INV_Inventory
+        from sqlalchemy import text
+        stock_map: dict[int, int] = {}
+        if prd_ids:
+            try:
+                rows = self.db.execute(
+                    text(
+                        "SELECT prd_id, SUM(ISNULL(inv_quantity, 0)) as total_stock "
+                        "FROM TM_INV_Inventory WHERE prd_id IN :ids GROUP BY prd_id"
+                    ),
+                    {"ids": tuple(prd_ids)}
+                ).all()
+                stock_map = {r.prd_id: int(r.total_stock) for r in rows}
+            except Exception:
+                # Table may not have data or may differ — gracefully default
+                pass
+
+        # Build enriched dicts
+        enriched = []
+        for p in products:
+            item = ProductListResponse.model_validate(p)
+            item.categoryName = pty_map.get(p.pty_id)
+            item.stockQuantity = stock_map.get(p.prd_id)
+            enriched.append(item)
+
+        return enriched
 
     def _sync_get_products_by_society(
         self,
@@ -367,7 +431,7 @@ class ProductService:
     async def search_products(
         self,
         params: ProductSearchParams
-    ) -> Tuple[List[Product], int]:
+    ) -> Tuple[List, int]:
         """Search products with filters and pagination."""
         return await asyncio.to_thread(self._sync_search_products, params)
 
