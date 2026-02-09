@@ -13,13 +13,12 @@ from typing import Optional, List, Tuple
 from decimal import Decimal
 import logging
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
 from app.database import get_db
 from app.models.product import Product, ProductInstance
-from app.models.society import Society
 from app.models.product_type import ProductType
 from app.repositories.product_repository import ProductRepository
 from app.schemas.product import (
@@ -96,59 +95,52 @@ class ProductService:
             raise ProductNotFoundError(f"Product {product_id} not found")
         return self._product_to_detail_response(product)
 
-    def _sync_get_product_detail(self, product_id: int) -> dict:
+    def _sync_get_product_detail(self, product_id: int) -> ProductDetailResponse:
         """Sync: Get a product by ID with resolved lookup names."""
         product = self.repository.get_product(product_id)
         if not product:
             raise ProductNotFoundError(f"Product {product_id} not found")
 
-        # Build base response from product ORM object
-        response_data = ProductDetailResponse.model_validate(product).model_dump()
+        # Build response — instances already loaded via selectinload in get_product()
+        response = ProductDetailResponse.model_validate(product)
 
-        # Resolve lookup names
-        # Society
-        if product.soc_id:
-            result = self.db.execute(
-                select(Society).where(Society.soc_id == product.soc_id)
-            )
-            society = result.scalar_one_or_none()
-            if society:
-                response_data["societyName"] = society.soc_society_name
+        # Resolve society name via lightweight text query (avoids loading Society + users)
+        try:
+            row = self.db.execute(
+                text("SELECT soc_society_name FROM TR_SOC_Society WHERE soc_id = :soc_id"),
+                {"soc_id": product.soc_id}
+            ).first()
+            if row:
+                response.societyName = row[0]
+        except Exception:
+            logger.debug("Could not resolve society name for soc_id=%s", product.soc_id)
 
-        # Product Type
-        if product.pty_id:
-            result = self.db.execute(
-                select(ProductType).where(ProductType.pty_id == product.pty_id)
-            )
-            product_type = result.scalar_one_or_none()
-            if product_type:
-                response_data["productTypeName"] = product_type.pty_name
-                response_data["categoryName"] = product_type.pty_name
+        # Resolve product type name
+        try:
+            row = self.db.execute(
+                text("SELECT pty_name FROM TM_PTY_Product_Type WHERE pty_id = :pty_id"),
+                {"pty_id": product.pty_id}
+            ).first()
+            if row:
+                response.productTypeName = row[0]
+                response.categoryName = row[0]
+        except Exception:
+            logger.debug("Could not resolve product type name for pty_id=%s", product.pty_id)
 
         # Stock quantity from inventory
         try:
-            from sqlalchemy import text
             stock_row = self.db.execute(
                 text(
-                    "SELECT SUM(ISNULL(inv_quantity, 0)) as total_stock "
+                    "SELECT ISNULL(SUM(ISNULL(inv_quantity, 0)), 0) as total_stock "
                     "FROM TM_INV_Inventory WHERE prd_id = :prd_id"
                 ),
                 {"prd_id": product.prd_id}
             ).first()
-            if stock_row and stock_row.total_stock:
-                response_data["stockQuantity"] = int(stock_row.total_stock)
-            else:
-                response_data["stockQuantity"] = 0
+            response.stockQuantity = int(stock_row[0]) if stock_row and stock_row[0] else 0
         except Exception:
-            response_data["stockQuantity"] = 0
+            response.stockQuantity = 0
 
-        # Get instances
-        instances = self.repository.get_instances_by_product(product_id)
-        response_data["instances"] = [
-            ProductInstanceResponse.model_validate(i).model_dump() for i in instances
-        ]
-
-        return response_data
+        return response
 
     def _sync_get_product_by_ref(
         self,
@@ -219,20 +211,19 @@ class ProductService:
             pty_map = {r.pty_id: r.pty_name for r in rows}
 
         # Batch fetch stock quantities from TM_INV_Inventory
-        from sqlalchemy import text
         stock_map: dict[int, int] = {}
         if prd_ids:
             try:
+                # Use ORM query to avoid text() IN-clause issues with pymssql
+                from app.models.inventory import Inventory
                 rows = self.db.execute(
-                    text(
-                        "SELECT prd_id, SUM(ISNULL(inv_quantity, 0)) as total_stock "
-                        "FROM TM_INV_Inventory WHERE prd_id IN :ids GROUP BY prd_id"
-                    ),
-                    {"ids": tuple(prd_ids)}
+                    select(Inventory.prd_id, func.sum(Inventory.inv_quantity).label("total_stock"))
+                    .where(Inventory.prd_id.in_(prd_ids))
+                    .group_by(Inventory.prd_id)
                 ).all()
-                stock_map = {r.prd_id: int(r.total_stock) for r in rows}
+                stock_map = {r.prd_id: int(r.total_stock or 0) for r in rows}
             except Exception:
-                # Table may not have data or may differ — gracefully default
+                # Table may not have data or model may differ — gracefully default
                 pass
 
         # Build enriched dicts
@@ -404,7 +395,7 @@ class ProductService:
         """Get a product by ID with all instances."""
         return await asyncio.to_thread(self._sync_get_product, product_id)
 
-    async def get_product_detail(self, product_id: int) -> dict:
+    async def get_product_detail(self, product_id: int) -> ProductDetailResponse:
         """Get a product by ID with resolved lookup names."""
         return await asyncio.to_thread(self._sync_get_product_detail, product_id)
 

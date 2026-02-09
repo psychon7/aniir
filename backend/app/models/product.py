@@ -27,13 +27,33 @@ class ProductInstance(Base):
     """
     Product Instance model - represents specific instances/SKUs of products.
     Maps to TM_PIT_Product_Instance table.
+
+    Actual DB schema:
+      pit_id: int NOT NULL [PK]
+      prd_id: int NOT NULL [FK -> TM_PRD_Product]
+      pty_id: int NOT NULL [FK -> TM_PTY_Product_Type]
+      pit_price: decimal NULL
+      pit_ref: nvarchar(200) NULL
+      pit_description: nvarchar(4000) NULL
+      pit_prd_info: xml NULL
+      pit_purchase_price: decimal NULL
+      pit_tmp_ref: nvarchar(100) NULL
+      pit_inventory_threshold: int NOT NULL
     """
     __tablename__ = "TM_PIT_Product_Instance"
     __table_args__ = {'extend_existing': True}
 
     pit_id = Column("pit_id", Integer, primary_key=True, autoincrement=True)
-    prd_id = Column("prd_id", Integer, ForeignKey("TM_PRD_Product.prd_id"), nullable=True)
-    # Add other columns as needed based on actual schema
+    prd_id = Column("prd_id", Integer, ForeignKey("TM_PRD_Product.prd_id"), nullable=False)
+    pty_id = Column("pty_id", Integer, ForeignKey("TM_PTY_Product_Type.pty_id"), nullable=False)
+
+    pit_ref = Column("pit_ref", String(200), nullable=True)
+    pit_description = Column("pit_description", String(4000), nullable=True)
+    pit_price = Column("pit_price", Numeric(18, 4), nullable=True)
+    pit_purchase_price = Column("pit_purchase_price", Numeric(18, 4), nullable=True)
+    pit_inventory_threshold = Column("pit_inventory_threshold", Integer, nullable=False, default=0)
+    pit_tmp_ref = Column("pit_tmp_ref", String(100), nullable=True)
+    # pit_prd_info is XML - skip mapping (not needed in API)
 
     # Relationships
     product = relationship("Product", back_populates="instances", lazy="joined")
