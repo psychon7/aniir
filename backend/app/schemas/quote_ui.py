@@ -86,3 +86,4 @@ class QuoteSummaryUI(BaseModel):
     taxAmount: Decimal = Field(default=Decimal("0"))
     totalAmount: Decimal = Field(default=Decimal("0"))
     discountAmount: Optional[Decimal] = None
+

@@ -23,8 +23,10 @@ from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.models.invoice import ClientInvoice
+from app.models.client_invoice_line import ClientInvoiceLine
 from app.models.client import Client
 from app.models.currency import Currency
+from app.models.order import ClientOrder
 from app.services.invoice_service import (
     InvoiceService,
     get_invoice_service,
@@ -90,6 +92,15 @@ def _sync_list_invoices(
     sort_order: str = "desc"
 ):
     """Sync function to list invoices with pagination, joining Client and Currency."""
+    # Correlated subquery for totalAmount from line items
+    total_amount_sq = (
+        select(func.coalesce(func.sum(ClientInvoiceLine.cii_price_with_discount_ht), 0))
+        .where(ClientInvoiceLine.cin_id == ClientInvoice.cin_id)
+        .correlate(ClientInvoice)
+        .scalar_subquery()
+        .label("total_amount")
+    )
+
     query = (
         select(
             ClientInvoice.cin_id,
@@ -111,6 +122,7 @@ def _sync_list_invoices(
             ClientInvoice.cin_name,
             Client.cli_company_name,
             Currency.cur_designation.label("currency_code"),
+            total_amount_sq,
         )
         .outerjoin(Client, ClientInvoice.cli_id == Client.cli_id)
         .outerjoin(Currency, ClientInvoice.cur_id == Currency.cur_id)
@@ -262,8 +274,8 @@ async def list_invoices(
             "clientName": row.cli_company_name or "",
             "invoiceDate": row.cin_d_invoice.isoformat() if row.cin_d_invoice else None,
             "dueDate": row.cin_d_term.isoformat() if row.cin_d_term else None,
-            "totalAmount": 0,  # TODO: compute from invoice lines
-            "paidAmount": 0,
+            "totalAmount": float(row.total_amount or 0),
+            "paidAmount": float((row.total_amount or 0) - (row.cin_rest_to_pay or 0)) if row.cin_rest_to_pay is not None else 0,
             "currency": _to_iso_currency(row.currency_code),
             "statusName": status_name,
             "name": row.cin_name,
@@ -426,9 +438,124 @@ async def search_invoices(
     return result
 
 
+def _sync_get_invoice_detail(db: Session, invoice_id: int):
+    """Sync helper to get invoice detail with lines, returning camelCase dict."""
+    # Fetch invoice header with client + currency + order joins
+    query = (
+        select(
+            ClientInvoice.cin_id,
+            ClientInvoice.cin_code,
+            ClientInvoice.cin_name,
+            ClientInvoice.cli_id,
+            ClientInvoice.cod_id,
+            ClientInvoice.cin_d_creation,
+            ClientInvoice.cin_d_update,
+            ClientInvoice.cin_d_invoice,
+            ClientInvoice.cin_d_term,
+            ClientInvoice.cin_d_encaissement,
+            ClientInvoice.cin_isinvoice,
+            ClientInvoice.cin_invoiced,
+            ClientInvoice.cin_is_full_paid,
+            ClientInvoice.cin_rest_to_pay,
+            ClientInvoice.cin_discount_percentage,
+            ClientInvoice.cin_discount_amount,
+            ClientInvoice.cin_header_text,
+            ClientInvoice.cin_footer_text,
+            ClientInvoice.cur_id,
+            Client.cli_company_name,
+            Currency.cur_designation.label("currency_code"),
+            ClientOrder.cod_code.label("order_code"),
+        )
+        .outerjoin(Client, ClientInvoice.cli_id == Client.cli_id)
+        .outerjoin(Currency, ClientInvoice.cur_id == Currency.cur_id)
+        .outerjoin(ClientOrder, ClientInvoice.cod_id == ClientOrder.cod_id)
+        .where(ClientInvoice.cin_id == invoice_id)
+    )
+    result = db.execute(query)
+    row = result.first()
+    if not row:
+        return None
+
+    # Fetch lines
+    lines_query = (
+        select(
+            ClientInvoiceLine.cii_id,
+            ClientInvoiceLine.cii_prd_name,
+            ClientInvoiceLine.cii_description,
+            ClientInvoiceLine.cii_ref,
+            ClientInvoiceLine.cii_quantity,
+            ClientInvoiceLine.cii_unit_price,
+            ClientInvoiceLine.cii_total_price,
+            ClientInvoiceLine.cii_price_with_discount_ht,
+            ClientInvoiceLine.cii_discount_percentage,
+            ClientInvoiceLine.cii_discount_amount,
+        )
+        .where(ClientInvoiceLine.cin_id == invoice_id)
+    )
+    lines_result = db.execute(lines_query)
+    line_rows = lines_result.all()
+
+    # Compute totals from lines
+    subtotal = sum(float(l.cii_price_with_discount_ht or l.cii_total_price or 0) for l in line_rows)
+    discount_amount = float(row.cin_discount_amount or 0)
+    total_amount = subtotal - discount_amount
+    rest_to_pay = float(row.cin_rest_to_pay or 0)
+    paid_amount = total_amount - rest_to_pay if row.cin_rest_to_pay is not None else 0
+
+    # Derive status
+    if row.cin_is_full_paid:
+        status_name = "Paid"
+    elif row.cin_invoiced:
+        status_name = "Sent"
+    elif row.cin_isinvoice:
+        status_name = "Draft"
+    else:
+        status_name = "Credit Note"
+
+    # Build lines list
+    lines = []
+    for l in line_rows:
+        lines.append({
+            "id": l.cii_id,
+            "productName": l.cii_prd_name or "",
+            "description": l.cii_description or "",
+            "productReference": l.cii_ref or "",
+            "quantity": float(l.cii_quantity or 0),
+            "unitPrice": float(l.cii_unit_price or 0),
+            "vatRate": 0,
+            "lineTotal": float(l.cii_price_with_discount_ht or l.cii_total_price or 0),
+            "discountPercentage": float(l.cii_discount_percentage or 0),
+            "discountAmount": float(l.cii_discount_amount or 0),
+        })
+
+    return {
+        "id": row.cin_id,
+        "reference": row.cin_code or "",
+        "name": row.cin_name or "",
+        "clientId": row.cli_id,
+        "clientName": row.cli_company_name or "",
+        "invoiceDate": row.cin_d_invoice.isoformat() if row.cin_d_invoice else None,
+        "dueDate": row.cin_d_term.isoformat() if row.cin_d_term else None,
+        "createdAt": row.cin_d_creation.isoformat() if row.cin_d_creation else None,
+        "orderReference": row.order_code,
+        "statusName": status_name,
+        "currency": _to_iso_currency(row.currency_code),
+        "subtotal": subtotal,
+        "totalAmount": total_amount,
+        "vatAmount": 0,
+        "discountAmount": discount_amount,
+        "discountPercentage": float(row.cin_discount_percentage or 0),
+        "paidAmount": paid_amount,
+        "paidAt": row.cin_d_encaissement.isoformat() if row.cin_d_encaissement else None,
+        "paymentReference": None,
+        "headerText": row.cin_header_text or "",
+        "footerText": row.cin_footer_text or "",
+        "lines": lines,
+    }
+
+
 @router.get(
     "/{invoice_id}",
-    response_model=InvoiceDetailResponse,
     summary="Get invoice details",
     description="Get an invoice by ID with all line items and resolved lookup names.",
     responses={
@@ -441,12 +568,10 @@ async def get_invoice(
     db: Session = Depends(get_db)
 ):
     """Get invoice by ID with resolved lookup names."""
-    service = get_invoice_service(db)
-
-    try:
-        return await service.get_invoice_detail(invoice_id)
-    except InvoiceNotFoundError as e:
-        raise handle_invoice_error(e)
+    result = await asyncio.to_thread(_sync_get_invoice_detail, db, invoice_id)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Invoice {invoice_id} not found")
+    return result
 
 
 @router.get(

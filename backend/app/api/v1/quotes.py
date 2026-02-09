@@ -17,7 +17,7 @@ from sqlalchemy import select, func, and_, desc, asc
 from pydantic import BaseModel, Field
 
 from app.database import get_db
-from app.models.costplan import CostPlan
+from app.models.costplan import CostPlan, CostPlanLine
 from app.models.client import Client
 from app.models.cost_plan_status import CostPlanStatus
 from app.services.quote_service import (
@@ -79,6 +79,15 @@ def _sync_list_quotes(
     sort_order: str = "desc"
 ):
     """Sync function to list quotes with pagination, joining client and status."""
+    # Correlated subquery for totalAmount from line items
+    total_amount_sq = (
+        select(func.coalesce(func.sum(CostPlanLine.cln_price_with_discount_ht), 0))
+        .where(CostPlanLine.cpl_id == CostPlan.cpl_id)
+        .correlate(CostPlan)
+        .scalar_subquery()
+        .label("total_amount")
+    )
+
     query = (
         select(
             CostPlan.cpl_id,
@@ -94,6 +103,7 @@ def _sync_list_quotes(
             CostPlan.cpl_d_update,
             Client.cli_company_name,
             CostPlanStatus.cst_designation,
+            total_amount_sq,
         )
         .outerjoin(Client, CostPlan.cli_id == Client.cli_id)
         .outerjoin(CostPlanStatus, CostPlan.cst_id == CostPlanStatus.cst_id)
@@ -170,7 +180,7 @@ async def list_quotes(
             "validUntil": row.cpl_d_validity.isoformat() if row.cpl_d_validity else None,
             "statusId": row.cst_id,
             "statusName": row.cst_designation or "Draft",
-            "totalAmount": 0,  # TODO: Compute from quote lines
+            "totalAmount": float(row.total_amount or 0),
             "name": row.cpl_name,
         })
 
@@ -254,36 +264,110 @@ async def search_quotes(
     return await service.search_quotes(params)
 
 
+def _sync_get_quote_detail(db: Session, quote_id: int):
+    """Sync helper to get quote detail with lines, returning camelCase dict."""
+    # Fetch quote header with client and status joins
+    query = (
+        select(
+            CostPlan.cpl_id,
+            CostPlan.cpl_code,
+            CostPlan.cli_id,
+            CostPlan.cpl_d_creation,
+            CostPlan.cpl_d_validity,
+            CostPlan.cst_id,
+            CostPlan.cpl_discount_percentage,
+            CostPlan.cpl_discount_amount,
+            CostPlan.cpl_name,
+            CostPlan.cpl_d_update,
+            CostPlan.cpl_header_text,
+            CostPlan.cpl_footer_text,
+            Client.cli_company_name,
+            CostPlanStatus.cst_designation,
+        )
+        .outerjoin(Client, CostPlan.cli_id == Client.cli_id)
+        .outerjoin(CostPlanStatus, CostPlan.cst_id == CostPlanStatus.cst_id)
+        .where(CostPlan.cpl_id == quote_id)
+    )
+    result = db.execute(query)
+    row = result.first()
+    if not row:
+        return None
+
+    # Fetch lines
+    lines_query = (
+        select(
+            CostPlanLine.cln_id,
+            CostPlanLine.cln_prd_name,
+            CostPlanLine.cln_description,
+            CostPlanLine.cln_ref,
+            CostPlanLine.cln_quantity,
+            CostPlanLine.cln_unit_price,
+            CostPlanLine.cln_total_price,
+            CostPlanLine.cln_price_with_discount_ht,
+            CostPlanLine.cln_discount_percentage,
+            CostPlanLine.cln_discount_amount,
+        )
+        .where(CostPlanLine.cpl_id == quote_id)
+    )
+    lines_result = db.execute(lines_query)
+    line_rows = lines_result.all()
+
+    # Compute totals from lines
+    subtotal = sum(float(l.cln_price_with_discount_ht or l.cln_total_price or 0) for l in line_rows)
+    discount_amount = float(row.cpl_discount_amount or 0)
+    total_amount = subtotal - discount_amount
+
+    # Build lines list
+    lines = []
+    for l in line_rows:
+        lines.append({
+            "id": l.cln_id,
+            "productName": l.cln_prd_name or "",
+            "description": l.cln_description or "",
+            "productReference": l.cln_ref or "",
+            "quantity": float(l.cln_quantity or 0),
+            "unitPrice": float(l.cln_unit_price or 0),
+            "lineTotal": float(l.cln_price_with_discount_ht or l.cln_total_price or 0),
+            "discountPercentage": float(l.cln_discount_percentage or 0),
+            "discountAmount": float(l.cln_discount_amount or 0),
+        })
+
+    return {
+        "id": row.cpl_id,
+        "reference": row.cpl_code or "",
+        "name": row.cpl_name or "",
+        "clientId": row.cli_id,
+        "clientName": row.cli_company_name or "",
+        "quoteDate": row.cpl_d_creation.isoformat() if row.cpl_d_creation else None,
+        "validUntil": row.cpl_d_validity.isoformat() if row.cpl_d_validity else None,
+        "statusId": row.cst_id,
+        "statusName": row.cst_designation or "Draft",
+        "currency": "EUR",
+        "subtotal": subtotal,
+        "totalAmount": total_amount,
+        "discountAmount": discount_amount,
+        "discountPercentage": float(row.cpl_discount_percentage or 0),
+        "taxAmount": 0,
+        "headerText": row.cpl_header_text or "",
+        "footerText": row.cpl_footer_text or "",
+        "lines": lines,
+    }
+
+
 @router.get(
     "/{quote_id}",
-    response_model=QuoteDetailResponse,
     summary="Get quote details",
-    description="""
-    Get detailed information about a quote (cost plan) by ID.
-
-    Returns quote data with resolved lookup names for:
-    - Client (name, reference)
-    - Society
-    - Project (name, code)
-    - Payment mode
-    - Payment condition (name, term days)
-
-    This endpoint uses the TM_CPL_Cost_Plan table (actual quote/proposal table).
-    """
+    description="Get detailed information about a quote (cost plan) by ID."
 )
 async def get_quote(
     quote_id: int = Path(..., gt=0, description="Quote ID (cpl_id)"),
     db: Session = Depends(get_db)
 ):
     """Get quote details with resolved lookup names."""
-    service = get_quote_service(db)
-    try:
-        quote_data = await service.get_quote_detail(quote_id)
-        return QuoteDetailResponse(**quote_data)
-    except QuoteNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    except QuoteServiceError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    result = await asyncio.to_thread(_sync_get_quote_detail, db, quote_id)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Quote {quote_id} not found")
+    return result
 
 
 @router.get(

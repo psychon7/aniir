@@ -16,9 +16,9 @@ from sqlalchemy import select, func, and_, desc, asc
 from pydantic import BaseModel, Field
 
 from app.database import get_db
-from app.models.delivery_form import DeliveryForm
+from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.models.client import Client
-from app.models.order import ClientOrder
+from app.models.order import ClientOrder, ClientOrderLine
 from app.services.delivery_service import (
     DeliveryService,
     DeliveryServiceError,
@@ -351,21 +351,128 @@ async def count_deliveries(
     return {"count": count}
 
 
+def _sync_get_delivery_detail(db: Session, delivery_id: int):
+    """Sync helper to get delivery detail with lines, returning camelCase dict."""
+    # Fetch delivery header with client + order joins
+    query = (
+        select(
+            DeliveryForm.dfo_id,
+            DeliveryForm.dfo_code,
+            DeliveryForm.cli_id,
+            DeliveryForm.cod_id,
+            DeliveryForm.dfo_d_creation,
+            DeliveryForm.dfo_d_update,
+            DeliveryForm.dfo_d_delivery,
+            DeliveryForm.dfo_deliveried,
+            DeliveryForm.dfo_header_text,
+            DeliveryForm.dfo_footer_text,
+            DeliveryForm.dfo_delivery_comment,
+            DeliveryForm.dfo_dlv_cco_address1,
+            DeliveryForm.dfo_dlv_cco_address2,
+            DeliveryForm.dfo_dlv_cco_city,
+            DeliveryForm.dfo_dlv_cco_postcode,
+            DeliveryForm.dfo_dlv_cco_country,
+            DeliveryForm.dfo_dlv_cco_firstname,
+            DeliveryForm.dfo_dlv_cco_lastname,
+            DeliveryForm.dfo_dlv_cco_tel1,
+            DeliveryForm.dfo_dlv_cco_email,
+            Client.cli_company_name,
+            ClientOrder.cod_code.label("order_code"),
+        )
+        .outerjoin(Client, DeliveryForm.cli_id == Client.cli_id)
+        .outerjoin(ClientOrder, DeliveryForm.cod_id == ClientOrder.cod_id)
+        .where(DeliveryForm.dfo_id == delivery_id)
+    )
+    result = db.execute(query)
+    row = result.first()
+    if not row:
+        return None
+
+    # Fetch delivery lines with order line info for product name/qty
+    lines_query = (
+        select(
+            DeliveryFormLine.dfl_id,
+            DeliveryFormLine.dfl_description,
+            DeliveryFormLine.dfl_quantity,
+            DeliveryFormLine.col_id,
+            ClientOrderLine.col_prd_name,
+            ClientOrderLine.col_ref,
+            ClientOrderLine.col_quantity.label("ordered_quantity"),
+        )
+        .outerjoin(ClientOrderLine, DeliveryFormLine.col_id == ClientOrderLine.col_id)
+        .where(DeliveryFormLine.dfo_id == delivery_id)
+    )
+    lines_result = db.execute(lines_query)
+    line_rows = lines_result.all()
+
+    # Build shipping address
+    addr_parts = []
+    if row.dfo_dlv_cco_address1:
+        addr_parts.append(row.dfo_dlv_cco_address1)
+    if row.dfo_dlv_cco_address2:
+        addr_parts.append(row.dfo_dlv_cco_address2)
+    if row.dfo_dlv_cco_postcode:
+        addr_parts.append(row.dfo_dlv_cco_postcode)
+    if row.dfo_dlv_cco_city:
+        addr_parts.append(row.dfo_dlv_cco_city)
+    if row.dfo_dlv_cco_country:
+        addr_parts.append(row.dfo_dlv_cco_country)
+    shipping_address = ", ".join(addr_parts) if addr_parts else None
+
+    # Build lines list
+    lines = []
+    for l in line_rows:
+        lines.append({
+            "id": l.dfl_id,
+            "productName": l.col_prd_name or l.dfl_description or "",
+            "productReference": l.col_ref or "",
+            "description": l.dfl_description or "",
+            "orderedQuantity": float(l.ordered_quantity or 0),
+            "deliveredQuantity": float(l.dfl_quantity or 0),
+        })
+
+    return {
+        "id": row.dfo_id,
+        "reference": row.dfo_code or "",
+        "clientId": row.cli_id,
+        "clientName": row.cli_company_name or "",
+        "orderId": row.cod_id,
+        "orderReference": row.order_code or "",
+        "scheduledDate": row.dfo_d_delivery.isoformat() if row.dfo_d_delivery else None,
+        "deliveryDate": row.dfo_d_delivery.isoformat() if row.dfo_d_delivery and row.dfo_deliveried else None,
+        "createdAt": row.dfo_d_creation.isoformat() if row.dfo_d_creation else None,
+        "statusName": "Delivered" if row.dfo_deliveried else "Pending",
+        "shippingAddress": shipping_address,
+        "contactName": " ".join(filter(None, [row.dfo_dlv_cco_firstname, row.dfo_dlv_cco_lastname])) or None,
+        "contactPhone": row.dfo_dlv_cco_tel1,
+        "contactEmail": row.dfo_dlv_cco_email,
+        "carrierName": None,
+        "trackingNumber": None,
+        "weight": None,
+        "packages": None,
+        "shippedAt": None,
+        "deliveredAt": row.dfo_d_delivery.isoformat() if row.dfo_d_delivery and row.dfo_deliveried else None,
+        "comment": row.dfo_delivery_comment or "",
+        "headerText": row.dfo_header_text or "",
+        "footerText": row.dfo_footer_text or "",
+        "lines": lines,
+    }
+
+
 @router.get(
     "/{delivery_id}",
-    response_model=DeliveryDetailResponse,
     summary="Get delivery form by ID",
     description="Get detailed information about a specific delivery form including its lines and resolved lookup names."
 )
 async def get_delivery(
     delivery_id: int = Path(..., gt=0, description="Delivery form ID"),
-    service: DeliveryService = Depends(get_delivery_service)
+    db: Session = Depends(get_db)
 ):
     """Get a specific delivery form by ID with resolved lookup names."""
-    try:
-        return await service.get_delivery_detail(delivery_id)
-    except DeliveryServiceError as e:
-        raise handle_delivery_error(e)
+    result = await asyncio.to_thread(_sync_get_delivery_detail, db, delivery_id)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Delivery {delivery_id} not found")
+    return result
 
 
 @router.get(

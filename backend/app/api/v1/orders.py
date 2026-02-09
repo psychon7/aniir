@@ -14,8 +14,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func, and_, desc, asc
 
 from app.database import get_db
-from app.models.order import ClientOrder
+from app.models.order import ClientOrder, ClientOrderLine
 from app.models.client import Client
+from app.models.costplan import CostPlan
 from app.services.order_service import (
     OrderService,
     get_order_service,
@@ -167,6 +168,15 @@ def _sync_list_orders(
     sort_order: str = "desc"
 ):
     """Sync function to list orders with pagination, joining client."""
+    # Correlated subquery for totalAmount from line items
+    total_amount_sq = (
+        select(func.coalesce(func.sum(ClientOrderLine.col_price_with_discount_ht), 0))
+        .where(ClientOrderLine.cod_id == ClientOrder.cod_id)
+        .correlate(ClientOrder)
+        .scalar_subquery()
+        .label("total_amount")
+    )
+
     query = (
         select(
             ClientOrder.cod_id,
@@ -181,6 +191,7 @@ def _sync_list_orders(
             ClientOrder.cod_discount_percentage,
             ClientOrder.cod_discount_amount,
             Client.cli_company_name,
+            total_amount_sq,
         )
         .outerjoin(Client, ClientOrder.cli_id == Client.cli_id)
     )
@@ -256,7 +267,7 @@ async def list_orders(
             "expectedDeliveryDate": row.cod_d_pre_delivery_from.isoformat() if row.cod_d_pre_delivery_from else None,
             "statusId": None,
             "statusName": "Active",
-            "totalAmount": 0,  # TODO: Compute from order lines
+            "totalAmount": float(row.total_amount or 0),
             "name": row.cod_name,
         })
 
@@ -274,50 +285,121 @@ async def list_orders(
     }
 
 
+def _sync_get_order_detail(db: Session, order_id: int):
+    """Sync helper to get order detail with lines, returning camelCase dict."""
+    # Fetch order header with client join
+    query = (
+        select(
+            ClientOrder.cod_id,
+            ClientOrder.cod_code,
+            ClientOrder.cli_id,
+            ClientOrder.cod_d_creation,
+            ClientOrder.cod_d_update,
+            ClientOrder.cod_d_pre_delivery_from,
+            ClientOrder.cod_d_pre_delivery_to,
+            ClientOrder.cod_name,
+            ClientOrder.cod_discount_percentage,
+            ClientOrder.cod_discount_amount,
+            ClientOrder.cpl_id,
+            ClientOrder.cod_header_text,
+            ClientOrder.cod_footer_text,
+            Client.cli_company_name,
+        )
+        .outerjoin(Client, ClientOrder.cli_id == Client.cli_id)
+        .where(ClientOrder.cod_id == order_id)
+    )
+    result = db.execute(query)
+    row = result.first()
+    if not row:
+        return None
+
+    # Resolve quote reference if linked
+    quote_reference = None
+    if row.cpl_id:
+        q = db.execute(select(CostPlan.cpl_code).where(CostPlan.cpl_id == row.cpl_id))
+        qr = q.first()
+        if qr:
+            quote_reference = qr.cpl_code
+
+    # Fetch lines
+    lines_query = (
+        select(
+            ClientOrderLine.col_id,
+            ClientOrderLine.col_prd_name,
+            ClientOrderLine.col_description,
+            ClientOrderLine.col_ref,
+            ClientOrderLine.col_quantity,
+            ClientOrderLine.col_unit_price,
+            ClientOrderLine.col_total_price,
+            ClientOrderLine.col_price_with_discount_ht,
+            ClientOrderLine.col_discount_percentage,
+            ClientOrderLine.col_discount_amount,
+        )
+        .where(ClientOrderLine.cod_id == order_id)
+    )
+    lines_result = db.execute(lines_query)
+    line_rows = lines_result.all()
+
+    # Compute totals from lines
+    subtotal = sum(float(l.col_price_with_discount_ht or l.col_total_price or 0) for l in line_rows)
+    discount_amount = float(row.cod_discount_amount or 0)
+    total_amount = subtotal - discount_amount
+
+    # Build lines list
+    lines = []
+    for l in line_rows:
+        lines.append({
+            "id": l.col_id,
+            "productName": l.col_prd_name or "",
+            "description": l.col_description or "",
+            "productReference": l.col_ref or "",
+            "quantity": float(l.col_quantity or 0),
+            "deliveredQuantity": 0,
+            "unitPrice": float(l.col_unit_price or 0),
+            "lineTotal": float(l.col_price_with_discount_ht or l.col_total_price or 0),
+            "discountPercentage": float(l.col_discount_percentage or 0),
+            "discountAmount": float(l.col_discount_amount or 0),
+        })
+
+    return {
+        "id": row.cod_id,
+        "reference": row.cod_code or "",
+        "name": row.cod_name or "",
+        "clientId": row.cli_id,
+        "clientName": row.cli_company_name or "",
+        "orderDate": row.cod_d_creation.isoformat() if row.cod_d_creation else None,
+        "requiredDate": row.cod_d_pre_delivery_from.isoformat() if row.cod_d_pre_delivery_from else None,
+        "expectedDeliveryDate": row.cod_d_pre_delivery_from.isoformat() if row.cod_d_pre_delivery_from else None,
+        "statusName": "Active",
+        "paymentStatusName": "Unpaid",
+        "quoteReference": quote_reference,
+        "currency": "EUR",
+        "subtotal": subtotal,
+        "totalAmount": total_amount,
+        "discountAmount": discount_amount,
+        "discountPercentage": float(row.cod_discount_percentage or 0),
+        "taxAmount": 0,
+        "paidAmount": 0,
+        "headerText": row.cod_header_text or "",
+        "footerText": row.cod_footer_text or "",
+        "lines": lines,
+    }
+
+
 @router.get(
     "/{order_id}",
-    response_model=OrderDetailResponse,
     summary="Get order details",
-    description="""
-    Get detailed information about a client order by ID.
-
-    Returns order data with resolved lookup names for:
-    - Client (name, reference)
-    - Society
-    - Project (name, code)
-    - Payment mode
-    - Payment condition (name, term days)
-
-    This endpoint uses the TM_COD_Client_Order table.
-    """,
-    responses={
-        200: {
-            "description": "Order details retrieved successfully",
-            "model": OrderDetailResponse
-        },
-        404: {
-            "description": "Order not found",
-            "model": ErrorResponse
-        }
-    }
+    description="Get detailed information about a client order by ID."
 )
 async def get_order_detail(
     order_id: int = Path(..., gt=0, description="Order ID (cod_id)"),
     db: Session = Depends(get_db),
-) -> OrderDetailResponse:
-    """
-    Get detailed order information with resolved lookup names.
-
-    Returns full order details from TM_COD_Client_Order with enriched
-    data from related lookup tables.
-    """
-    service = get_order_service(db)
-
-    try:
-        order_data = await service.get_order_detail(order_id)
-        return OrderDetailResponse(**order_data)
-    except OrderNotFoundError as exc:
-        raise handle_order_error(exc)
+):
+    """Get detailed order information with resolved lookup names."""
+    result = await asyncio.to_thread(_sync_get_order_detail, db, order_id)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
+    return result
 
 
 @router.patch(
