@@ -177,6 +177,7 @@ async def tables_health_check(db: Session = Depends(get_db)):
         ("TM_DFO_Delivery_Form", "Deliveries"),
         ("TM_PRJ_Project", "Projects"),
         ("TM_CPY_ClientInvoice_Payment", "Payments"),
+        ("TM_CON_CONSIGNEE", "Consignees"),
         ("TM_CCO_Client_Contact", "Client Contacts"),
         ("TM_SCO_Supplier_Contact", "Supplier Contacts"),
         ("TR_CUR_Currency", "Currencies"),
