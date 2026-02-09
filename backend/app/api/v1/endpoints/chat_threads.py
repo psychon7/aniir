@@ -199,8 +199,11 @@ async def list_threads(
         if search:
             query = query.filter(ChatThread.cht_title.ilike(f"%{search}%"))
 
+        # SQL Server 2008 doesn't support NULLS FIRST, use CASE for compatibility
+        from sqlalchemy import case
         query = query.order_by(
-            ChatThread.cht_last_message_at.desc().nullsfirst(),
+            case((ChatThread.cht_last_message_at.is_(None), 0), else_=1),  # NULLs first
+            ChatThread.cht_last_message_at.desc(),
             ChatThread.cht_d_creation.desc()
         )
 

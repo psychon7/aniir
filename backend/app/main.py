@@ -4,11 +4,12 @@ FastAPI application entry point.
 import logging
 from contextlib import asynccontextmanager
 
+import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import api_router
 from app.config import settings
-from app.websocket import socket_app
+from app.websocket import sio  # Import the Socket.IO server, not ASGIApp
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutting down")
 
 
-app = FastAPI(
+fastapi_app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description=settings.APP_DESCRIPTION,
@@ -55,7 +56,7 @@ app = FastAPI(
 )
 
 # CORS middleware
-app.add_middleware(
+fastapi_app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
@@ -64,19 +65,20 @@ app.add_middleware(
 )
 
 # Include API router (already has /api/v1 prefix)
-app.include_router(api_router)
+fastapi_app.include_router(api_router)
 
-# Mount Socket.IO for real-time chat
-app.mount("/ws", socket_app)
+# Wrap FastAPI with Socket.IO - this is the correct pattern for ASGI
+# Socket.IO handles its own path (/socket.io/) and forwards everything else to FastAPI
+app = socketio.ASGIApp(sio, fastapi_app, socketio_path='socket.io')
 
 
-@app.get("/health")
+@fastapi_app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "version": settings.APP_VERSION}
 
 
-@app.get("/health/migrations")
+@fastapi_app.get("/health/migrations")
 async def migration_status():
     """Check database migration status."""
     try:

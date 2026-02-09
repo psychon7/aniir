@@ -42,11 +42,7 @@ sio = socketio.AsyncServer(
     ping_interval=25,
 )
 
-# Create ASGI application wrapper
-socket_app = socketio.ASGIApp(
-    sio,
-    socketio_path='socket.io'
-)
+# Note: ASGIApp is created in main.py where we wrap FastAPI with Socket.IO
 
 # Store connected users: {sid: user_data}
 connected_users: Dict[str, Dict[str, Any]] = {}

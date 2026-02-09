@@ -1,8 +1,11 @@
-# Task Dependency Graph (Revalidated)
+# Task Dependency Graph (Full Parity Audit)
 
-Generated: 2026-02-09
+Generated: 2026-02-09 (Round 2 - Legacy UI Deep Comparison)
 
-This document replaces prior completion claims and lists the current open work based on the latest codebase audit (`gapanalysis.md`, `Refactor/migration/migration-gap-analysis*.md`). Tasks not listed here are assumed complete, deprecated, or out of scope for parity.
+This document is based on a comprehensive side-by-side comparison of:
+- **Legacy .NET ERP** (44+ ASPX screens, 70+ JS modules, 100+ ASMX service methods)
+- **Current React/FastAPI ERP2025** (55+ routes, 40+ API files, 50+ hooks, 80+ services)
+- **Live legacy UI exploration** via browser automation
 
 ## Summary
 
@@ -10,19 +13,20 @@ This document replaces prior completion claims and lists the current open work b
 | ------------ | ----- |
 | Completed    | 17    |
 | In Progress  | 0     |
-| Pending      | 11    |
-| Backlog      | 3     |
-| **Total**    | **31**|
+| Pending      | 25    |
+| Backlog      | 5     |
+| **Total**    | **47**|
 
 ## Progress Overview
 
 ```
-Overall   [==================----------]  55% (17/31)
+Overall   [==========--------------------]  36% (17/47)
 
 P0 Blockers           [=======-----------]  78% (7/9)
 P1 Core Parity        [==================]  100% (10/10)
-P2 Secondary          [-----------------]  0% (0/6)
-P3 Integrations       [-----------------]  0% (0/6)
+P2 Secondary Parity   [------------------]  0% (0/14)
+P3 Integrations       [------------------]  0% (0/8)
+P4 Polish & Beyond    [------------------]  0% (0/6)
 ```
 
 ## Completion by Priority
@@ -31,8 +35,9 @@ P3 Integrations       [-----------------]  0% (0/6)
 | --------------------------- | ----- | ---- | ----------- | ------- | ------- | ---------- |
 | P0: Blockers                | 9     | 7    | 0           | 2       | 0       | **78%**    |
 | P1: Core Parity             | 10    | 10   | 0           | 0       | 0       | **100%**   |
-| P2: Secondary               | 6     | 0    | 0           | 5       | 1       | **0%**     |
-| P3: Integrations/Automation | 6     | 0    | 0           | 4       | 2       | **0%**     |
+| P2: Secondary Parity        | 14    | 0    | 0           | 13      | 1       | **0%**     |
+| P3: Integrations/Automation | 8     | 0    | 0           | 5       | 3       | **0%**     |
+| P4: Polish & Beyond         | 6     | 0    | 0           | 5       | 1       | **0%**     |
 
 ## Dependency Graph
 
@@ -70,6 +75,14 @@ flowchart TD
     p2_04["P2-04 Multi-Business Theme"]:::pending
     p2_05["P2-05 Accounting UI"]:::pending
     p2_06["P2-06 PDF Viewer Pages"]:::backlog
+    p2_07["P2-07 Dashboard Widgets"]:::pending
+    p2_08["P2-08 Document Duplicate/Clone"]:::pending
+    p2_09["P2-09 Discount Modals"]:::pending
+    p2_10["P2-10 Invoice Statement UI"]:::pending
+    p2_11["P2-11 Client Pricing UI"]:::pending
+    p2_12["P2-12 Bank/RIB Management"]:::pending
+    p2_13["P2-13 Address Separation"]:::pending
+    p2_14["P2-14 Delegator System UI"]:::pending
   end
 
   subgraph "P3 -- Integrations"
@@ -79,6 +92,17 @@ flowchart TD
     p3_04["P3-04 AI Catalog Import"]:::backlog
     p3_05["P3-05 Technical Sheet PDF"]:::pending
     p3_06["P3-06 Landed Cost Alloc"]:::pending
+    p3_07["P3-07 Data Import Wizard"]:::pending
+    p3_08["P3-08 Product Express Bulk"]:::backlog
+  end
+
+  subgraph "P4 -- Polish & Beyond"
+    p4_01["P4-01 Currency Exchange Mgmt"]:::pending
+    p4_02["P4-02 Document Templates"]:::pending
+    p4_03["P4-03 Bulk Status Change"]:::pending
+    p4_04["P4-04 Line Merge/Reorder"]:::pending
+    p4_05["P4-05 Inspection Forms"]:::pending
+    p4_06["P4-06 Backorder Tracking"]:::backlog
   end
 
   %% Dependency arrows
@@ -89,7 +113,13 @@ flowchart TD
   p0_09 --> p3_01
   p0_09 --> p3_02
   p0_08 --> p3_06
-  p1_02 --> p1_03
+  p1_10 --> p2_12
+  p1_10 --> p4_01
+  p1_10 --> p4_02
+  p2_02 --> p2_13
+  p2_02 --> p2_14
+  p2_05 --> p2_10
+  p1_01 --> p2_09
 
   classDef done fill:#10b981,stroke:#059669,color:#fff
   classDef inprogress fill:#f59e0b,stroke:#d97706,color:#fff
@@ -113,7 +143,7 @@ flowchart TD
 - [x] **P0-08** Create landed cost tables -- Migration V1.0.0.8 (8 tables), all models restored, router enabled (17 endpoints), `supply_lot.py` deprecated. *(Commit: `4aed453`)*
 - [ ] **P0-09** Mount `/integrations` router after P0-07 and verify Shopify/X3 endpoints do not error. *(Blocked by: P0-07)*
 
-### P1 -- Core Legacy Parity (User Workflows)
+### P1 -- Core Legacy Parity (User Workflows) -- ALL DONE
 
 - [x] **P1-01** Credit note workflow -- `POST /invoices/{id}/credit-note` with line cloning, amount negation, `cin_avoir_id` linkage. *(Commit: `4aed453`)*
 - [x] **P1-02** Relation filter endpoints -- Added `project_id` to quotes, `project_id`+`quote_id` to orders, `project_id`+`order_id` to invoices. *(Commit: `4aed453`)*
@@ -129,20 +159,189 @@ flowchart TD
 ### P2 -- Secondary Parity (Quality + Completeness)
 
 - [ ] **P2-01** Implement row-level security (commercial hierarchy filtering).
+  - Legacy: Different buttons/sections shown based on role. `modify_right` CSS class controls edit permissions. Commercial 1-3 hierarchy on all documents.
+  - Current: Basic RBAC exists but no row-level filtering by commercial assignment.
+
 - [ ] **P2-02** Implement client multi-type assignment + contact address type flags.
+  - Legacy: Client contacts have `Invoice checkbox` + `Delivery checkbox` flags per contact. Contact grid columns: Title, Reference, Name, Phone/Fax, Mobile, Invoice, Delivery, Address, Postal Code, City, Email, Login.
+  - Current: `ClientContactService` exists but no invoice/delivery flag fields on contacts.
+
 - [ ] **P2-03** Add category CRUD + product image management.
+  - Legacy: `Category.aspx` with hierarchical parent-child categories, sub-names, ordering, active flag, display-in-menu/exhibition flags, image upload. `SearchCategory.aspx` for search.
+  - Current: Category lookup exists but no CRUD UI or hierarchy. No product image album management.
+
 - [ ] **P2-04** Implement multi-business theming and business-unit linking. *(Depends on: P0-03)*
+  - Legacy: Single society with config. New ERP plans LED/DOMOTICS/HVAC/WAVECONCEPT/ACCESSORIES color themes.
+  - Current: `TR_BU_BusinessUnit` table created but not linked to entities or used for theming.
+
 - [ ] **P2-05** Enable accounting statements/aging UI. *(Depends on: P0-01, P0-02)*
+  - Legacy: `ClientInvoiceStatment.aspx` with client search, commercial filter, date range, generate PDF with/without invoice, generate BL PDF, download CSV. Result grid: Company, Invoice#, Invoice Date, Due Date, Amount HT, Amount TTC, Amount Paid, Amount To Pay, Commercial.
+  - Current: `StatementService` + `AccountingService` exist in backend. Frontend has `useStatements` + `useAging` hooks and route. Needs UI completion and testing.
+
 - [ ] **P2-06** Add PDF viewer/download pages (PageDownLoad/PageForPDF equivalent). *(Backlog)*
+  - Legacy: `PageDownLoad.aspx` + `PageForPDF.aspx` for file downloads and PDF preview.
+  - Current: No dedicated viewer. PDF generation exists but no in-app preview iframe.
+
+- [ ] **P2-07** Dashboard widgets -- full parity with legacy 8-widget dashboard.
+  - Legacy widgets (from live UI exploration):
+    1. Devis en cours (Quotes in progress) -- current + previous month with "Modifier le statut" action
+    2. Fonction Reliquat (Backorder function)
+    3. Bon de livraison a livrer (Delivery notes to deliver)
+    4. Bon de livraison a facturer (Delivery notes to invoice)
+    5. Facture client non payee (Unpaid client invoices)
+    6. PI non payee (Unpaid proforma invoices)
+    7. Container non expedie (Unshipped containers)
+    8. Container arrivant (Arriving containers)
+  - Current: Dashboard route exists but widgets may be incomplete or use placeholder data. Needs backend summary endpoints for each widget.
+
+- [ ] **P2-08** Document duplicate/clone workflows.
+  - Legacy JS: `DuplicateCostPlan(cplId, sameProject)`, `DuplicateClientOrder2CostPlan(codId, sameProject)`, `DuplicateSupplierOrder(sodId)`. These are critical user workflows for cloning documents with all line items.
+  - Current: No duplicate/clone endpoints exist on quotes, orders, or supplier orders.
+  - Backend: Need `POST /quotes/{id}/duplicate`, `POST /orders/{id}/duplicate`, `POST /supplier-orders/{id}/duplicate`.
+  - Frontend: Need "Dupliquer" (Duplicate) button on each document detail view.
+
+- [ ] **P2-09** Discount management modals per document type.
+  - Legacy: Separate discount modal with `AddUpdateClientOrderDiscount(codId, discountPercentage, discountAmount)`. Both percentage and fixed-amount discounts. Applied at document level (header discount), separate from line-level discounts.
+  - Current: Discount fields may exist on schemas but no dedicated discount modal/action. Need `POST /orders/{id}/discount`, `POST /invoices/{id}/discount`, `POST /quotes/{id}/discount`.
+
+- [ ] **P2-10** Invoice statement UI page (full feature parity).
+  - Legacy: `ClientInvoiceStatment.aspx` -- client autocomplete (required), commercial dropdown, date range (from/to), search results grid with footer summary totals, 4 export actions (PDF with invoice, PDF without invoice, BL PDF, CSV download).
+  - Current: Frontend has statement route + hooks but UI needs completion with all export formats. *(Depends on: P2-05)*
+
+- [ ] **P2-11** Client product pricing UI.
+  - Legacy: `ClientPrice.aspx` -- two-column layout: left=product list with count, right=price details for selected product. Allows per-client price overrides.
+  - Current: `ClientProductPriceService` + API exists. Frontend needs a dedicated tab/page on client detail to manage client-specific pricing.
+
+- [ ] **P2-12** Enterprise Settings -- bank/RIB management section.
+  - Legacy: `EnterpriseSetting.aspx` has multiple RIB (bank info) sections: bank name, agency, account #, RIB key, IBAN, BIC/SWIFT. Multiple banks supported with create/delete. Bank selection dropdown on invoices.
+  - Current: Enterprise Settings page has 4 card sections but may lack RIB/bank CRUD. *(Depends on: P1-10)*
+
+- [ ] **P2-13** Address separation on documents (commercial vs delivery).
+  - Legacy: Every document (Quote, Order, Invoice, Delivery) has two address blocks: "Adresse commerciale client" (billing) and "Adresse de livraison" (shipping). Each has: title, ref, firstname, lastname, address1, address2, postcode, city/country, phone, fax, mobile, email.
+  - Current: Documents have client reference but likely single address. Need dual-address support. *(Depends on: P2-02)*
+
+- [ ] **P2-14** Delegator/Delegatee system UI.
+  - Legacy: `Client.aspx` has a dedicated section (right column, 3 cols wide) for managing delegators and delegatees. Used for client billing delegation chains.
+  - Current: `ClientDelegateService` exists in backend. Frontend needs delegation management panel on client detail. *(Depends on: P2-02)*
 
 ### P3 -- Integrations & Automation
 
 - [ ] **P3-01** Shopify sync workflows (orders/products/customers/inventory) + auto order->invoice; remove TODOs. *(Blocked by: P0-07, P0-09)*
 - [ ] **P3-02** X3 export payments + bulk mapping import. *(Blocked by: P0-09)*
+  - Current: `X3ExportService` exists. Frontend has X3 mappings page. Needs router mounting + testing.
 - [ ] **P3-03** SuperPDP e-invoicing integration. *(Backlog)*
 - [ ] **P3-04** AI catalog import + translation pipeline. *(Backlog)*
 - [ ] **P3-05** Technical sheet PDF generation (product images/specs).
+  - Legacy: "Export Fiche Tech" button on product search page. Generates product spec PDF with dimensions, images, accessories.
+  - Current: No technical sheet generation. Need WeasyPrint/HTML template + endpoint.
 - [ ] **P3-06** Landed cost allocation workflow. *(Depends on: P0-08)*
+  - Current: Backend tables + models + 17 endpoints exist. Frontend has supply lots pages with cost breakdown UI. Needs end-to-end testing.
+- [ ] **P3-07** Data import wizard UI for bulk operations.
+  - Legacy: `ImportData.aspx` with bulk import sections for suppliers+products, clients, project-specific deliveries. Multiline text input areas with "Traiter" (Treat/Import) buttons.
+  - Current: `ImportService` exists in backend with CSV parsing. Frontend has import wizard route with template download, column mapping, import mode selection. Needs testing and validation.
+- [ ] **P3-08** Product express/bulk creation. *(Backlog)*
+  - Legacy: `ProductExpress.aspx` / `ProductExpressJS.js` -- rapid product entry form for creating multiple products quickly with minimal fields.
+  - Current: Standard product create form only. No express/bulk mode.
+
+### P4 -- Polish & Beyond (New from Legacy Comparison)
+
+- [ ] **P4-01** Currency exchange rate management in settings.
+  - Legacy: Enterprise Settings includes currency exchange rates: EUR/USD, CNY/USD, GBP/USD, HKD/USD, RUB/USD, MAD/USD. Used for automatic conversion on documents.
+  - Current: `CurrencyService` exists. Settings page may not expose exchange rate editing. *(Depends on: P1-10)*
+
+- [ ] **P4-02** Document header/footer templates configuration.
+  - Legacy: Enterprise Settings has configurable text fields for: quote header/footer, delivery conditions, invoice penalties text, early payment discount text, invoice email body content.
+  - Current: Settings page has 4 card sections but may lack document template fields. *(Depends on: P1-10)*
+
+- [ ] **P4-03** Bulk status change on documents.
+  - Legacy: `ChangeCostPlanStatus(List<string> cplIds, int cstId)` -- select multiple quotes and change status in bulk from the list view. Dashboard "Modifier le statut" button.
+  - Current: No bulk status change. Individual status updates only.
+
+- [ ] **P4-04** Line merge/reorder on documents.
+  - Legacy: Invoice/Order forms have "Merge selected lines" button. Order lines have draggable order field.
+  - Current: Line items exist but no merge or reorder capability.
+
+- [ ] **P4-05** Inspection forms linked to invoices.
+  - Legacy: "Download Inspection Forms" button on invoice view (conditional -- only shown when inspection data exists).
+  - Current: No inspection form concept. Need to assess if this is used in current operations.
+
+- [ ] **P4-06** Backorder/Reliquat tracking widget. *(Backlog)*
+  - Legacy: Dashboard "Fonction Reliquat" widget tracks partially fulfilled orders. Shows items remaining to be delivered.
+  - Current: No backorder tracking. Requires comparing order quantities vs delivered quantities.
+
+---
+
+## Feature Parity Matrix (Legacy vs Current)
+
+### Screens Fully Implemented (27/44 legacy screens)
+| Legacy Screen | Current Route | Status |
+|---|---|---|
+| Dashboard | `/_authenticated/` | Partial (widgets incomplete) |
+| Search Client | `/_authenticated/clients/` | Done |
+| Create Client | `/_authenticated/clients/new` | Done |
+| Search Supplier | `/_authenticated/suppliers/` | Done |
+| Create Supplier | `/_authenticated/suppliers/new` | Done |
+| Search Product | `/_authenticated/products/` | Done |
+| Create Product | `/_authenticated/products/new` | Done |
+| Product Attributes | `/_authenticated/products/attributes/` | Done |
+| Search Project | `/_authenticated/projects/` | Done |
+| Create Project | `/_authenticated/projects/new` | Done |
+| Search Quote | `/_authenticated/quotes/` | Done |
+| Create Quote | `/_authenticated/quotes/new` | Done |
+| Search Order | `/_authenticated/orders/` | Done |
+| Create Order | `/_authenticated/orders/new` | Done |
+| Search Delivery | `/_authenticated/deliveries/` | Done |
+| Create Delivery | `/_authenticated/deliveries/new` | Done |
+| Search Invoice | `/_authenticated/invoices/` | Done |
+| Create Invoice | `/_authenticated/invoices/new` | Done |
+| Credit Note (AVOIR) | `/_authenticated/invoices/new?type=credit` | Done |
+| Search Purchase Intent | `/_authenticated/purchase-intents/` | Done |
+| Search Supplier Order | `/_authenticated/supplier-orders/` | Done |
+| Search Supplier Invoice | `/_authenticated/supplier-invoices/` | Done |
+| Warehouse | `/_authenticated/warehouse/` | Done |
+| Shelves | `/_authenticated/warehouse/shelves/` | Done |
+| Inventory | `/_authenticated/warehouse/inventory/` | Done |
+| Search Logistics | `/_authenticated/logistics/` | Done |
+| Enterprise Settings | `/_authenticated/settings/enterprise/` | Done |
+
+### Screens Partially Implemented (8/44)
+| Legacy Screen | Current Route | Gap |
+|---|---|---|
+| Invoice Statement | `/_authenticated/accounting/statements/` | UI needs completion |
+| Supplier Order Status | `/_authenticated/supplier-orders/$id` | Tab exists, actions incomplete |
+| Supplier Order Payment | `/_authenticated/supplier-orders/$id` | Tab exists, cross-alloc missing |
+| Vouchers | `/_authenticated/warehouse/movements/` | Different model, needs mapping |
+| Search Consignee | `/_authenticated/consignees/` | Route exists, testing needed |
+| Album Photo | `/_authenticated/drive/` | Drive replaces album, different UX |
+| Users | `/_authenticated/users/` | CRUD exists, permissions incomplete |
+| Client Application | N/A | Website requests -- may not be needed |
+
+### Screens Not Implemented (9/44)
+| Legacy Screen | Priority | Notes |
+|---|---|---|
+| ClientPrice.aspx | P2-11 | Client-specific pricing management |
+| ImportData.aspx | P3-07 | Bulk data import wizard |
+| ProductExpress.aspx | P3-08 | Quick bulk product creation |
+| Category.aspx + SearchCategory.aspx | P2-03 | Category CRUD with hierarchy |
+| SupplierPrice.aspx | P2-11 | Supplier pricing (similar to client) |
+| PinSodDetails.aspx | P2-08 | PI ↔ Supplier Order detail linking |
+| SodCinPayment.aspx | P2-09 | Cross-allocation SO ↔ Invoice payment |
+| PageDownLoad.aspx | P2-06 | File download utility |
+| PageForPDF.aspx | P2-06 | PDF generation/preview |
+
+### Current-Only Features (Not in Legacy)
+| Feature | Route | Notes |
+|---|---|---|
+| Chat (WhatsApp-like) | `/_authenticated/chat/` | Full WebSocket real-time chat |
+| Drive (File Manager) | `/_authenticated/drive/` | Folder-based file management |
+| Calendar & Tasks | `/_authenticated/calendar/` | Event/task scheduling |
+| Brands | `/_authenticated/brands/` | Brand entity management |
+| Supply Lots + Landed Cost | `/_authenticated/supply-lots/` | Advanced cost allocation |
+| Shopify Integration | `/_authenticated/integrations/shopify/` | E-commerce sync |
+| Sage X3 Mappings | `/_authenticated/integrations/x3/` | ERP export mappings |
+| Aging Reports | `/_authenticated/accounting/aging/` | Receivables aging analysis |
+| Data Import Wizard | `/_authenticated/import/` | CSV import with mapping |
+| Delegates Management | `/_authenticated/clients/$id` (tab) | Billing delegates |
 
 ---
 
@@ -155,6 +354,9 @@ flowchart TD
 - Document attachments (TM_DOC_DocumentAttachment)
 - List endpoint fixes (camelCase + totals)
 - Query performance optimization across all list endpoints
+- Chat system (WebSocket + threads + DMs + groups + search)
+- Drive system (folders + files + upload + preview)
+- Enterprise Settings (society info + address + legal + banking basics)
 
 ---
 
@@ -193,5 +395,5 @@ flowchart TD
 
 ## Last Updated
 
-- **Date**: 2026-02-09
-- **Basis**: Implementation session -- 17 tasks completed (7 P0 + 10 P1), pushed as commit `4aed453`
+- **Date**: 2026-02-09 (Round 2)
+- **Basis**: Full legacy UI exploration (browser automation) + 5-agent parallel codebase audit comparing legacy .NET (44 screens, 70+ JS files, ERPWebServices.asmx 9,788 lines) against current React/FastAPI (55+ routes, 80+ services). Added 16 new tasks (P2-07 through P2-14, P3-07, P3-08, P4-01 through P4-06) based on gap analysis.

@@ -133,7 +133,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     // Create socket connection - DISABLE auto-reconnection, we manage it ourselves
     const socketUrl = getSocketUrl()
     socket = io(socketUrl, {
-      path: '/ws/socket.io',
+      path: '/socket.io',  // Standard Socket.IO path (wrapped app handles routing)
       auth: { token },
       transports: ['websocket'], // Start with WebSocket only
       reconnection: false, // Disable auto-reconnection - we manage it
