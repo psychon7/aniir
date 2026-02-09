@@ -15,6 +15,7 @@ from sqlalchemy import select, func, and_, desc, asc
 
 from app.database import get_db
 from app.models.order import ClientOrder
+from app.models.client import Client
 from app.services.order_service import (
     OrderService,
     get_order_service,
@@ -162,48 +163,61 @@ def _sync_list_orders(
     search: Optional[str] = None,
     client_id: Optional[int] = None,
     status_id: Optional[int] = None,
-    sort_by: str = "ord_created_at",
+    sort_by: str = "cod_d_creation",
     sort_order: str = "desc"
 ):
-    """Sync function to list orders with pagination."""
-    query = select(ClientOrder)
+    """Sync function to list orders with pagination, joining client."""
+    query = (
+        select(
+            ClientOrder.cod_id,
+            ClientOrder.cod_code,
+            ClientOrder.cli_id,
+            ClientOrder.cod_d_creation,
+            ClientOrder.cod_d_update,
+            ClientOrder.cod_d_pre_delivery_from,
+            ClientOrder.cod_d_pre_delivery_to,
+            ClientOrder.cod_name,
+            ClientOrder.soc_id,
+            ClientOrder.cod_discount_percentage,
+            ClientOrder.cod_discount_amount,
+            Client.cli_company_name,
+        )
+        .outerjoin(Client, ClientOrder.cli_id == Client.cli_id)
+    )
     count_query = select(func.count(ClientOrder.cod_id))
-    
+
     conditions = []
-    
+
     if search:
         search_term = f"%{search}%"
-        conditions.append(ClientOrder.ord_reference.ilike(search_term))
-    
+        conditions.append(ClientOrder.cod_code.ilike(search_term))
+
     if client_id:
-        conditions.append(ClientOrder.ord_cli_id == client_id)
-    
-    if status_id:
-        conditions.append(ClientOrder.ord_sta_id == status_id)
-    
+        conditions.append(ClientOrder.cli_id == client_id)
+
     if conditions:
         query = query.where(and_(*conditions))
         count_query = count_query.where(and_(*conditions))
-    
+
     # Get total count
     total_result = db.execute(count_query)
     total = total_result.scalar() or 0
-    
+
     # Apply sorting
-    sort_column = getattr(ClientOrder, sort_by, ClientOrder.ord_created_at)
+    sort_column = getattr(ClientOrder, sort_by, ClientOrder.cod_d_creation)
     if sort_order == "desc":
         query = query.order_by(desc(sort_column))
     else:
         query = query.order_by(asc(sort_column))
-    
+
     # Apply pagination
     skip = (page - 1) * page_size
     query = query.offset(skip).limit(page_size)
-    
+
     result = db.execute(query)
-    orders = list(result.scalars().all())
-    
-    return orders, total
+    rows = result.all()
+
+    return rows, total
 
 
 # =============================================================================
@@ -213,7 +227,6 @@ def _sync_list_orders(
 
 @router.get(
     "",
-    response_model=OrderListPaginatedResponse,
     summary="List orders with pagination",
     description="Get a paginated list of orders with optional filters."
 )
@@ -223,28 +236,42 @@ async def list_orders(
     search: Optional[str] = Query(None, description="Search by reference"),
     client_id: Optional[int] = Query(None, description="Filter by client ID"),
     status_id: Optional[int] = Query(None, description="Filter by status ID"),
-    sort_by: str = Query("ord_created_at", description="Sort field"),
+    sort_by: str = Query("cod_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     db: Session = Depends(get_db)
 ):
     """List orders with pagination."""
-    orders, total = await asyncio.to_thread(
+    rows, total = await asyncio.to_thread(
         _sync_list_orders, db, page, page_size, search, client_id, status_id, sort_by, sort_order
     )
-    
-    items = [OrderResponse.model_validate(o) for o in orders]
+
+    # Build camelCase response matching frontend OrderListItem type
+    items = []
+    for row in rows:
+        items.append({
+            "id": row.cod_id,
+            "reference": row.cod_code or "",
+            "clientName": row.cli_company_name or "",
+            "orderDate": row.cod_d_creation.isoformat() if row.cod_d_creation else None,
+            "expectedDeliveryDate": row.cod_d_pre_delivery_from.isoformat() if row.cod_d_pre_delivery_from else None,
+            "statusId": None,
+            "statusName": "Active",
+            "totalAmount": 0,  # TODO: Compute from order lines
+            "name": row.cod_name,
+        })
+
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
-    
-    return OrderListPaginatedResponse(
-        success=True,
-        data=items,
-        page=page,
-        pageSize=page_size,
-        totalCount=total,
-        totalPages=total_pages,
-        hasNextPage=page < total_pages,
-        hasPreviousPage=page > 1
-    )
+
+    return {
+        "success": True,
+        "data": items,
+        "page": page,
+        "pageSize": page_size,
+        "totalCount": total,
+        "totalPages": total_pages,
+        "hasNextPage": page < total_pages,
+        "hasPreviousPage": page > 1,
+    }
 
 
 @router.get(
