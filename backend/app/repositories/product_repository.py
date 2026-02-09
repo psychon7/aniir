@@ -42,6 +42,10 @@ class ProductRepository:
             prd_specifications=data.prd_specifications,
             # Physical dimensions
             prd_outside_diameter=data.prd_outside_diameter,
+            prd_interior_length=data.prd_interior_length,
+            prd_interior_width=data.prd_interior_width,
+            prd_opening_diameter=data.prd_opening_diameter,
+            prd_thickness=data.prd_thickness,
             prd_length=data.prd_length,
             prd_width=data.prd_width,
             prd_height=data.prd_height,

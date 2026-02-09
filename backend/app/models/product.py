@@ -96,6 +96,10 @@ class Product(Base):
 
     # Physical dimensions
     prd_outside_diameter = Column("prd_outside_diameter", Numeric(18, 4), nullable=True)
+    prd_interior_length = Column("prd_interior_length", Numeric(18, 4), nullable=True)
+    prd_interior_width = Column("prd_interior_width", Numeric(18, 4), nullable=True)
+    prd_opening_diameter = Column("prd_opening_diameter", Numeric(18, 4), nullable=True)
+    prd_thickness = Column("prd_thickness", Numeric(18, 4), nullable=True)
     prd_length = Column("prd_length", Numeric(18, 4), nullable=True)
     prd_width = Column("prd_width", Numeric(18, 4), nullable=True)
     prd_height = Column("prd_height", Numeric(18, 4), nullable=True)
@@ -122,6 +126,19 @@ class Product(Base):
     # Pricing relationships
     client_prices = relationship("ClientProductPrice", back_populates="product")
     supplier_prices = relationship("SupplierProductPrice", back_populates="product")
+
+    # Product component relationships
+    components_as_parent = relationship(
+        "ProductComponent",
+        foreign_keys="ProductComponent.prd_id",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )
+    components_as_child = relationship(
+        "ProductComponent",
+        foreign_keys="ProductComponent.component_prd_id",
+        back_populates="component_product",
+    )
 
     # Property aliases for API compatibility
     @property

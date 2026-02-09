@@ -122,6 +122,10 @@ class ProductDimensions(BaseModel):
     height: Optional[Decimal] = Field(None, description="Product height")
     weight: Optional[Decimal] = Field(None, description="Product weight")
     outside_diameter: Optional[Decimal] = Field(None, description="Outside diameter")
+    interior_length: Optional[Decimal] = Field(None, description="Interior length")
+    interior_width: Optional[Decimal] = Field(None, description="Interior width")
+    opening_diameter: Optional[Decimal] = Field(None, description="Opening diameter")
+    thickness: Optional[Decimal] = Field(None, description="Thickness")
     hole_size: Optional[Decimal] = Field(None, description="Hole size")
     depth: Optional[Decimal] = Field(None, description="Depth")
 
@@ -197,6 +201,10 @@ class ProductCreate(ProductBase):
     )
     # Physical dimensions
     prd_outside_diameter: Optional[Decimal] = Field(None, description="Outside diameter")
+    prd_interior_length: Optional[Decimal] = Field(None, description="Interior length")
+    prd_interior_width: Optional[Decimal] = Field(None, description="Interior width")
+    prd_opening_diameter: Optional[Decimal] = Field(None, description="Opening diameter")
+    prd_thickness: Optional[Decimal] = Field(None, description="Thickness")
     prd_length: Optional[Decimal] = Field(None, description="Product length")
     prd_width: Optional[Decimal] = Field(None, description="Product width")
     prd_height: Optional[Decimal] = Field(None, description="Product height")
@@ -232,6 +240,10 @@ class ProductUpdate(BaseModel):
     pty_id: Optional[int] = Field(None, description="Product type ID")
     # Physical dimensions
     prd_outside_diameter: Optional[Decimal] = Field(None, description="Outside diameter")
+    prd_interior_length: Optional[Decimal] = Field(None, description="Interior length")
+    prd_interior_width: Optional[Decimal] = Field(None, description="Interior width")
+    prd_opening_diameter: Optional[Decimal] = Field(None, description="Opening diameter")
+    prd_thickness: Optional[Decimal] = Field(None, description="Thickness")
     prd_length: Optional[Decimal] = Field(None, description="Product length")
     prd_width: Optional[Decimal] = Field(None, description="Product width")
     prd_height: Optional[Decimal] = Field(None, description="Product height")
@@ -267,6 +279,10 @@ class ProductResponse(ProductBase):
 
     # Physical dimensions
     prd_outside_diameter: Optional[Decimal] = Field(None, description="Outside diameter")
+    prd_interior_length: Optional[Decimal] = Field(None, description="Interior length")
+    prd_interior_width: Optional[Decimal] = Field(None, description="Interior width")
+    prd_opening_diameter: Optional[Decimal] = Field(None, description="Opening diameter")
+    prd_thickness: Optional[Decimal] = Field(None, description="Thickness")
     prd_length: Optional[Decimal] = Field(None, description="Product length")
     prd_width: Optional[Decimal] = Field(None, description="Product width")
     prd_height: Optional[Decimal] = Field(None, description="Product height")
@@ -377,6 +393,10 @@ class ProductDetailResponse(BaseModel):
 
     # Physical dimensions
     outsideDiameter: Optional[Decimal] = Field(None, validation_alias="prd_outside_diameter", description="Outside diameter")
+    interiorLength: Optional[Decimal] = Field(None, validation_alias="prd_interior_length", description="Interior length")
+    interiorWidth: Optional[Decimal] = Field(None, validation_alias="prd_interior_width", description="Interior width")
+    openingDiameter: Optional[Decimal] = Field(None, validation_alias="prd_opening_diameter", description="Opening diameter")
+    thickness: Optional[Decimal] = Field(None, validation_alias="prd_thickness", description="Thickness")
     length: Optional[Decimal] = Field(None, validation_alias="prd_length", description="Product length")
     width: Optional[Decimal] = Field(None, validation_alias="prd_width", description="Product width")
     height: Optional[Decimal] = Field(None, validation_alias="prd_height", description="Product height")

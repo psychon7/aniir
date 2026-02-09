@@ -1,205 +1,212 @@
 """
 Pydantic schemas for ClientContact API requests and responses.
+
+Aligned to TM_CCO_Client_Contact actual column names while accepting
+legacy/camelCase aliases from frontend payloads.
 """
-from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict, computed_field
 
+from datetime import datetime
+from typing import List, Optional
 
-# ==========================================================================
-# ClientContact Base Schemas
-# ==========================================================================
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+
 
 class ClientContactBase(BaseModel):
-    """Base schema for ClientContact."""
-    cco_first_name: str = Field(
+    """Base schema for client contact create payloads."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    cco_firstname: str = Field(
         ...,
         min_length=1,
-        max_length=50,
-        description="Contact first name"
+        max_length=200,
+        validation_alias=AliasChoices("cco_firstname", "cco_first_name", "firstName"),
     )
-    cco_last_name: str = Field(
+    cco_lastname: str = Field(
         ...,
         min_length=1,
-        max_length=50,
-        description="Contact last name"
+        max_length=200,
+        validation_alias=AliasChoices("cco_lastname", "cco_last_name", "lastName"),
     )
-    cco_email: Optional[str] = Field(
-        None,
+    civ_id: int = Field(default=1)
+    cco_ref: Optional[str] = Field(default=None, max_length=50)
+    cco_adresse_title: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cco_adresse_title", "addressTitle", "title"),
+    )
+
+    cco_address1: Optional[str] = Field(default=None, max_length=200)
+    cco_address2: Optional[str] = Field(default=None, max_length=200)
+    cco_postcode: Optional[str] = Field(default=None, max_length=50)
+    cco_city: Optional[str] = Field(default=None, max_length=200)
+    cco_country: Optional[str] = Field(default=None, max_length=200)
+    cmu_id: Optional[int] = Field(default=None)
+
+    cco_tel1: Optional[str] = Field(
+        default=None,
         max_length=100,
-        description="Email address"
+        validation_alias=AliasChoices("cco_tel1", "phone", "cco_phone"),
     )
-    cco_phone: Optional[str] = Field(
-        None,
-        max_length=30,
-        description="Phone number"
-    )
-    cco_mobile: Optional[str] = Field(
-        None,
-        max_length=30,
-        description="Mobile phone number"
-    )
-    cco_job_title: Optional[str] = Field(
-        None,
+    cco_tel2: Optional[str] = Field(default=None, max_length=100)
+    cco_fax: Optional[str] = Field(default=None, max_length=100)
+    cco_cellphone: Optional[str] = Field(
+        default=None,
         max_length=100,
-        description="Job title"
+        validation_alias=AliasChoices("cco_cellphone", "mobile", "cco_mobile"),
     )
-    cco_department: Optional[str] = Field(
-        None,
-        max_length=100,
-        description="Department"
+    cco_email: Optional[str] = Field(default=None, max_length=100)
+
+    cco_recieve_newsletter: bool = Field(default=False)
+    cco_newsletter_email: Optional[str] = Field(default=None, max_length=100)
+
+    cco_is_delivery_adr: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("cco_is_delivery_adr", "isDeliveryAddress", "isDeliveryAdr"),
     )
-    cco_is_primary: bool = Field(
-        False,
-        description="Whether this is the primary contact"
+    cco_is_invoicing_adr: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("cco_is_invoicing_adr", "isInvoicingAddress", "isInvoicingAdr", "isPrimary"),
     )
-    cco_notes: Optional[str] = Field(
-        None,
-        description="Notes about the contact"
+
+    cco_comment: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("cco_comment", "notes"),
     )
 
 
 class ClientContactCreate(ClientContactBase):
-    """Schema for creating a ClientContact."""
-    cco_cli_id: int = Field(
-        ...,
-        description="Client ID (FK to TM_CLI_Client)"
-    )
+    """Schema for creating a client contact."""
+
+    cli_id: Optional[int] = Field(default=None)
 
 
 class ClientContactUpdate(BaseModel):
-    """Schema for updating a ClientContact (all fields optional)."""
-    cco_first_name: Optional[str] = Field(
-        None,
+    """Schema for updating a client contact."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    cco_firstname: Optional[str] = Field(
+        default=None,
         min_length=1,
-        max_length=50,
-        description="Contact first name"
+        max_length=200,
+        validation_alias=AliasChoices("cco_firstname", "cco_first_name", "firstName"),
     )
-    cco_last_name: Optional[str] = Field(
-        None,
+    cco_lastname: Optional[str] = Field(
+        default=None,
         min_length=1,
-        max_length=50,
-        description="Contact last name"
+        max_length=200,
+        validation_alias=AliasChoices("cco_lastname", "cco_last_name", "lastName"),
     )
-    cco_email: Optional[str] = Field(
-        None,
+    civ_id: Optional[int] = None
+    cco_ref: Optional[str] = Field(default=None, max_length=50)
+    cco_adresse_title: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cco_adresse_title", "addressTitle", "title"),
+    )
+
+    cco_address1: Optional[str] = Field(default=None, max_length=200)
+    cco_address2: Optional[str] = Field(default=None, max_length=200)
+    cco_postcode: Optional[str] = Field(default=None, max_length=50)
+    cco_city: Optional[str] = Field(default=None, max_length=200)
+    cco_country: Optional[str] = Field(default=None, max_length=200)
+    cmu_id: Optional[int] = None
+
+    cco_tel1: Optional[str] = Field(
+        default=None,
         max_length=100,
-        description="Email address"
+        validation_alias=AliasChoices("cco_tel1", "phone", "cco_phone"),
     )
-    cco_phone: Optional[str] = Field(
-        None,
-        max_length=30,
-        description="Phone number"
-    )
-    cco_mobile: Optional[str] = Field(
-        None,
-        max_length=30,
-        description="Mobile phone number"
-    )
-    cco_job_title: Optional[str] = Field(
-        None,
+    cco_tel2: Optional[str] = Field(default=None, max_length=100)
+    cco_fax: Optional[str] = Field(default=None, max_length=100)
+    cco_cellphone: Optional[str] = Field(
+        default=None,
         max_length=100,
-        description="Job title"
+        validation_alias=AliasChoices("cco_cellphone", "mobile", "cco_mobile"),
     )
-    cco_department: Optional[str] = Field(
-        None,
-        max_length=100,
-        description="Department"
+    cco_email: Optional[str] = Field(default=None, max_length=100)
+
+    cco_recieve_newsletter: Optional[bool] = None
+    cco_newsletter_email: Optional[str] = Field(default=None, max_length=100)
+
+    cco_is_delivery_adr: Optional[bool] = Field(
+        default=None,
+        validation_alias=AliasChoices("cco_is_delivery_adr", "isDeliveryAddress", "isDeliveryAdr"),
     )
-    cco_is_primary: Optional[bool] = Field(
-        None,
-        description="Whether this is the primary contact"
-    )
-    cco_notes: Optional[str] = Field(
-        None,
-        description="Notes about the contact"
+    cco_is_invoicing_adr: Optional[bool] = Field(
+        default=None,
+        validation_alias=AliasChoices("cco_is_invoicing_adr", "isInvoicingAddress", "isInvoicingAdr", "isPrimary"),
     )
 
-
-class ClientContactResponse(ClientContactBase):
-    """Schema for ClientContact response."""
-    model_config = ConfigDict(from_attributes=True)
-
-    cco_id: int = Field(..., description="Contact ID")
-    cco_cli_id: int = Field(..., description="Client ID")
-
-    @computed_field
-    @property
-    def full_name(self) -> str:
-        """Get contact's full name."""
-        return f"{self.cco_first_name} {self.cco_last_name}"
+    cco_comment: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("cco_comment", "notes"),
+    )
 
 
-class ClientContactListResponse(BaseModel):
-    """Schema for listing contacts (lightweight)."""
-    model_config = ConfigDict(from_attributes=True)
+class ClientContactResponse(BaseModel):
+    """Client contact response schema (camelCase output)."""
 
-    cco_id: int = Field(..., description="Contact ID")
-    cco_cli_id: int = Field(..., description="Client ID")
-    cco_first_name: str = Field(..., description="First name")
-    cco_last_name: str = Field(..., description="Last name")
-    cco_email: Optional[str] = Field(None, description="Email address")
-    cco_phone: Optional[str] = Field(None, description="Phone number")
-    cco_job_title: Optional[str] = Field(None, description="Job title")
-    cco_is_primary: bool = Field(..., description="Whether primary contact")
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    @computed_field
-    @property
-    def full_name(self) -> str:
-        """Get contact's full name."""
-        return f"{self.cco_first_name} {self.cco_last_name}"
+    id: int = Field(..., validation_alias="cco_id")
+    clientId: int = Field(..., validation_alias="cli_id")
+
+    firstName: str = Field(..., validation_alias="cco_firstname")
+    lastName: str = Field(..., validation_alias="cco_lastname")
+    civilityId: int = Field(..., validation_alias="civ_id")
+    reference: Optional[str] = Field(None, validation_alias="cco_ref")
+    addressTitle: Optional[str] = Field(None, validation_alias="cco_adresse_title")
+
+    address1: Optional[str] = Field(None, validation_alias="cco_address1")
+    address2: Optional[str] = Field(None, validation_alias="cco_address2")
+    postcode: Optional[str] = Field(None, validation_alias="cco_postcode")
+    city: Optional[str] = Field(None, validation_alias="cco_city")
+    country: Optional[str] = Field(None, validation_alias="cco_country")
+
+    phone: Optional[str] = Field(None, validation_alias="cco_tel1")
+    phone2: Optional[str] = Field(None, validation_alias="cco_tel2")
+    fax: Optional[str] = Field(None, validation_alias="cco_fax")
+    mobile: Optional[str] = Field(None, validation_alias="cco_cellphone")
+    email: Optional[str] = Field(None, validation_alias="cco_email")
+
+    receiveNewsletter: bool = Field(False, validation_alias="cco_recieve_newsletter")
+    newsletterEmail: Optional[str] = Field(None, validation_alias="cco_newsletter_email")
+
+    isDeliveryAddress: bool = Field(False, validation_alias="cco_is_delivery_adr")
+    isInvoicingAddress: bool = Field(False, validation_alias="cco_is_invoicing_adr")
+
+    comment: Optional[str] = Field(None, validation_alias="cco_comment")
+    communeId: Optional[int] = Field(None, validation_alias="cmu_id")
+
+    createdAt: Optional[datetime] = Field(None, validation_alias="cco_d_creation")
+    updatedAt: Optional[datetime] = Field(None, validation_alias="cco_d_update")
 
 
-# ==========================================================================
-# List/Pagination Schemas
-# ==========================================================================
+class ClientContactListResponse(ClientContactResponse):
+    """Lightweight list item schema (same shape as detail)."""
+
 
 class ClientContactListPaginatedResponse(BaseModel):
-    """Paginated response for contact list."""
-    items: List[ClientContactListResponse] = Field(
-        ...,
-        description="List of contacts"
-    )
-    total: int = Field(
-        ...,
-        description="Total count of contacts matching criteria"
-    )
-    skip: int = Field(
-        ...,
-        description="Number of items skipped"
-    )
-    limit: int = Field(
-        ...,
-        description="Maximum items returned"
-    )
+    """Paginated response for client contacts."""
 
+    items: List[ClientContactListResponse] = Field(default_factory=list)
+    total: int = 0
+    skip: int = 0
+    limit: int = 100
 
-# ==========================================================================
-# API Response Schemas
-# ==========================================================================
 
 class ClientContactAPIResponse(BaseModel):
-    """Standard API response wrapper for contact operations."""
-    success: bool = Field(
-        True,
-        description="Whether the operation was successful"
-    )
-    message: Optional[str] = Field(
-        None,
-        description="Optional message"
-    )
-    data: Optional[ClientContactResponse] = Field(
-        None,
-        description="Contact data"
-    )
+    """Standard API wrapper for single contact operations."""
+
+    success: bool = True
+    message: Optional[str] = None
+    data: Optional[ClientContactResponse] = None
 
 
 class ClientContactErrorResponse(BaseModel):
     """Error response for contact operations."""
-    success: bool = Field(
-        False,
-        description="Always false for errors"
-    )
-    error: dict = Field(
-        ...,
-        description="Error details with code and message"
-    )
+
+    success: bool = False
+    error: dict

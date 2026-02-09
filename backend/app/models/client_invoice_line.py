@@ -25,6 +25,7 @@ Actual DB schema:
   ltp_id: int NOT NULL
   cii_av_id: int NULL
   cii_prd_des: nvarchar(1000) NULL
+  cii_image_url: nvarchar(2000) NULL
   col_id: int NULL
   sol_id: int NULL
 """
@@ -67,6 +68,7 @@ class ClientInvoiceLine(Base):
     cii_ref: Mapped[Optional[str]] = mapped_column("cii_ref", String(100), nullable=True)
     cii_prd_name: Mapped[Optional[str]] = mapped_column("cii_prd_name", String(100), nullable=True)
     cii_prd_des: Mapped[Optional[str]] = mapped_column("cii_prd_des", String(1000), nullable=True)
+    cii_image_url: Mapped[Optional[str]] = mapped_column("cii_image_url", String(2000), nullable=True)
 
     # Quantity and pricing
     cii_quantity: Mapped[Optional[Decimal]] = mapped_column("cii_quantity", Numeric(18, 4), nullable=True)

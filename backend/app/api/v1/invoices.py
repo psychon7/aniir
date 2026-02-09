@@ -10,9 +10,9 @@ Provides REST API endpoints for:
 - Invoice PDF preview/generation
 """
 import asyncio
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Any
 from pathlib import Path as FilePath
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from fastapi.responses import HTMLResponse
@@ -22,11 +22,13 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel, Field
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models.invoice import ClientInvoice
 from app.models.client_invoice_line import ClientInvoiceLine
 from app.models.client import Client
 from app.models.currency import Currency
-from app.models.order import ClientOrder
+from app.models.order import ClientOrder, ClientOrderLine
+from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.services.invoice_service import (
     InvoiceService,
     get_invoice_service,
@@ -58,6 +60,7 @@ from app.schemas.invoice import (
     # Credit note schemas
     CreditNoteResponse,
 )
+from app.utils.row_level import apply_commercial_filter
 
 router = APIRouter(prefix="/invoices", tags=["Invoices"])
 
@@ -79,6 +82,35 @@ class InvoiceListPaginatedResponse(BaseModel):
     hasPreviousPage: bool = Field(default=False, description="Whether there is a previous page")
 
 
+class InvoiceDiscountUpdateRequest(BaseModel):
+    """Document-level discount update payload (supports snake_case and camelCase)."""
+    model_config = {"populate_by_name": True}
+
+    discount_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, alias="discountPercentage")
+    discount_amount: Optional[Decimal] = Field(default=None, ge=0, alias="discountAmount")
+
+
+class CreateInvoiceFromDeliveriesRequest(BaseModel):
+    """Bulk delivery-to-invoice payload."""
+    delivery_ids: Optional[List[int]] = Field(default=None, description="Optional list of delivery IDs")
+    include_all_lines: bool = Field(default=True, alias="includeAllLines")
+
+
+class DeliveryInvoiceItemResponse(BaseModel):
+    """Single delivery->invoice creation result."""
+    delivery_id: int
+    invoice_id: int
+    invoice_reference: str
+    already_exists: bool = False
+
+
+class DeliveryInvoiceBulkResponse(BaseModel):
+    """Bulk delivery->invoice creation response."""
+    success: bool = True
+    created: List[DeliveryInvoiceItemResponse] = Field(default_factory=list)
+    skipped: List[dict] = Field(default_factory=list)
+
+
 # ==========================================================================
 # Sync Database Helper
 # ==========================================================================
@@ -93,7 +125,8 @@ def _sync_list_invoices(
     project_id: Optional[int] = None,
     order_id: Optional[int] = None,
     sort_by: str = "cin_d_creation",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
+    current_user: Optional[Any] = None,
 ):
     """Sync function to list invoices with pagination, joining Client and Currency."""
     # Pre-aggregated subquery for totalAmount (runs once, not per-row)
@@ -153,6 +186,20 @@ def _sync_list_invoices(
     if conditions:
         query = query.where(and_(*conditions))
         count_query = count_query.where(and_(*conditions))
+
+    # Row-level security for non-admin users (commercial hierarchy).
+    query = apply_commercial_filter(
+        query,
+        ClientInvoice,
+        current_user,
+        ("usr_com_1", "usr_com_2", "usr_com_3", "usr_creator_id"),
+    )
+    count_query = apply_commercial_filter(
+        count_query,
+        ClientInvoice,
+        current_user,
+        ("usr_com_1", "usr_com_2", "usr_com_3", "usr_creator_id"),
+    )
 
     # Get total count
     total_result = db.execute(count_query)
@@ -242,6 +289,362 @@ def _to_iso_currency(designation: Optional[str]) -> str:
     return _CURRENCY_ISO_MAP.get(upper, "EUR")
 
 
+def _derive_invoice_status_name(row: Any) -> str:
+    """Derive a frontend-friendly invoice status from invoice flags."""
+    if getattr(row, "cin_is_full_paid", False):
+        return "Paid"
+    if getattr(row, "cin_invoiced", False):
+        return "Sent"
+    if getattr(row, "cin_isinvoice", True):
+        return "Draft"
+    return "Credit Note"
+
+
+def _generate_invoice_code(db: Session) -> str:
+    """Generate a deterministic invoice code using max invoice ID."""
+    year = datetime.utcnow().year
+    max_id = db.execute(select(func.max(ClientInvoice.cin_id))).scalar() or 0
+    return f"CIN-{year}-{int(max_id) + 1:05d}"
+
+
+def _sync_get_invoices_by_project(db: Session, project_id: int):
+    """Sync helper to get invoices by project."""
+    rows = db.execute(
+        select(
+            ClientInvoice.cin_id,
+            ClientInvoice.cin_code,
+            ClientInvoice.cli_id,
+            ClientInvoice.cin_d_invoice,
+            ClientInvoice.cin_d_term,
+            ClientInvoice.cin_name,
+            ClientInvoice.cin_isinvoice,
+            ClientInvoice.cin_invoiced,
+            ClientInvoice.cin_is_full_paid,
+            ClientInvoice.cin_rest_to_pay,
+            Client.cli_company_name,
+            Currency.cur_designation.label("currency_code"),
+            func.coalesce(func.sum(ClientInvoiceLine.cii_price_with_discount_ht), 0).label("total_amount"),
+        )
+        .outerjoin(Client, ClientInvoice.cli_id == Client.cli_id)
+        .outerjoin(Currency, ClientInvoice.cur_id == Currency.cur_id)
+        .outerjoin(ClientInvoiceLine, ClientInvoice.cin_id == ClientInvoiceLine.cin_id)
+        .where(ClientInvoice.prj_id == project_id)
+        .group_by(
+            ClientInvoice.cin_id,
+            ClientInvoice.cin_code,
+            ClientInvoice.cli_id,
+            ClientInvoice.cin_d_invoice,
+            ClientInvoice.cin_d_term,
+            ClientInvoice.cin_name,
+            ClientInvoice.cin_isinvoice,
+            ClientInvoice.cin_invoiced,
+            ClientInvoice.cin_is_full_paid,
+            ClientInvoice.cin_rest_to_pay,
+            Client.cli_company_name,
+            Currency.cur_designation,
+        )
+        .order_by(desc(ClientInvoice.cin_d_creation))
+    ).all()
+
+    items = []
+    for row in rows:
+        total_amount = float(row.total_amount or 0)
+        paid_amount = (
+            float(total_amount - (row.cin_rest_to_pay or 0))
+            if row.cin_rest_to_pay is not None
+            else 0.0
+        )
+        items.append(
+            {
+                "id": row.cin_id,
+                "reference": row.cin_code or "",
+                "clientId": row.cli_id,
+                "clientName": row.cli_company_name or "",
+                "invoiceDate": row.cin_d_invoice.isoformat() if row.cin_d_invoice else None,
+                "dueDate": row.cin_d_term.isoformat() if row.cin_d_term else None,
+                "totalAmount": total_amount,
+                "paidAmount": paid_amount,
+                "currency": _to_iso_currency(row.currency_code),
+                "statusName": _derive_invoice_status_name(row),
+                "name": row.cin_name or "",
+            }
+        )
+    return items
+
+
+def _sync_get_invoices_by_quote(db: Session, quote_id: int):
+    """Sync helper to get invoices linked to a quote through orders."""
+    rows = db.execute(
+        select(
+            ClientInvoice.cin_id,
+            ClientInvoice.cin_code,
+            ClientInvoice.cli_id,
+            ClientInvoice.cin_d_invoice,
+            ClientInvoice.cin_d_term,
+            ClientInvoice.cin_name,
+            ClientInvoice.cin_isinvoice,
+            ClientInvoice.cin_invoiced,
+            ClientInvoice.cin_is_full_paid,
+            ClientInvoice.cin_rest_to_pay,
+            Client.cli_company_name,
+            Currency.cur_designation.label("currency_code"),
+            func.coalesce(func.sum(ClientInvoiceLine.cii_price_with_discount_ht), 0).label("total_amount"),
+        )
+        .join(ClientOrder, ClientInvoice.cod_id == ClientOrder.cod_id)
+        .outerjoin(Client, ClientInvoice.cli_id == Client.cli_id)
+        .outerjoin(Currency, ClientInvoice.cur_id == Currency.cur_id)
+        .outerjoin(ClientInvoiceLine, ClientInvoice.cin_id == ClientInvoiceLine.cin_id)
+        .where(ClientOrder.cpl_id == quote_id)
+        .group_by(
+            ClientInvoice.cin_id,
+            ClientInvoice.cin_code,
+            ClientInvoice.cli_id,
+            ClientInvoice.cin_d_invoice,
+            ClientInvoice.cin_d_term,
+            ClientInvoice.cin_name,
+            ClientInvoice.cin_isinvoice,
+            ClientInvoice.cin_invoiced,
+            ClientInvoice.cin_is_full_paid,
+            ClientInvoice.cin_rest_to_pay,
+            Client.cli_company_name,
+            Currency.cur_designation,
+        )
+        .order_by(desc(ClientInvoice.cin_d_creation))
+    ).all()
+
+    items = []
+    for row in rows:
+        total_amount = float(row.total_amount or 0)
+        paid_amount = (
+            float(total_amount - (row.cin_rest_to_pay or 0))
+            if row.cin_rest_to_pay is not None
+            else 0.0
+        )
+        items.append(
+            {
+                "id": row.cin_id,
+                "reference": row.cin_code or "",
+                "clientId": row.cli_id,
+                "clientName": row.cli_company_name or "",
+                "invoiceDate": row.cin_d_invoice.isoformat() if row.cin_d_invoice else None,
+                "dueDate": row.cin_d_term.isoformat() if row.cin_d_term else None,
+                "totalAmount": total_amount,
+                "paidAmount": paid_amount,
+                "currency": _to_iso_currency(row.currency_code),
+                "statusName": _derive_invoice_status_name(row),
+                "name": row.cin_name or "",
+            }
+        )
+    return items
+
+
+def _sync_update_invoice_discount(
+    db: Session,
+    invoice_id: int,
+    discount_percentage: Optional[Decimal],
+    discount_amount: Optional[Decimal],
+):
+    """Sync helper to update document-level invoice discount."""
+    invoice = db.get(ClientInvoice, invoice_id)
+    if not invoice:
+        return None
+
+    subtotal = Decimal(
+        str(
+            db.execute(
+                select(func.coalesce(func.sum(ClientInvoiceLine.cii_price_with_discount_ht), 0)).where(
+                    ClientInvoiceLine.cin_id == invoice_id
+                )
+            ).scalar()
+            or 0
+        )
+    )
+
+    old_discount = Decimal(str(invoice.cin_discount_amount or 0))
+    old_total = subtotal - old_discount
+    old_rest = Decimal(str(invoice.cin_rest_to_pay or 0))
+    already_paid = Decimal("0") if old_rest > old_total else old_total - old_rest
+
+    if discount_percentage is not None:
+        invoice.cin_discount_percentage = discount_percentage
+    if discount_amount is not None:
+        invoice.cin_discount_amount = discount_amount
+    elif discount_percentage is not None:
+        invoice.cin_discount_amount = (subtotal * discount_percentage) / Decimal("100")
+
+    new_discount = Decimal(str(invoice.cin_discount_amount or 0))
+    new_total = subtotal - new_discount
+    if invoice.cin_is_full_paid:
+        invoice.cin_rest_to_pay = Decimal("0")
+    else:
+        remaining = new_total - already_paid
+        invoice.cin_rest_to_pay = remaining if remaining > 0 else Decimal("0")
+
+    invoice.cin_d_update = datetime.utcnow()
+    db.commit()
+    return _sync_get_invoice_detail(db, invoice_id)
+
+
+def _sync_create_invoice_from_delivery(db: Session, delivery_id: int):
+    """
+    Sync helper to create an invoice from a delivery note.
+
+    Idempotent: returns existing invoice if one already exists for the delivery.
+    """
+    existing = db.execute(
+        select(ClientInvoice.cin_id, ClientInvoice.cin_code).where(ClientInvoice.dfo_id == delivery_id)
+    ).first()
+    if existing:
+        return {
+            "delivery_id": delivery_id,
+            "invoice_id": existing.cin_id,
+            "invoice_reference": existing.cin_code,
+            "already_exists": True,
+        }
+
+    delivery = db.get(DeliveryForm, delivery_id)
+    if not delivery:
+        return None
+
+    order = db.get(ClientOrder, delivery.cod_id) if delivery.cod_id else None
+    client = db.get(Client, delivery.cli_id) if delivery.cli_id else None
+
+    now = datetime.utcnow()
+    invoice_date = delivery.dfo_d_delivery or now
+    due_date = invoice_date + timedelta(days=30)
+
+    invoice = ClientInvoice(
+        cin_code=_generate_invoice_code(db),
+        cin_name=(order.cod_name if order else f"Invoice from delivery {delivery.dfo_code}")[:1000],
+        cli_id=delivery.cli_id,
+        cod_id=delivery.cod_id,
+        cin_d_creation=now,
+        cin_d_update=now,
+        cin_d_invoice=invoice_date,
+        usr_creator_id=(delivery.usr_creator_id or (order.usr_creator_id if order else 1)),
+        cin_header_text=(order.cod_header_text if order else None),
+        cin_footer_text=(order.cod_footer_text if order else None),
+        cur_id=((client.cur_id if client else None) or 1),
+        cin_account=False,
+        cin_d_term=due_date,
+        pco_id=((order.pco_id if order else None) or (client.pco_id if client else None) or 1),
+        pmo_id=((order.pmo_id if order else None) or (client.pmo_id if client else None) or 1),
+        cco_id_invoicing=(order.cco_id_invoicing if order else None),
+        cin_isinvoice=True,
+        vat_id=((order.vat_id if order else None) or (client.vat_id if client else None) or 1),
+        prj_id=(order.prj_id if order else None),
+        dfo_id=delivery_id,
+        soc_id=(delivery.soc_id or (order.soc_id if order else None) or (client.soc_id if client else None) or 1),
+        cin_invoiced=False,
+        cin_is_full_paid=False,
+        cin_discount_percentage=Decimal("0"),
+        cin_discount_amount=Decimal("0"),
+        cin_rest_to_pay=Decimal("0"),
+        cin_inv_cco_firstname=delivery.dfo_dlv_cco_firstname,
+        cin_inv_cco_lastname=delivery.dfo_dlv_cco_lastname,
+        cin_inv_cco_address1=delivery.dfo_dlv_cco_address1,
+        cin_inv_cco_address2=delivery.dfo_dlv_cco_address2,
+        cin_inv_cco_postcode=delivery.dfo_dlv_cco_postcode,
+        cin_inv_cco_city=delivery.dfo_dlv_cco_city,
+        cin_inv_cco_country=delivery.dfo_dlv_cco_country,
+        cin_inv_cco_tel1=delivery.dfo_dlv_cco_tel1,
+        cin_inv_cco_fax=delivery.dfo_dlv_cco_fax,
+        cin_inv_cco_cellphone=delivery.dfo_dlv_cco_cellphone,
+        cin_inv_cco_email=delivery.dfo_dlv_cco_email,
+        usr_com_1=(order.usr_com_1 if order else None),
+        usr_com_2=(order.usr_com_2 if order else None),
+        usr_com_3=(order.usr_com_3 if order else None),
+    )
+    db.add(invoice)
+    db.flush()
+
+    delivery_lines = db.execute(
+        select(DeliveryFormLine).where(DeliveryFormLine.dfo_id == delivery_id)
+    ).scalars().all()
+
+    total_ht = Decimal("0")
+    for d_line in delivery_lines:
+        order_line = None
+        if d_line.col_id:
+            order_line = db.get(ClientOrderLine, d_line.col_id)
+
+        quantity = Decimal(str(d_line.dfl_quantity or (order_line.col_quantity if order_line else 0) or 0))
+        unit_price = Decimal(str(order_line.col_unit_price if order_line and order_line.col_unit_price is not None else 0))
+        line_total = quantity * unit_price
+        discount_pct = Decimal(str(order_line.col_discount_percentage if order_line and order_line.col_discount_percentage is not None else 0))
+        discount_amt = Decimal(str(order_line.col_discount_amount if order_line and order_line.col_discount_amount is not None else 0))
+        if discount_amt == 0 and discount_pct > 0 and line_total > 0:
+            discount_amt = (line_total * discount_pct) / Decimal("100")
+        discounted_total = line_total - discount_amt
+
+        invoice_line = ClientInvoiceLine(
+            cin_id=invoice.cin_id,
+            cii_level1=(order_line.col_level1 if order_line else None),
+            cii_level2=(order_line.col_level2 if order_line else None),
+            cii_description=(d_line.dfl_description or (order_line.col_description if order_line else None)),
+            prd_id=(order_line.prd_id if order_line else None),
+            cii_ref=(order_line.col_ref if order_line else None),
+            cii_unit_price=unit_price,
+            cii_quantity=quantity,
+            cii_total_price=line_total,
+            vat_id=((order_line.vat_id if order_line else None) or (order.vat_id if order else None)),
+            dfl_id=d_line.dfl_id,
+            cii_purchase_price=(order_line.col_purchase_price if order_line else None),
+            cii_total_crude_price=(order_line.col_total_crude_price if order_line else None),
+            cii_prd_name=(order_line.col_prd_name if order_line else None),
+            cii_discount_percentage=discount_pct,
+            cii_discount_amount=discount_amt,
+            cii_price_with_discount_ht=discounted_total,
+            cii_margin=(order_line.col_margin if order_line else None),
+            pit_id=(order_line.pit_id if order_line else None),
+            ltp_id=((order_line.ltp_id if order_line else None) or 1),
+            cii_prd_des=(order_line.col_prd_des if order_line else None),
+            col_id=(order_line.col_id if order_line else d_line.col_id),
+        )
+        db.add(invoice_line)
+        total_ht += discounted_total
+
+    invoice.cin_rest_to_pay = total_ht
+    db.commit()
+
+    return {
+        "delivery_id": delivery_id,
+        "invoice_id": invoice.cin_id,
+        "invoice_reference": invoice.cin_code,
+        "already_exists": False,
+    }
+
+
+def _sync_create_invoices_from_deliveries(
+    db: Session,
+    delivery_ids: Optional[List[int]],
+):
+    """Sync helper to create invoices from many deliveries."""
+    if delivery_ids:
+        target_ids = [int(x) for x in delivery_ids if int(x) > 0]
+    else:
+        target_ids = list(
+            db.execute(
+                select(DeliveryForm.dfo_id)
+                .outerjoin(ClientInvoice, ClientInvoice.dfo_id == DeliveryForm.dfo_id)
+                .where(ClientInvoice.cin_id.is_(None))
+                .order_by(desc(DeliveryForm.dfo_d_creation))
+                .limit(200)
+            ).scalars().all()
+        )
+
+    created: List[dict] = []
+    skipped: List[dict] = []
+    for d_id in target_ids:
+        result = _sync_create_invoice_from_delivery(db, d_id)
+        if result is None:
+            skipped.append({"delivery_id": d_id, "reason": "Delivery not found"})
+            continue
+        created.append(result)
+
+    return {"success": True, "created": created, "skipped": skipped}
+
+
 # ==========================================================================
 # Invoice CRUD Endpoints
 # ==========================================================================
@@ -261,11 +664,22 @@ async def list_invoices(
     order_id: Optional[int] = Query(None, description="Filter by order ID"),
     sort_by: str = Query("cin_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     """List invoices with pagination."""
     rows, total = await asyncio.to_thread(
-        _sync_list_invoices, db, page, page_size, search, client_id, project_id, order_id, sort_by, sort_order
+        _sync_list_invoices,
+        db,
+        page,
+        page_size,
+        search,
+        client_id,
+        project_id,
+        order_id,
+        sort_by,
+        sort_order,
+        current_user,
     )
 
     # Build camelCase response matching frontend InvoiceListItem type
@@ -396,7 +810,7 @@ async def create_invoice_from_order(
 
 
 @router.get(
-    "",
+    "/search",
     response_model=InvoiceListResponse,
     summary="Search invoices",
     description="Search and filter invoices with pagination."
@@ -503,6 +917,7 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
             ClientInvoiceLine.cii_price_with_discount_ht,
             ClientInvoiceLine.cii_discount_percentage,
             ClientInvoiceLine.cii_discount_amount,
+            ClientInvoiceLine.cii_image_url,
         )
         .where(ClientInvoiceLine.cin_id == invoice_id)
     )
@@ -540,6 +955,7 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
             "lineTotal": float(l.cii_price_with_discount_ht or l.cii_total_price or 0),
             "discountPercentage": float(l.cii_discount_percentage or 0),
             "discountAmount": float(l.cii_discount_amount or 0),
+            "imageUrl": l.cii_image_url,
         })
 
     return {
@@ -566,6 +982,62 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
         "footerText": row.cin_footer_text or "",
         "lines": lines,
     }
+
+
+@router.get(
+    "/by-project/{project_id}",
+    summary="Get invoices by project",
+    description="Get all invoices linked to a project.",
+)
+async def get_invoices_by_project(
+    project_id: int = Path(..., gt=0, description="Project ID"),
+    db: Session = Depends(get_db),
+):
+    return await asyncio.to_thread(_sync_get_invoices_by_project, db, project_id)
+
+
+@router.get(
+    "/by-quote/{quote_id}",
+    summary="Get invoices by quote",
+    description="Get all invoices linked to a quote through orders.",
+)
+async def get_invoices_by_quote(
+    quote_id: int = Path(..., gt=0, description="Quote ID"),
+    db: Session = Depends(get_db),
+):
+    return await asyncio.to_thread(_sync_get_invoices_by_quote, db, quote_id)
+
+
+@router.post(
+    "/from-delivery/{delivery_id}",
+    response_model=DeliveryInvoiceItemResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create invoice from a delivery",
+    description="Create an invoice from a delivery note (idempotent).",
+)
+async def create_invoice_from_delivery(
+    delivery_id: int = Path(..., gt=0, description="Delivery ID"),
+    db: Session = Depends(get_db),
+):
+    result = await asyncio.to_thread(_sync_create_invoice_from_delivery, db, delivery_id)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Delivery {delivery_id} not found")
+    return DeliveryInvoiceItemResponse(**result)
+
+
+@router.post(
+    "/from-deliveries",
+    response_model=DeliveryInvoiceBulkResponse,
+    summary="Create invoices from deliveries in bulk",
+    description="Create invoices from selected deliveries or all uninvoiced deliveries.",
+)
+async def create_invoices_from_deliveries(
+    request: Optional[CreateInvoiceFromDeliveriesRequest] = None,
+    db: Session = Depends(get_db),
+):
+    payload = request or CreateInvoiceFromDeliveriesRequest()
+    result = await asyncio.to_thread(_sync_create_invoices_from_deliveries, db, payload.delivery_ids)
+    return DeliveryInvoiceBulkResponse(**result)
 
 
 @router.get(
@@ -932,6 +1404,28 @@ async def create_credit_note(
         )
     except InvoiceServiceError as e:
         raise handle_invoice_error(e)
+
+
+@router.post(
+    "/{invoice_id}/discount",
+    summary="Update invoice discount",
+    description="Apply or update document-level discount on an invoice.",
+)
+async def update_invoice_discount(
+    invoice_id: int = Path(..., gt=0, description="Invoice ID"),
+    request: InvoiceDiscountUpdateRequest = ...,
+    db: Session = Depends(get_db),
+):
+    updated = await asyncio.to_thread(
+        _sync_update_invoice_discount,
+        db,
+        invoice_id,
+        request.discount_percentage,
+        request.discount_amount,
+    )
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Invoice {invoice_id} not found")
+    return updated
 
 
 @router.post(

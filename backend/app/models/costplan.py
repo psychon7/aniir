@@ -42,6 +42,7 @@ class CostPlan(Base):
       cpl_header_text: ntext NULL
       cpl_footer_text: ntext NULL
       cco_id_invoicing: int NULL -> TM_CCO_Client_Contact.cco_id
+      cco_id_delivery: int NULL -> TM_CCO_Client_Contact.cco_id
       cpl_client_comment: nvarchar(4000) NULL
       cpl_inter_comment: nvarchar(4000) NULL
       usr_creator_id: int NOT NULL -> TM_USR_User.usr_id
@@ -86,6 +87,39 @@ class CostPlan(Base):
 
     # Invoicing contact
     cco_id_invoicing: Mapped[Optional[int]] = mapped_column("cco_id_invoicing", Integer, ForeignKey("TM_CCO_Client_Contact.cco_id"), nullable=True)
+    cco_id_delivery: Mapped[Optional[int]] = mapped_column("cco_id_delivery", Integer, ForeignKey("TM_CCO_Client_Contact.cco_id"), nullable=True)
+
+    # Invoicing contact snapshot
+    cpl_inv_cco_ref: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_ref", String(50), nullable=True)
+    cpl_inv_cco_adresse_title: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_adresse_title", String(200), nullable=True)
+    cpl_inv_cco_firstname: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_firstname", String(200), nullable=True)
+    cpl_inv_cco_lastname: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_lastname", String(200), nullable=True)
+    cpl_inv_cco_address1: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_address1", String(200), nullable=True)
+    cpl_inv_cco_address2: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_address2", String(200), nullable=True)
+    cpl_inv_cco_postcode: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_postcode", String(50), nullable=True)
+    cpl_inv_cco_city: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_city", String(200), nullable=True)
+    cpl_inv_cco_country: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_country", String(200), nullable=True)
+    cpl_inv_cco_tel1: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_tel1", String(100), nullable=True)
+    cpl_inv_cco_tel2: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_tel2", String(100), nullable=True)
+    cpl_inv_cco_fax: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_fax", String(100), nullable=True)
+    cpl_inv_cco_cellphone: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_cellphone", String(100), nullable=True)
+    cpl_inv_cco_email: Mapped[Optional[str]] = mapped_column("cpl_inv_cco_email", String(100), nullable=True)
+
+    # Delivery contact snapshot
+    cpl_dlv_cco_ref: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_ref", String(50), nullable=True)
+    cpl_dlv_cco_adresse_title: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_adresse_title", String(200), nullable=True)
+    cpl_dlv_cco_firstname: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_firstname", String(200), nullable=True)
+    cpl_dlv_cco_lastname: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_lastname", String(200), nullable=True)
+    cpl_dlv_cco_address1: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_address1", String(200), nullable=True)
+    cpl_dlv_cco_address2: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_address2", String(200), nullable=True)
+    cpl_dlv_cco_postcode: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_postcode", String(50), nullable=True)
+    cpl_dlv_cco_city: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_city", String(200), nullable=True)
+    cpl_dlv_cco_country: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_country", String(200), nullable=True)
+    cpl_dlv_cco_tel1: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_tel1", String(100), nullable=True)
+    cpl_dlv_cco_tel2: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_tel2", String(100), nullable=True)
+    cpl_dlv_cco_fax: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_fax", String(100), nullable=True)
+    cpl_dlv_cco_cellphone: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_cellphone", String(100), nullable=True)
+    cpl_dlv_cco_email: Mapped[Optional[str]] = mapped_column("cpl_dlv_cco_email", String(100), nullable=True)
 
     # Comments
     cpl_client_comment: Mapped[Optional[str]] = mapped_column("cpl_client_comment", String(4000), nullable=True)
@@ -176,6 +210,7 @@ class CostPlanLine(Base):
       cln_discount_amount: decimal NULL
       cln_price_with_discount_ht: decimal NULL
       cln_margin: decimal NULL
+      cln_image_url: nvarchar(2000) NULL
     """
     __tablename__ = "TM_CLN_CostPlan_Lines"
 
@@ -197,6 +232,7 @@ class CostPlanLine(Base):
     pit_id: Mapped[Optional[int]] = mapped_column("pit_id", Integer, ForeignKey("TM_PIT_Product_Instance.pit_id"), nullable=True)
     cln_prd_name: Mapped[Optional[str]] = mapped_column("cln_prd_name", String(100), nullable=True)
     cln_ref: Mapped[Optional[str]] = mapped_column("cln_ref", String(100), nullable=True)
+    cln_image_url: Mapped[Optional[str]] = mapped_column("cln_image_url", String(2000), nullable=True)
 
     # Pricing
     cln_purchase_price: Mapped[Optional[Decimal]] = mapped_column("cln_purchase_price", Numeric(18, 4), nullable=True)

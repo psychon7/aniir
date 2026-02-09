@@ -40,6 +40,7 @@ from app.models.user import User, Civility
 from app.models.client import Client
 from app.models.supplier import Supplier, SupplierProduct
 from app.models.product import Product, ProductInstance
+from app.models.product_component import ProductComponent
 from app.models.warehouse import Warehouse
 from app.models.project import Project
 
@@ -157,6 +158,7 @@ __all__ = [
     "SupplierProduct",
     "Product",
     "ProductInstance",
+    "ProductComponent",
     "Warehouse",
     "Project",
     # Transactions

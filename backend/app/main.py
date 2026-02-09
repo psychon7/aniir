@@ -88,3 +88,26 @@ async def migration_status():
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
+
+@fastapi_app.post("/admin/run-migrations")
+async def run_migrations():
+    """Manually trigger pending migrations (admin only)."""
+    try:
+        from app.migrations.runner import MigrationRunner
+        runner = MigrationRunner()
+        successful, failed = runner.run_pending_migrations()
+        return {
+            "status": "completed",
+            "successful": successful,
+            "failed": failed,
+            "migrations_dir": str(runner.migrations_dir),
+            "migrations_dir_exists": runner.migrations_dir.exists()
+        }
+    except Exception as e:
+        import traceback
+        return {
+            "status": "error", 
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+

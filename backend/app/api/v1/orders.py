@@ -6,17 +6,19 @@ Provides REST API endpoints for:
 - Order status workflow information
 """
 import asyncio
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
+from decimal import Decimal
 from fastapi import APIRouter, Depends, Path, Body, Query, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, and_, desc, asc
 
 from app.database import get_db
 from app.models.order import ClientOrder, ClientOrderLine
 from app.models.client import Client
-from app.models.costplan import CostPlan
+from app.models.costplan import CostPlan, CostPlanLine
+from app.dependencies import get_current_user
 from app.schemas.document import SendDocumentRequest, SendDocumentResponse
 from app.services.order_service import (
     OrderService,
@@ -26,6 +28,7 @@ from app.services.order_service import (
     OrderStatusError,
 )
 from app.schemas.order import OrderDetailResponse, OrderResponse
+from app.utils.row_level import apply_commercial_filter
 
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
@@ -153,6 +156,23 @@ class OrderListPaginatedResponse(BaseModel):
     hasPreviousPage: bool = Field(default=False, description="Whether there is a previous page")
 
 
+class OrderDiscountUpdateRequest(BaseModel):
+    """Document-level discount update payload (supports snake_case and camelCase)."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    discount_percentage: Optional[float] = Field(default=None, ge=0, le=100, alias="discountPercentage")
+    discount_amount: Optional[float] = Field(default=None, ge=0, alias="discountAmount")
+
+
+class ConvertOrderToQuoteResponse(BaseModel):
+    """Response payload for order -> quote conversion."""
+    order_id: int
+    quote_id: int
+    quote_reference: str
+    converted_at: datetime
+    lines_converted: int
+
+
 # =============================================================================
 # Sync Database Helper
 # =============================================================================
@@ -168,7 +188,8 @@ def _sync_list_orders(
     project_id: Optional[int] = None,
     quote_id: Optional[int] = None,
     sort_by: str = "cod_d_creation",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
+    current_user: Optional[Any] = None,
 ):
     """Sync function to list orders with pagination, joining client."""
     # Pre-aggregated subquery for totalAmount (runs once, not per-row)
@@ -221,6 +242,20 @@ def _sync_list_orders(
         query = query.where(and_(*conditions))
         count_query = count_query.where(and_(*conditions))
 
+    # Row-level security for non-admin users (commercial hierarchy).
+    query = apply_commercial_filter(
+        query,
+        ClientOrder,
+        current_user,
+        ("usr_com_1", "usr_com_2", "usr_com_3", "usr_creator_id"),
+    )
+    count_query = apply_commercial_filter(
+        count_query,
+        ClientOrder,
+        current_user,
+        ("usr_com_1", "usr_com_2", "usr_com_3", "usr_creator_id"),
+    )
+
     # Get total count
     total_result = db.execute(count_query)
     total = total_result.scalar() or 0
@@ -262,11 +297,12 @@ async def list_orders(
     quote_id: Optional[int] = Query(None, description="Filter by quote/cost plan ID"),
     sort_by: str = Query("cod_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     """List orders with pagination."""
     rows, total = await asyncio.to_thread(
-        _sync_list_orders, db, page, page_size, search, client_id, status_id, project_id, quote_id, sort_by, sort_order
+        _sync_list_orders, db, page, page_size, search, client_id, status_id, project_id, quote_id, sort_by, sort_order, current_user
     )
 
     # Build camelCase response matching frontend OrderListItem type
@@ -397,6 +433,269 @@ def _sync_get_order_detail(db: Session, order_id: int):
         "footerText": row.cod_footer_text or "",
         "lines": lines,
     }
+
+
+def _sync_get_orders_by_quote(db: Session, quote_id: int):
+    """Sync helper to get orders by quote."""
+    rows = db.execute(
+        select(
+            ClientOrder.cod_id,
+            ClientOrder.cod_code,
+            ClientOrder.cli_id,
+            ClientOrder.cod_d_creation,
+            ClientOrder.cod_d_pre_delivery_from,
+            ClientOrder.cod_name,
+            Client.cli_company_name,
+            func.coalesce(func.sum(ClientOrderLine.col_price_with_discount_ht), 0).label("total_amount"),
+        )
+        .outerjoin(Client, ClientOrder.cli_id == Client.cli_id)
+        .outerjoin(ClientOrderLine, ClientOrder.cod_id == ClientOrderLine.cod_id)
+        .where(ClientOrder.cpl_id == quote_id)
+        .group_by(
+            ClientOrder.cod_id,
+            ClientOrder.cod_code,
+            ClientOrder.cli_id,
+            ClientOrder.cod_d_creation,
+            ClientOrder.cod_d_pre_delivery_from,
+            ClientOrder.cod_name,
+            Client.cli_company_name,
+        )
+        .order_by(desc(ClientOrder.cod_d_creation))
+    ).all()
+    return [
+        {
+            "id": row.cod_id,
+            "reference": row.cod_code or "",
+            "clientId": row.cli_id,
+            "clientName": row.cli_company_name or "",
+            "orderDate": row.cod_d_creation.isoformat() if row.cod_d_creation else None,
+            "expectedDeliveryDate": row.cod_d_pre_delivery_from.isoformat() if row.cod_d_pre_delivery_from else None,
+            "statusName": "Active",
+            "totalAmount": float(row.total_amount or 0),
+            "name": row.cod_name or "",
+            "currencyCode": "EUR",
+        }
+        for row in rows
+    ]
+
+
+def _sync_get_orders_by_project(db: Session, project_id: int):
+    """Sync helper to get orders by project."""
+    rows = db.execute(
+        select(
+            ClientOrder.cod_id,
+            ClientOrder.cod_code,
+            ClientOrder.cli_id,
+            ClientOrder.cod_d_creation,
+            ClientOrder.cod_d_pre_delivery_from,
+            ClientOrder.cod_name,
+            Client.cli_company_name,
+            func.coalesce(func.sum(ClientOrderLine.col_price_with_discount_ht), 0).label("total_amount"),
+        )
+        .outerjoin(Client, ClientOrder.cli_id == Client.cli_id)
+        .outerjoin(ClientOrderLine, ClientOrder.cod_id == ClientOrderLine.cod_id)
+        .where(ClientOrder.prj_id == project_id)
+        .group_by(
+            ClientOrder.cod_id,
+            ClientOrder.cod_code,
+            ClientOrder.cli_id,
+            ClientOrder.cod_d_creation,
+            ClientOrder.cod_d_pre_delivery_from,
+            ClientOrder.cod_name,
+            Client.cli_company_name,
+        )
+        .order_by(desc(ClientOrder.cod_d_creation))
+    ).all()
+    return [
+        {
+            "id": row.cod_id,
+            "reference": row.cod_code or "",
+            "clientId": row.cli_id,
+            "clientName": row.cli_company_name or "",
+            "orderDate": row.cod_d_creation.isoformat() if row.cod_d_creation else None,
+            "expectedDeliveryDate": row.cod_d_pre_delivery_from.isoformat() if row.cod_d_pre_delivery_from else None,
+            "statusName": "Active",
+            "totalAmount": float(row.total_amount or 0),
+            "name": row.cod_name or "",
+            "currencyCode": "EUR",
+        }
+        for row in rows
+    ]
+
+
+def _sync_update_order_discount(
+    db: Session,
+    order_id: int,
+    discount_percentage: Optional[float],
+    discount_amount: Optional[float],
+):
+    """Sync helper to update order-level discount."""
+    order = db.get(ClientOrder, order_id)
+    if not order:
+        return None
+
+    subtotal = Decimal(str(
+        db.execute(
+            select(func.coalesce(func.sum(ClientOrderLine.col_price_with_discount_ht), 0)).where(
+                ClientOrderLine.cod_id == order_id
+            )
+        ).scalar() or 0
+    ))
+
+    if discount_percentage is not None:
+        order.cod_discount_percentage = Decimal(str(discount_percentage))
+    if discount_amount is not None:
+        order.cod_discount_amount = Decimal(str(discount_amount))
+    elif discount_percentage is not None:
+        order.cod_discount_amount = subtotal * Decimal(str(discount_percentage)) / Decimal("100")
+
+    order.cod_d_update = datetime.utcnow()
+    db.commit()
+    return _sync_get_order_detail(db, order_id)
+
+
+def _generate_quote_code_from_order(db: Session) -> str:
+    year = datetime.utcnow().year
+    max_id = db.execute(select(func.max(CostPlan.cpl_id))).scalar() or 0
+    return f"CPL-{year}-{int(max_id) + 1:05d}"
+
+
+def _sync_convert_order_to_quote(db: Session, order_id: int):
+    """Sync helper to create a quote from an existing order (reverse conversion)."""
+    order = db.get(ClientOrder, order_id)
+    if not order:
+        return None
+
+    now = datetime.utcnow()
+    valid_until = order.cod_d_pre_delivery_to or order.cod_d_pre_delivery_from or now
+
+    quote = CostPlan(
+        cpl_code=_generate_quote_code_from_order(db),
+        cpl_d_creation=now,
+        cpl_d_update=now,
+        cst_id=1,
+        cli_id=order.cli_id,
+        pco_id=order.pco_id,
+        pmo_id=order.pmo_id,
+        cpl_d_validity=valid_until,
+        cpl_d_pre_delivery=order.cod_d_pre_delivery_from,
+        cpl_header_text=order.cod_header_text,
+        cpl_footer_text=order.cod_footer_text,
+        cco_id_invoicing=order.cco_id_invoicing,
+        cpl_client_comment=order.cod_client_comment,
+        cpl_inter_comment=order.cod_inter_comment,
+        usr_creator_id=order.usr_creator_id,
+        vat_id=order.vat_id,
+        prj_id=order.prj_id,
+        soc_id=order.soc_id,
+        cpl_discount_percentage=order.cod_discount_percentage,
+        cpl_discount_amount=order.cod_discount_amount,
+        cpl_name=order.cod_name,
+        usr_com_1=order.usr_com_1,
+        usr_com_2=order.usr_com_2,
+        usr_com_3=order.usr_com_3,
+        cpl_key_project=order.cod_key_project,
+    )
+    db.add(quote)
+    db.flush()
+
+    order_lines = db.execute(
+        select(ClientOrderLine).where(ClientOrderLine.cod_id == order_id)
+    ).scalars().all()
+    for line in order_lines:
+        quote_line = CostPlanLine(
+            cpl_id=quote.cpl_id,
+            cln_level1=line.col_level1,
+            cln_level2=line.col_level2,
+            cln_description=line.col_description,
+            prd_id=line.prd_id,
+            pit_id=line.pit_id,
+            cln_purchase_price=line.col_purchase_price,
+            cln_unit_price=line.col_unit_price,
+            cln_quantity=line.col_quantity,
+            cln_total_price=line.col_total_price,
+            cln_total_crude_price=line.col_total_crude_price,
+            vat_id=line.vat_id,
+            ltp_id=line.ltp_id,
+            cln_prd_name=line.col_prd_name,
+            cln_ref=line.col_ref,
+            cln_discount_percentage=line.col_discount_percentage,
+            cln_discount_amount=line.col_discount_amount,
+            cln_price_with_discount_ht=line.col_price_with_discount_ht,
+            cln_margin=line.col_margin,
+        )
+        db.add(quote_line)
+
+    db.commit()
+    return {
+        "order_id": order_id,
+        "quote_id": quote.cpl_id,
+        "quote_reference": quote.cpl_code,
+        "converted_at": now,
+        "lines_converted": len(order_lines),
+    }
+
+
+@router.get(
+    "/by-project/{project_id}",
+    summary="Get orders by project",
+    description="Get all orders linked to a project.",
+)
+async def get_orders_by_project(
+    project_id: int = Path(..., gt=0, description="Project ID"),
+    db: Session = Depends(get_db),
+):
+    return await asyncio.to_thread(_sync_get_orders_by_project, db, project_id)
+
+
+@router.get(
+    "/by-quote/{quote_id}",
+    summary="Get orders by quote",
+    description="Get all orders linked to a quote.",
+)
+async def get_orders_by_quote(
+    quote_id: int = Path(..., gt=0, description="Quote ID"),
+    db: Session = Depends(get_db),
+):
+    return await asyncio.to_thread(_sync_get_orders_by_quote, db, quote_id)
+
+
+@router.post(
+    "/{order_id}/discount",
+    summary="Update order discount",
+    description="Apply or update document-level discount on an order.",
+)
+async def update_order_discount(
+    order_id: int = Path(..., gt=0, description="Order ID"),
+    request: OrderDiscountUpdateRequest = ...,
+    db: Session = Depends(get_db),
+):
+    updated = await asyncio.to_thread(
+        _sync_update_order_discount,
+        db,
+        order_id,
+        request.discount_percentage,
+        request.discount_amount,
+    )
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
+    return updated
+
+
+@router.post(
+    "/{order_id}/convert-to-quote",
+    response_model=ConvertOrderToQuoteResponse,
+    summary="Convert order to quote",
+    description="Create a new quote by cloning an existing order (reverse conversion).",
+)
+async def convert_order_to_quote(
+    order_id: int = Path(..., gt=0, description="Order ID"),
+    db: Session = Depends(get_db),
+):
+    result = await asyncio.to_thread(_sync_convert_order_to_quote, db, order_id)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
+    return ConvertOrderToQuoteResponse(**result)
 
 
 @router.get(

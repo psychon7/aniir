@@ -1,11 +1,12 @@
 # Task Dependency Graph (Full Parity Audit)
 
-Generated: 2026-02-09 (Round 2 - Legacy UI Deep Comparison)
+Generated: 2026-02-09 (Round 3 - Field-Level Verification)
 
 This document is based on a comprehensive side-by-side comparison of:
 - **Legacy .NET ERP** (44+ ASPX screens, 70+ JS modules, 100+ ASMX service methods)
 - **Current React/FastAPI ERP2025** (55+ routes, 40+ API files, 50+ hooks, 80+ services)
 - **Live legacy UI exploration** via browser automation
+- **Field-level model/schema/form verification** (4 parallel agents verifying products, clients, documents, ASMX methods)
 
 ## Summary
 
@@ -13,20 +14,20 @@ This document is based on a comprehensive side-by-side comparison of:
 | ------------ | ----- |
 | Completed    | 17    |
 | In Progress  | 0     |
-| Pending      | 25    |
+| Pending      | 31    |
 | Backlog      | 5     |
-| **Total**    | **47**|
+| **Total**    | **53**|
 
 ## Progress Overview
 
 ```
-Overall   [==========--------------------]  36% (17/47)
+Overall   [=========-----------------------]  32% (17/53)
 
 P0 Blockers           [=======-----------]  78% (7/9)
 P1 Core Parity        [==================]  100% (10/10)
-P2 Secondary Parity   [------------------]  0% (0/14)
+P2 Secondary Parity   [------------------]  0% (0/18)
 P3 Integrations       [------------------]  0% (0/8)
-P4 Polish & Beyond    [------------------]  0% (0/6)
+P4 Polish & Beyond    [------------------]  0% (0/8)
 ```
 
 ## Completion by Priority
@@ -35,9 +36,9 @@ P4 Polish & Beyond    [------------------]  0% (0/6)
 | --------------------------- | ----- | ---- | ----------- | ------- | ------- | ---------- |
 | P0: Blockers                | 9     | 7    | 0           | 2       | 0       | **78%**    |
 | P1: Core Parity             | 10    | 10   | 0           | 0       | 0       | **100%**   |
-| P2: Secondary Parity        | 14    | 0    | 0           | 13      | 1       | **0%**     |
+| P2: Secondary Parity        | 18    | 0    | 0           | 17      | 1       | **0%**     |
 | P3: Integrations/Automation | 8     | 0    | 0           | 5       | 3       | **0%**     |
-| P4: Polish & Beyond         | 6     | 0    | 0           | 5       | 1       | **0%**     |
+| P4: Polish & Beyond         | 8     | 0    | 0           | 7       | 1       | **0%**     |
 
 ## Dependency Graph
 
@@ -76,13 +77,17 @@ flowchart TD
     p2_05["P2-05 Accounting UI"]:::pending
     p2_06["P2-06 PDF Viewer Pages"]:::backlog
     p2_07["P2-07 Dashboard Widgets"]:::pending
-    p2_08["P2-08 Document Duplicate/Clone"]:::pending
+    p2_08["P2-08 Reverse Doc Clone"]:::pending
     p2_09["P2-09 Discount Modals"]:::pending
     p2_10["P2-10 Invoice Statement UI"]:::pending
     p2_11["P2-11 Client Pricing UI"]:::pending
     p2_12["P2-12 Bank/RIB Management"]:::pending
-    p2_13["P2-13 Address Separation"]:::pending
+    p2_13["P2-13 Doc Address Snapshot"]:::pending
     p2_14["P2-14 Delegator System UI"]:::pending
+    p2_15["P2-15 Client Form Fields"]:::pending
+    p2_16["P2-16 Product Components"]:::pending
+    p2_17["P2-17 Doc Line Images"]:::pending
+    p2_18["P2-18 Delivery→Invoice Bulk"]:::pending
   end
 
   subgraph "P3 -- Integrations"
@@ -103,6 +108,8 @@ flowchart TD
     p4_04["P4-04 Line Merge/Reorder"]:::pending
     p4_05["P4-05 Inspection Forms"]:::pending
     p4_06["P4-06 Backorder Tracking"]:::backlog
+    p4_07["P4-07 Lookup Endpoints Gap"]:::pending
+    p4_08["P4-08 Pricing Coefficient"]:::pending
   end
 
   %% Dependency arrows
@@ -116,10 +123,13 @@ flowchart TD
   p1_10 --> p2_12
   p1_10 --> p4_01
   p1_10 --> p4_02
+  p1_10 --> p4_08
   p2_02 --> p2_13
   p2_02 --> p2_14
   p2_05 --> p2_10
   p1_01 --> p2_09
+  p2_15 --> p2_13
+  p2_16 --> p3_05
 
   classDef done fill:#10b981,stroke:#059669,color:#fff
   classDef inprogress fill:#f59e0b,stroke:#d97706,color:#fff
@@ -192,13 +202,13 @@ flowchart TD
     6. PI non payee (Unpaid proforma invoices)
     7. Container non expedie (Unshipped containers)
     8. Container arrivant (Arriving containers)
-  - Current: Dashboard route exists but widgets may be incomplete or use placeholder data. Needs backend summary endpoints for each widget.
+  - Current: Dashboard route exists but widgets may be incomplete or use placeholder data.
+  - **Verified missing**: ALL 9+ backend summary/KPI endpoints are missing. Only `GET /warehouse/stock/summary` and `GET /tasks/stats/summary` exist. Need: `GetCountClientToActive`, `GetCplStatus`, quotes pipeline, backorders, pending deliveries, pending invoicing, unpaid invoices, unpaid PIs.
 
-- [ ] **P2-08** Document duplicate/clone workflows.
-  - Legacy JS: `DuplicateCostPlan(cplId, sameProject)`, `DuplicateClientOrder2CostPlan(codId, sameProject)`, `DuplicateSupplierOrder(sodId)`. These are critical user workflows for cloning documents with all line items.
-  - Current: No duplicate/clone endpoints exist on quotes, orders, or supplier orders.
-  - Backend: Need `POST /quotes/{id}/duplicate`, `POST /orders/{id}/duplicate`, `POST /supplier-orders/{id}/duplicate`.
-  - Frontend: Need "Dupliquer" (Duplicate) button on each document detail view.
+- [ ] **P2-08** Reverse document clone (Order→Quote).
+  - Legacy JS: `DuplicateClientOrder2CostPlan(codId, sameProject)` -- creates a new quote from an existing order (reverse conversion).
+  - **Verified**: Quote duplication (`POST /quotes/{id}/duplicate`), order duplication, and supplier order duplication already exist in backend + frontend hooks. Quote→Order conversion also works.
+  - **Remaining gap**: Only the Order→Quote reverse duplication is missing. Need `POST /orders/{id}/convert-to-quote` endpoint.
 
 - [ ] **P2-09** Discount management modals per document type.
   - Legacy: Separate discount modal with `AddUpdateClientOrderDiscount(codId, discountPercentage, discountAmount)`. Both percentage and fixed-amount discounts. Applied at document level (header discount), separate from line-level discounts.
@@ -216,13 +226,58 @@ flowchart TD
   - Legacy: `EnterpriseSetting.aspx` has multiple RIB (bank info) sections: bank name, agency, account #, RIB key, IBAN, BIC/SWIFT. Multiple banks supported with create/delete. Bank selection dropdown on invoices.
   - Current: Enterprise Settings page has 4 card sections but may lack RIB/bank CRUD. *(Depends on: P1-10)*
 
-- [ ] **P2-13** Address separation on documents (commercial vs delivery).
+- [ ] **P2-13** Document address/contact snapshot (commercial vs delivery).
   - Legacy: Every document (Quote, Order, Invoice, Delivery) has two address blocks: "Adresse commerciale client" (billing) and "Adresse de livraison" (shipping). Each has: title, ref, firstname, lastname, address1, address2, postcode, city/country, phone, fax, mobile, email.
-  - Current: Documents have client reference but likely single address. Need dual-address support. *(Depends on: P2-02)*
+  - **Verified**: Invoices DO have full address snapshot (`cin_inv_cco_firstname`, `cin_inv_cco_lastname`, `cin_inv_cco_address1/2`, etc.). Quotes and Orders have ZERO address/contact fields -- only `cco_id_invoicing` FK reference. Delivery address section is 0% on quotes/orders.
+  - Need: Add denormalized address snapshot columns to CostPlan and ClientOrder models (like invoices have), or resolve via ClientContact join at API response time. *(Depends on: P2-02, P2-15)*
 
 - [ ] **P2-14** Delegator/Delegatee system UI.
   - Legacy: `Client.aspx` has a dedicated section (right column, 3 cols wide) for managing delegators and delegatees. Used for client billing delegation chains.
   - Current: `ClientDelegateService` exists in backend. Frontend needs delegation management panel on client detail. *(Depends on: P2-02)*
+
+- [ ] **P2-15** Client form field completion (19 missing fields).
+  - **Verified by field-level agent**: The Client model (TM_CLI_Client) has ~50 columns, `ClientDetailResponse` schema maps most of them, but `ClientBase`/`ClientCreateDto` and `ClientForm.tsx` are missing 19 fields that exist in the legacy form:
+  - **Critical missing** (in model but not in create/edit form):
+    1. `cli_abbreviation` -- Company abbreviation
+    2. `cli_usr_com1/2/3` -- 3 commercial/sales rep user selects
+    3. `cli_invoice_day` -- Billing day of month (1-31 dropdown)
+    4. `cli_invoice_day_is_last_day` -- Last day of month flag
+    5. `cli_comment_for_client` -- Client-visible comment
+    6. `cli_comment_for_interne` -- Internal comment
+  - **Additional missing** (in model/DetailResponse but not in create form):
+    7. `cli_siren` -- SIREN company registration
+    8. `cli_vat_intra` -- EU intra-community VAT number
+    9. `cli_tel2` -- Phone 2
+    10. `cli_fax` -- Fax number
+    11. `cli_accounting_email` -- Accounting email
+    12. `cli_recieve_newsletter` -- Newsletter subscription checkbox
+    13. `cli_newsletter_email` -- Newsletter email
+    14. `act_id` -- Activity/business sector dropdown
+    15. `vat_id` -- VAT rate dropdown
+    16. `pco_id` -- Payment condition dropdown
+    17. `cli_isactive` -- Active flag (not in create/update DTOs)
+    18. `cli_isblocked` -- Blocked flag
+    19. `cli_showdetail` -- Show detail flag
+  - **Fix**: Add all 19 fields to `ClientBase` schema, `ClientCreateDto`, `ClientUpdateDto`, and `ClientForm.tsx` UI.
+
+- [ ] **P2-16** Product component relationships (drivers/accessories/options).
+  - **Verified by field-level agent**: Legacy product form has 3 dedicated component relationship sections:
+    1. **Drivers** (LED drivers/power supplies) -- with "Ajouter" button
+    2. **Accessories** (mounting hardware/connectors) -- with "Ajouter" button
+    3. **Options** (color temperature/wattage variants) -- with "Ajouter" button
+  - Current: COMPLETELY MISSING. No junction table, no model, no endpoint, no UI.
+  - Also missing: `prd_interior_length`, `prd_interior_width`, `prd_opening_diameter`, `prd_thickness` columns from product model.
+  - Need: Junction table `TI_PRC_ProductComponent` (or similar), component type enum (driver/accessory/option), CRUD endpoints, UI tabs on product detail page.
+
+- [ ] **P2-17** Document line item image reference.
+  - **Verified by field-level agent**: Legacy line items table has an "Image" column showing product image thumbnails inline.
+  - Current: `CostPlanLine`, `ClientOrderLine`, `ClientInvoiceLine` models have NO image/image_url field.
+  - Need: Add `image_url` or `prd_file_name` snapshot to all line item models, and render product thumbnails in the line items DataTable.
+
+- [ ] **P2-18** Delivery-to-invoice bulk creation.
+  - **Verified by ASMX agent**: Legacy has `CreateClientInvoiceAndDeliveryDfoWithDfls(dfoId, dfls)` for creating invoices from specific delivery lines, and `CreateClientInvoiceAndDeliveryAllDfos(dfoId, mode)` for bulk invoice creation from all deliveries.
+  - Current: `POST /invoices/from-order/{order_id}` exists (order→invoice), but NO delivery→invoice endpoints.
+  - Need: `POST /invoices/from-delivery/{delivery_id}` and `POST /invoices/from-deliveries` (bulk) endpoints.
 
 ### P3 -- Integrations & Automation
 
@@ -268,6 +323,20 @@ flowchart TD
 - [ ] **P4-06** Backorder/Reliquat tracking widget. *(Backlog)*
   - Legacy: Dashboard "Fonction Reliquat" widget tracks partially fulfilled orders. Shows items remaining to be delivered.
   - Current: No backorder tracking. Requires comparing order quantities vs delivered quantities.
+
+- [ ] **P4-07** Lookup endpoints gap fill.
+  - **Verified by ASMX agent**: Core lookups (currencies, VAT, payment terms/modes, societies, languages, countries, warehouses, carriers) all exist.
+  - **Missing lookups**:
+    1. `GetSubCommercial()` -- Commercial hierarchy (sub-commercial under main commercial)
+    2. `GetPitByRef(pitRef, prdId)` -- Product instance/variant by reference
+    3. `GetLineType()` -- Document line types (product, service, comment, subtotal, etc.)
+    4. `GetAllCommuneNameByPostcode(postcode)` -- French postal code → city autocomplete
+  - Need: 4 new lookup endpoints + frontend integration.
+
+- [ ] **P4-08** Pricing coefficient configuration (CoefSodCin). *(Depends on: P1-10)*
+  - Legacy: `CoefSodCin = 1.2` hardcoded coefficient for Supplier Order → Client Invoice markup calculation.
+  - Current: No pricing coefficient in settings or service logic.
+  - Need: Add coefficient field to enterprise settings, use in invoice price calculation from supplier order prices.
 
 ---
 
@@ -395,5 +464,10 @@ flowchart TD
 
 ## Last Updated
 
-- **Date**: 2026-02-09 (Round 2)
-- **Basis**: Full legacy UI exploration (browser automation) + 5-agent parallel codebase audit comparing legacy .NET (44 screens, 70+ JS files, ERPWebServices.asmx 9,788 lines) against current React/FastAPI (55+ routes, 80+ services). Added 16 new tasks (P2-07 through P2-14, P3-07, P3-08, P4-01 through P4-06) based on gap analysis.
+- **Date**: 2026-02-09 (Round 3)
+- **Basis**: Field-level verification using 4 parallel agents:
+  1. **Product agent**: Verified all dimension fields, discovered missing interior dimensions + component relationships (drivers/accessories/options)
+  2. **Client agent**: Verified all 50+ model columns vs ClientCreateDto/form -- found 19 fields missing from create/edit workflow
+  3. **Quote/Order/Invoice agent**: Field-by-field comparison -- 100% general info, 10% contacts, 0% delivery address on quotes/orders, 95% line items (missing image), ~78% overall parity
+  4. **ASMX methods agent**: Verified 100+ legacy methods -- 8 fully implemented, 3 partial, 15 missing (dashboard widgets, bulk operations, lookups)
+- **Changes**: Added 6 new tasks (P2-15 through P2-18, P4-07, P4-08). Corrected P2-08 (duplicate endpoints already exist; only reverse order→quote missing). Updated P2-07, P2-13 with verified details. Total: 53 tasks (17 done, 31 pending, 5 backlog = 32%).

@@ -8,15 +8,16 @@ Provides REST API for:
 - Quote to order conversion
 """
 import asyncio
-from typing import Optional, List
+from typing import Optional, List, Any
 from decimal import Decimal
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, and_, desc, asc
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models.costplan import CostPlan, CostPlanLine
 from app.models.client import Client
 from app.models.cost_plan_status import CostPlanStatus
@@ -44,6 +45,7 @@ from app.schemas.quote import (
 )
 # Import QuoteDetailResponse from costplan schemas (maps to TM_CPL_Cost_Plan)
 from app.schemas.costplan import QuoteDetailResponse, CostPlanResponse
+from app.utils.row_level import apply_commercial_filter
 
 router = APIRouter(prefix="/quotes", tags=["Quotes"])
 
@@ -65,6 +67,14 @@ class QuoteListPaginatedResponse(BaseModel):
     hasPreviousPage: bool = Field(default=False, description="Whether there is a previous page")
 
 
+class QuoteDiscountUpdateRequest(BaseModel):
+    """Document-level discount update payload (supports snake_case and camelCase)."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    discount_percentage: Optional[Decimal] = Field(default=None, ge=0, le=100, alias="discountPercentage")
+    discount_amount: Optional[Decimal] = Field(default=None, ge=0, alias="discountAmount")
+
+
 # ==========================================================================
 # Sync Database Helper
 # ==========================================================================
@@ -78,7 +88,8 @@ def _sync_list_quotes(
     client_id: Optional[int] = None,
     project_id: Optional[int] = None,
     sort_by: str = "cpl_d_creation",
-    sort_order: str = "desc"
+    sort_order: str = "desc",
+    current_user: Optional[Any] = None,
 ):
     """Sync function to list quotes with pagination, joining client and status."""
     # Pre-aggregated subquery for totalAmount (runs once, not per-row)
@@ -130,6 +141,20 @@ def _sync_list_quotes(
         query = query.where(and_(*conditions))
         count_query = count_query.where(and_(*conditions))
 
+    # Row-level security for non-admin users (commercial hierarchy).
+    query = apply_commercial_filter(
+        query,
+        CostPlan,
+        current_user,
+        ("usr_com_1", "usr_com_2", "usr_com_3", "usr_creator_id"),
+    )
+    count_query = apply_commercial_filter(
+        count_query,
+        CostPlan,
+        current_user,
+        ("usr_com_1", "usr_com_2", "usr_com_3", "usr_creator_id"),
+    )
+
     # Get total count
     total_result = db.execute(count_query)
     total = total_result.scalar() or 0
@@ -169,11 +194,12 @@ async def list_quotes(
     project_id: Optional[int] = Query(None, description="Filter by project ID"),
     sort_by: str = Query("cpl_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     """List quotes with pagination."""
     rows, total = await asyncio.to_thread(
-        _sync_list_quotes, db, page, page_size, search, client_id, project_id, sort_by, sort_order
+        _sync_list_quotes, db, page, page_size, search, client_id, project_id, sort_by, sort_order, current_user
     )
 
     # Build camelCase response matching frontend QuoteListItem type
@@ -360,6 +386,223 @@ def _sync_get_quote_detail(db: Session, quote_id: int):
         "footerText": row.cpl_footer_text or "",
         "lines": lines,
     }
+
+
+def _sync_get_quotes_by_project(db: Session, project_id: int):
+    """Sync helper to get quotes for a project."""
+    query = (
+        select(
+            CostPlan.cpl_id,
+            CostPlan.cpl_code,
+            CostPlan.cpl_d_creation,
+            CostPlan.cpl_d_validity,
+            CostPlan.cpl_name,
+            CostPlan.cst_id,
+            Client.cli_company_name,
+            func.coalesce(func.sum(CostPlanLine.cln_price_with_discount_ht), 0).label("total_amount"),
+        )
+        .outerjoin(Client, CostPlan.cli_id == Client.cli_id)
+        .outerjoin(CostPlanLine, CostPlan.cpl_id == CostPlanLine.cpl_id)
+        .where(CostPlan.prj_id == project_id)
+        .group_by(
+            CostPlan.cpl_id,
+            CostPlan.cpl_code,
+            CostPlan.cpl_d_creation,
+            CostPlan.cpl_d_validity,
+            CostPlan.cpl_name,
+            CostPlan.cst_id,
+            Client.cli_company_name,
+        )
+        .order_by(desc(CostPlan.cpl_d_creation))
+    )
+    rows = db.execute(query).all()
+    return [
+        {
+            "id": row.cpl_id,
+            "reference": row.cpl_code or "",
+            "clientName": row.cli_company_name or "",
+            "quoteDate": row.cpl_d_creation.isoformat() if row.cpl_d_creation else None,
+            "validUntil": row.cpl_d_validity.isoformat() if row.cpl_d_validity else None,
+            "statusId": row.cst_id,
+            "statusName": "In Progress" if row.cst_id == 1 else "Quote",
+            "totalAmount": float(row.total_amount or 0),
+            "name": row.cpl_name or "",
+        }
+        for row in rows
+    ]
+
+
+def _sync_get_quotes_in_progress(db: Session, recent_months_only: bool = False):
+    """
+    Sync helper for in-progress quotes dashboard widgets.
+    Uses cst_id=1 as in-progress default, with fallback to all quotes if none.
+    """
+    now = datetime.utcnow()
+    month_start = datetime(now.year, now.month, 1)
+    if now.month == 1:
+        prev_month_start = datetime(now.year - 1, 12, 1)
+    else:
+        prev_month_start = datetime(now.year, now.month - 1, 1)
+
+    query = (
+        select(
+            CostPlan.cpl_id,
+            CostPlan.cpl_code,
+            CostPlan.cpl_d_creation,
+            CostPlan.cpl_d_validity,
+            CostPlan.cpl_name,
+            CostPlan.cst_id,
+            Client.cli_company_name,
+            func.coalesce(func.sum(CostPlanLine.cln_price_with_discount_ht), 0).label("total_amount"),
+        )
+        .outerjoin(Client, CostPlan.cli_id == Client.cli_id)
+        .outerjoin(CostPlanLine, CostPlan.cpl_id == CostPlanLine.cpl_id)
+        .group_by(
+            CostPlan.cpl_id,
+            CostPlan.cpl_code,
+            CostPlan.cpl_d_creation,
+            CostPlan.cpl_d_validity,
+            CostPlan.cpl_name,
+            CostPlan.cst_id,
+            Client.cli_company_name,
+        )
+        .order_by(desc(CostPlan.cpl_d_creation))
+    )
+
+    # Try strict "in progress" first
+    in_progress_rows = query.where(CostPlan.cst_id == 1)
+    if recent_months_only:
+        in_progress_rows = in_progress_rows.where(CostPlan.cpl_d_creation >= prev_month_start)
+    rows = db.execute(in_progress_rows.limit(100)).all()
+
+    # Fallback to latest quotes if no in-progress found
+    if not rows:
+        fallback = query
+        if recent_months_only:
+            fallback = fallback.where(CostPlan.cpl_d_creation >= prev_month_start)
+        rows = db.execute(fallback.limit(100)).all()
+
+    return [
+        {
+            "id": row.cpl_id,
+            "reference": row.cpl_code or "",
+            "clientName": row.cli_company_name or "",
+            "quoteDate": row.cpl_d_creation.isoformat() if row.cpl_d_creation else None,
+            "validUntil": row.cpl_d_validity.isoformat() if row.cpl_d_validity else None,
+            "statusId": row.cst_id,
+            "statusName": "In Progress" if row.cst_id == 1 else "Quote",
+            "totalAmount": float(row.total_amount or 0),
+            "name": row.cpl_name or "",
+            "isCurrentMonth": bool(row.cpl_d_creation and row.cpl_d_creation >= month_start),
+        }
+        for row in rows
+    ]
+
+
+def _sync_update_quote_discount(
+    db: Session,
+    quote_id: int,
+    discount_percentage: Optional[Decimal],
+    discount_amount: Optional[Decimal],
+):
+    """Sync helper to apply quote-level discount."""
+    quote = db.get(CostPlan, quote_id)
+    if not quote:
+        return None
+
+    # Compute subtotal from lines when percentage is provided.
+    line_total_stmt = select(func.coalesce(func.sum(CostPlanLine.cln_price_with_discount_ht), 0)).where(
+        CostPlanLine.cpl_id == quote_id
+    )
+    subtotal = Decimal(str(db.execute(line_total_stmt).scalar() or 0))
+
+    if discount_percentage is not None:
+        quote.cpl_discount_percentage = discount_percentage
+    if discount_amount is not None:
+        quote.cpl_discount_amount = discount_amount
+    elif discount_percentage is not None:
+        quote.cpl_discount_amount = (subtotal * discount_percentage) / Decimal("100")
+
+    quote.cpl_d_update = datetime.utcnow()
+    db.commit()
+    return _sync_get_quote_detail(db, quote_id)
+
+
+@router.get(
+    "/by-project/{project_id}",
+    summary="Get quotes by project",
+    description="Get all quotes for a given project ID.",
+)
+async def get_quotes_by_project(
+    project_id: int = Path(..., gt=0, description="Project ID"),
+    db: Session = Depends(get_db),
+):
+    return await asyncio.to_thread(_sync_get_quotes_by_project, db, project_id)
+
+
+@router.get(
+    "/in-progress",
+    summary="Get in-progress quotes",
+    description="Dashboard helper: returns in-progress quotes.",
+)
+async def get_in_progress_quotes(
+    db: Session = Depends(get_db),
+):
+    return await asyncio.to_thread(_sync_get_quotes_in_progress, db, False)
+
+
+@router.get(
+    "/recent-in-progress",
+    summary="Get recent in-progress quotes",
+    description="Dashboard helper: returns in-progress quotes for current and previous month.",
+)
+async def get_recent_in_progress_quotes(
+    db: Session = Depends(get_db),
+):
+    return await asyncio.to_thread(_sync_get_quotes_in_progress, db, True)
+
+
+@router.get(
+    "/{quote_id}/summary",
+    summary="Get quote totals summary",
+    description="Returns subtotal, discount and total for a quote.",
+)
+async def get_quote_summary(
+    quote_id: int = Path(..., gt=0, description="Quote ID"),
+    db: Session = Depends(get_db),
+):
+    detail = await asyncio.to_thread(_sync_get_quote_detail, db, quote_id)
+    if detail is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Quote {quote_id} not found")
+    return {
+        "subtotal": detail.get("subtotal", 0),
+        "taxAmount": detail.get("taxAmount", 0),
+        "discountAmount": detail.get("discountAmount", 0),
+        "discountPercentage": detail.get("discountPercentage", 0),
+        "totalAmount": detail.get("totalAmount", 0),
+    }
+
+
+@router.post(
+    "/{quote_id}/discount",
+    summary="Update quote discount",
+    description="Apply or update document-level discount on a quote.",
+)
+async def update_quote_discount(
+    quote_id: int = Path(..., gt=0, description="Quote ID"),
+    request: QuoteDiscountUpdateRequest = ...,
+    db: Session = Depends(get_db),
+):
+    updated = await asyncio.to_thread(
+        _sync_update_quote_discount,
+        db,
+        quote_id,
+        request.discount_percentage,
+        request.discount_amount,
+    )
+    if updated is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Quote {quote_id} not found")
+    return updated
 
 
 @router.get(

@@ -4,7 +4,7 @@ Pydantic schemas for Client API requests and responses.
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict, computed_field, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, computed_field, AliasChoices
 
 
 # ==========================================================================
@@ -12,257 +12,312 @@ from pydantic import BaseModel, Field, ConfigDict, computed_field, EmailStr
 # ==========================================================================
 
 class ClientBase(BaseModel):
-    """Base schema for Client."""
+    """Base schema aligned with TM_CLI_CLient columns, with camelCase aliases."""
+    model_config = ConfigDict(populate_by_name=True)
+
     cli_company_name: Optional[str] = Field(
-        None,
-        max_length=200,
-        description="Company name"
+        default=None,
+        max_length=250,
+        validation_alias=AliasChoices("cli_company_name", "companyName"),
+        description="Company name",
     )
-    cli_first_name: Optional[str] = Field(
-        None,
+    cli_abbreviation: Optional[str] = Field(
+        default=None,
+        max_length=300,
+        validation_alias=AliasChoices("cli_abbreviation", "abbreviation"),
+        description="Company abbreviation",
+    )
+
+    # Core FKs
+    soc_id: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("soc_id", "cli_soc_id", "societyId"),
+        description="Society ID",
+    )
+    cty_id: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("cty_id", "cli_type_id", "clientTypeId"),
+        description="Client type ID",
+    )
+    act_id: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("act_id", "cli_sta_id", "activityId", "statusId"),
+        description="Activity/status ID",
+    )
+    cur_id: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("cur_id", "cli_cur_id", "currencyId"),
+        description="Currency ID",
+    )
+    pco_id: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("pco_id", "cli_pay_term_id", "paymentConditionId", "paymentTermId"),
+        description="Payment condition ID",
+    )
+    pmo_id: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("pmo_id", "cli_pay_mode_id", "paymentModeId"),
+        description="Payment mode ID",
+    )
+    vat_id: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("vat_id", "vatId"),
+        description="VAT ID",
+    )
+    cmu_id: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("cmu_id", "communeId", "countryId"),
+        description="Commune ID",
+    )
+
+    # Legal identifiers
+    cli_siren: Optional[str] = Field(
+        default=None,
         max_length=50,
-        description="Contact first name"
-    )
-    cli_last_name: Optional[str] = Field(
-        None,
-        max_length=50,
-        description="Contact last name"
-    )
-    cli_email: Optional[str] = Field(
-        None,
-        max_length=100,
-        description="Email address"
-    )
-    cli_phone: Optional[str] = Field(
-        None,
-        max_length=30,
-        description="Phone number"
-    )
-    cli_mobile: Optional[str] = Field(
-        None,
-        max_length=30,
-        description="Mobile phone number"
-    )
-    cli_address: Optional[str] = Field(
-        None,
-        max_length=200,
-        description="Address line 1"
-    )
-    cli_address2: Optional[str] = Field(
-        None,
-        max_length=200,
-        description="Address line 2"
-    )
-    cli_postal_code: Optional[str] = Field(
-        None,
-        max_length=20,
-        description="Postal code"
-    )
-    cli_city: Optional[str] = Field(
-        None,
-        max_length=100,
-        description="City"
-    )
-    cli_country_id: Optional[int] = Field(
-        None,
-        description="Country ID (FK to TR_COU_Country)"
-    )
-    cli_vat_number: Optional[str] = Field(
-        None,
-        max_length=50,
-        description="VAT number"
+        validation_alias=AliasChoices("cli_siren", "siren"),
+        description="SIREN",
     )
     cli_siret: Optional[str] = Field(
-        None,
+        default=None,
         max_length=50,
-        description="SIRET number (French company ID)"
+        validation_alias=AliasChoices("cli_siret", "siret"),
+        description="SIRET",
     )
-    cli_website: Optional[str] = Field(
-        None,
+    cli_vat_intra: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        validation_alias=AliasChoices("cli_vat_intra", "vatIntra", "vatNumber"),
+        description="Intra-community VAT",
+    )
+
+    # Address
+    cli_address1: Optional[str] = Field(
+        default=None,
         max_length=200,
-        description="Website URL"
+        validation_alias=AliasChoices("cli_address1", "cli_address", "address"),
+        description="Address line 1",
     )
-    cli_type_id: Optional[int] = Field(
-        None,
-        description="Client type ID (FK to TR_CT_ClientType)"
+    cli_address2: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cli_address2", "address2"),
+        description="Address line 2",
     )
-    cli_sta_id: Optional[int] = Field(
-        None,
-        description="Status ID (FK to TR_STA_Status)"
+    cli_postcode: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        validation_alias=AliasChoices("cli_postcode", "cli_postal_code", "postcode", "postalCode"),
+        description="Postcode",
     )
-    cli_cur_id: Optional[int] = Field(
-        None,
-        description="Currency ID (FK to TR_CUR_Currency)"
+    cli_city: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cli_city", "city"),
+        description="City",
     )
-    cli_pay_mode_id: Optional[int] = Field(
-        None,
-        description="Payment mode ID (FK to TR_PAY_PaymentMode)"
+    cli_country: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cli_country", "country"),
+        description="Country",
     )
-    cli_pay_term_id: Optional[int] = Field(
-        None,
-        description="Payment term ID (FK to TR_PAY_PaymentTerm)"
+    cli_free_of_harbor: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_free_of_harbor", "freeOfHarbor"),
+        description="Free of harbor mode",
     )
-    cli_credit_limit: Optional[Decimal] = Field(
-        None,
-        ge=0,
-        description="Credit limit"
+
+    # Contact
+    cli_tel1: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        validation_alias=AliasChoices("cli_tel1", "cli_phone", "phone"),
+        description="Primary phone",
     )
-    cli_discount: Optional[Decimal] = Field(
-        None,
-        ge=0,
-        le=100,
-        description="Default discount percentage"
+    cli_tel2: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        validation_alias=AliasChoices("cli_tel2", "phone2"),
+        description="Secondary phone",
     )
-    cli_bu_id: Optional[int] = Field(
-        None,
-        description="Business unit ID (FK to TR_BU_BusinessUnit)"
+    cli_fax: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        validation_alias=AliasChoices("cli_fax", "fax"),
+        description="Fax",
     )
-    cli_soc_id: Optional[int] = Field(
-        None,
-        description="Society ID (FK to TR_SOC_Society)"
+    cli_cellphone: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        validation_alias=AliasChoices("cli_cellphone", "cli_mobile", "mobile"),
+        description="Mobile",
     )
-    cli_lang_id: Optional[int] = Field(
-        None,
-        description="Language ID (FK to TR_LAN_Language)"
+    cli_email: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        validation_alias=AliasChoices("cli_email", "email"),
+        description="Email",
     )
-    cli_notes: Optional[str] = Field(
-        None,
-        description="Notes"
+    cli_accounting_email: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cli_accounting_email", "accountingEmail"),
+        description="Accounting email",
     )
-    cli_is_active: bool = Field(
-        True,
-        description="Whether the client is active"
+    cli_recieve_newsletter: Optional[bool] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_recieve_newsletter", "receiveNewsletter"),
+        description="Newsletter opt-in",
+    )
+    cli_newsletter_email: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        validation_alias=AliasChoices("cli_newsletter_email", "newsletterEmail"),
+        description="Newsletter email",
+    )
+
+    # Commercial assignment
+    cli_usr_com1: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_usr_com1", "commercialUser1Id"),
+        description="Commercial 1 user ID",
+    )
+    cli_usr_com2: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_usr_com2", "commercialUser2Id"),
+        description="Commercial 2 user ID",
+    )
+    cli_usr_com3: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_usr_com3", "commercialUser3Id"),
+        description="Commercial 3 user ID",
+    )
+
+    # Comments and invoice prefs
+    cli_comment_for_client: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_comment_for_client", "commentForClient"),
+        description="Comment visible to client",
+    )
+    cli_comment_for_interne: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_comment_for_interne", "commentInternal", "notes"),
+        description="Internal comment",
+    )
+    cli_invoice_day: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=31,
+        validation_alias=AliasChoices("cli_invoice_day", "invoiceDay"),
+        description="Invoice day in month",
+    )
+    cli_invoice_day_is_last_day: Optional[bool] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_invoice_day_is_last_day", "invoiceDayIsLastDay"),
+        description="Invoice on last day flag",
+    )
+    cli_showdetail: Optional[bool] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_showdetail", "showDetail"),
+        description="Show detail flag",
+    )
+    cli_pdf_version: Optional[str] = Field(
+        default=None,
+        max_length=20,
+        validation_alias=AliasChoices("cli_pdf_version", "pdfVersion"),
+        description="PDF version",
+    )
+
+    # Status flags
+    cli_isactive: Optional[bool] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_isactive", "cli_is_active", "isActive"),
+        description="Active flag",
+    )
+    cli_isblocked: Optional[bool] = Field(
+        default=None,
+        validation_alias=AliasChoices("cli_isblocked", "isBlocked"),
+        description="Blocked flag",
     )
 
 
 class ClientCreate(ClientBase):
     """Schema for creating a Client."""
-    pass
+    cli_company_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=250,
+        validation_alias=AliasChoices("cli_company_name", "companyName"),
+        description="Company name",
+    )
+
+    soc_id: int = Field(default=1, validation_alias=AliasChoices("soc_id", "cli_soc_id", "societyId"))
+    cty_id: int = Field(default=1, validation_alias=AliasChoices("cty_id", "cli_type_id", "clientTypeId"))
+    cur_id: int = Field(default=1, validation_alias=AliasChoices("cur_id", "cli_cur_id", "currencyId"))
+    pco_id: int = Field(default=1, validation_alias=AliasChoices("pco_id", "cli_pay_term_id", "paymentConditionId", "paymentTermId"))
+    pmo_id: int = Field(default=1, validation_alias=AliasChoices("pmo_id", "cli_pay_mode_id", "paymentModeId"))
+    vat_id: int = Field(default=1, validation_alias=AliasChoices("vat_id", "vatId"))
 
 
 class ClientUpdate(BaseModel):
     """Schema for updating a Client (all fields optional)."""
+    model_config = ConfigDict(populate_by_name=True)
+
     cli_company_name: Optional[str] = Field(
-        None,
+        default=None,
         min_length=1,
-        max_length=200,
-        description="Company name"
+        max_length=250,
+        validation_alias=AliasChoices("cli_company_name", "companyName"),
+        description="Company name",
     )
-    cli_first_name: Optional[str] = Field(
-        None,
-        max_length=50,
-        description="Contact first name"
+    cli_abbreviation: Optional[str] = Field(
+        default=None,
+        max_length=300,
+        validation_alias=AliasChoices("cli_abbreviation", "abbreviation"),
     )
-    cli_last_name: Optional[str] = Field(
-        None,
-        max_length=50,
-        description="Contact last name"
-    )
-    cli_email: Optional[str] = Field(
-        None,
-        max_length=100,
-        description="Email address"
-    )
-    cli_phone: Optional[str] = Field(
-        None,
-        max_length=30,
-        description="Phone number"
-    )
-    cli_mobile: Optional[str] = Field(
-        None,
-        max_length=30,
-        description="Mobile phone number"
-    )
-    cli_address: Optional[str] = Field(
-        None,
-        max_length=200,
-        description="Address line 1"
-    )
-    cli_address2: Optional[str] = Field(
-        None,
-        max_length=200,
-        description="Address line 2"
-    )
-    cli_postal_code: Optional[str] = Field(
-        None,
-        max_length=20,
-        description="Postal code"
-    )
-    cli_city: Optional[str] = Field(
-        None,
-        max_length=100,
-        description="City"
-    )
-    cli_country_id: Optional[int] = Field(
-        None,
-        description="Country ID (FK to TR_COU_Country)"
-    )
-    cli_vat_number: Optional[str] = Field(
-        None,
-        max_length=50,
-        description="VAT number"
-    )
-    cli_siret: Optional[str] = Field(
-        None,
-        max_length=50,
-        description="SIRET number (French company ID)"
-    )
-    cli_website: Optional[str] = Field(
-        None,
-        max_length=200,
-        description="Website URL"
-    )
-    cli_type_id: Optional[int] = Field(
-        None,
-        description="Client type ID (FK to TR_CT_ClientType)"
-    )
-    cli_sta_id: Optional[int] = Field(
-        None,
-        description="Status ID (FK to TR_STA_Status)"
-    )
-    cli_cur_id: Optional[int] = Field(
-        None,
-        description="Currency ID (FK to TR_CUR_Currency)"
-    )
-    cli_pay_mode_id: Optional[int] = Field(
-        None,
-        description="Payment mode ID (FK to TR_PAY_PaymentMode)"
-    )
-    cli_pay_term_id: Optional[int] = Field(
-        None,
-        description="Payment term ID (FK to TR_PAY_PaymentTerm)"
-    )
-    cli_credit_limit: Optional[Decimal] = Field(
-        None,
-        ge=0,
-        description="Credit limit"
-    )
-    cli_discount: Optional[Decimal] = Field(
-        None,
-        ge=0,
-        le=100,
-        description="Default discount percentage"
-    )
-    cli_bu_id: Optional[int] = Field(
-        None,
-        description="Business unit ID (FK to TR_BU_BusinessUnit)"
-    )
-    cli_soc_id: Optional[int] = Field(
-        None,
-        description="Society ID (FK to TR_SOC_Society)"
-    )
-    cli_lang_id: Optional[int] = Field(
-        None,
-        description="Language ID (FK to TR_LAN_Language)"
-    )
-    cli_notes: Optional[str] = Field(
-        None,
-        description="Notes"
-    )
-    cli_is_active: Optional[bool] = Field(
-        None,
-        description="Whether the client is active"
-    )
+
+    soc_id: Optional[int] = Field(default=None, validation_alias=AliasChoices("soc_id", "cli_soc_id", "societyId"))
+    cty_id: Optional[int] = Field(default=None, validation_alias=AliasChoices("cty_id", "cli_type_id", "clientTypeId"))
+    act_id: Optional[int] = Field(default=None, validation_alias=AliasChoices("act_id", "cli_sta_id", "activityId", "statusId"))
+    cur_id: Optional[int] = Field(default=None, validation_alias=AliasChoices("cur_id", "cli_cur_id", "currencyId"))
+    pco_id: Optional[int] = Field(default=None, validation_alias=AliasChoices("pco_id", "cli_pay_term_id", "paymentConditionId", "paymentTermId"))
+    pmo_id: Optional[int] = Field(default=None, validation_alias=AliasChoices("pmo_id", "cli_pay_mode_id", "paymentModeId"))
+    vat_id: Optional[int] = Field(default=None, validation_alias=AliasChoices("vat_id", "vatId"))
+    cmu_id: Optional[int] = Field(default=None, validation_alias=AliasChoices("cmu_id", "communeId", "countryId"))
+
+    cli_siren: Optional[str] = Field(default=None, max_length=50, validation_alias=AliasChoices("cli_siren", "siren"))
+    cli_siret: Optional[str] = Field(default=None, max_length=50, validation_alias=AliasChoices("cli_siret", "siret"))
+    cli_vat_intra: Optional[str] = Field(default=None, max_length=50, validation_alias=AliasChoices("cli_vat_intra", "vatIntra", "vatNumber"))
+
+    cli_address1: Optional[str] = Field(default=None, max_length=200, validation_alias=AliasChoices("cli_address1", "cli_address", "address"))
+    cli_address2: Optional[str] = Field(default=None, max_length=200, validation_alias=AliasChoices("cli_address2", "address2"))
+    cli_postcode: Optional[str] = Field(default=None, max_length=50, validation_alias=AliasChoices("cli_postcode", "cli_postal_code", "postcode", "postalCode"))
+    cli_city: Optional[str] = Field(default=None, max_length=200, validation_alias=AliasChoices("cli_city", "city"))
+    cli_country: Optional[str] = Field(default=None, max_length=200, validation_alias=AliasChoices("cli_country", "country"))
+    cli_free_of_harbor: Optional[int] = Field(default=None, validation_alias=AliasChoices("cli_free_of_harbor", "freeOfHarbor"))
+
+    cli_tel1: Optional[str] = Field(default=None, max_length=100, validation_alias=AliasChoices("cli_tel1", "cli_phone", "phone"))
+    cli_tel2: Optional[str] = Field(default=None, max_length=100, validation_alias=AliasChoices("cli_tel2", "phone2"))
+    cli_fax: Optional[str] = Field(default=None, max_length=100, validation_alias=AliasChoices("cli_fax", "fax"))
+    cli_cellphone: Optional[str] = Field(default=None, max_length=100, validation_alias=AliasChoices("cli_cellphone", "cli_mobile", "mobile"))
+    cli_email: Optional[str] = Field(default=None, max_length=100, validation_alias=AliasChoices("cli_email", "email"))
+    cli_accounting_email: Optional[str] = Field(default=None, max_length=200, validation_alias=AliasChoices("cli_accounting_email", "accountingEmail"))
+    cli_recieve_newsletter: Optional[bool] = Field(default=None, validation_alias=AliasChoices("cli_recieve_newsletter", "receiveNewsletter"))
+    cli_newsletter_email: Optional[str] = Field(default=None, max_length=100, validation_alias=AliasChoices("cli_newsletter_email", "newsletterEmail"))
+
+    cli_usr_com1: Optional[int] = Field(default=None, validation_alias=AliasChoices("cli_usr_com1", "commercialUser1Id"))
+    cli_usr_com2: Optional[int] = Field(default=None, validation_alias=AliasChoices("cli_usr_com2", "commercialUser2Id"))
+    cli_usr_com3: Optional[int] = Field(default=None, validation_alias=AliasChoices("cli_usr_com3", "commercialUser3Id"))
+
+    cli_comment_for_client: Optional[str] = Field(default=None, validation_alias=AliasChoices("cli_comment_for_client", "commentForClient"))
+    cli_comment_for_interne: Optional[str] = Field(default=None, validation_alias=AliasChoices("cli_comment_for_interne", "commentInternal", "notes"))
+    cli_invoice_day: Optional[int] = Field(default=None, ge=1, le=31, validation_alias=AliasChoices("cli_invoice_day", "invoiceDay"))
+    cli_invoice_day_is_last_day: Optional[bool] = Field(default=None, validation_alias=AliasChoices("cli_invoice_day_is_last_day", "invoiceDayIsLastDay"))
+    cli_showdetail: Optional[bool] = Field(default=None, validation_alias=AliasChoices("cli_showdetail", "showDetail"))
+    cli_pdf_version: Optional[str] = Field(default=None, max_length=20, validation_alias=AliasChoices("cli_pdf_version", "pdfVersion"))
+
+    cli_isactive: Optional[bool] = Field(default=None, validation_alias=AliasChoices("cli_isactive", "cli_is_active", "isActive"))
+    cli_isblocked: Optional[bool] = Field(default=None, validation_alias=AliasChoices("cli_isblocked", "isBlocked"))
 
 
 class ClientResponse(ClientBase):
@@ -280,27 +335,25 @@ class ClientResponse(ClientBase):
     @property
     def display_name(self) -> str:
         """Get client's display name."""
-        return self.cli_company_name
+        return self.cli_company_name or ""
 
     @computed_field
     @property
     def full_contact_name(self) -> Optional[str]:
         """Get full contact name."""
-        if self.cli_first_name and self.cli_last_name:
-            return f"{self.cli_first_name} {self.cli_last_name}"
-        return self.cli_first_name or self.cli_last_name
+        return None
 
     @computed_field
     @property
     def full_address(self) -> Optional[str]:
         """Get formatted full address."""
         parts = []
-        if self.cli_address:
-            parts.append(self.cli_address)
+        if self.cli_address1:
+            parts.append(self.cli_address1)
         if self.cli_address2:
             parts.append(self.cli_address2)
-        if self.cli_postal_code or self.cli_city:
-            city_line = " ".join(filter(None, [self.cli_postal_code, self.cli_city]))
+        if self.cli_postcode or self.cli_city:
+            city_line = " ".join(filter(None, [self.cli_postcode, self.cli_city]))
             if city_line:
                 parts.append(city_line)
         return ", ".join(parts) if parts else None
@@ -313,15 +366,15 @@ class ClientListResponse(BaseModel):
     # Map DB columns (cli_*) to frontend camelCase fields using validation_alias
     # validation_alias is used for INPUT (ORM parsing), field name is used for OUTPUT (JSON)
     id: int = Field(..., validation_alias="cli_id", description="Client ID")
-    reference: Optional[str] = Field(None, validation_alias="cli_reference", description="Client reference")
+    reference: Optional[str] = Field(None, validation_alias="cli_ref", description="Client reference")
     companyName: Optional[str] = Field(None, validation_alias="cli_company_name", description="Company name")
     email: Optional[str] = Field(None, validation_alias="cli_email", description="Email address")
-    phone: Optional[str] = Field(None, validation_alias="cli_phone", description="Phone number")
+    phone: Optional[str] = Field(None, validation_alias="cli_tel1", description="Phone number")
     city: Optional[str] = Field(None, validation_alias="cli_city", description="City")
-    statusId: Optional[int] = Field(None, validation_alias="cli_sta_id", description="Status ID")
-    clientTypeId: Optional[int] = Field(None, validation_alias="cli_type_id", description="Client type ID")
-    isActive: Optional[bool] = Field(None, validation_alias="cli_is_active", description="Whether the client is active")
-    createdAt: Optional[datetime] = Field(None, validation_alias="cli_created_at", description="Creation timestamp")
+    statusId: Optional[int] = Field(None, validation_alias="act_id", description="Status/Activity ID")
+    clientTypeId: Optional[int] = Field(None, validation_alias="cty_id", description="Client type ID")
+    isActive: Optional[bool] = Field(None, validation_alias="cli_isactive", description="Whether the client is active")
+    createdAt: Optional[datetime] = Field(None, validation_alias="cli_d_creation", description="Creation timestamp")
 
     @computed_field
     @property

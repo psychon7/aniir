@@ -321,6 +321,30 @@ class SocietySettingsResponse(BaseModel):
     emailAuto: Optional[bool] = Field(None, validation_alias="soc_email_auto", description="Auto email")
     maskCommission: Optional[bool] = Field(None, validation_alias="soc_mask_commission", description="Mask commission")
 
+    # Primary bank/RIB
+    ribName: Optional[str] = Field(None, validation_alias="soc_rib_name", description="Primary bank account name")
+    ribAddress: Optional[str] = Field(None, validation_alias="soc_rib_address", description="Primary bank address")
+    ribIban: Optional[str] = Field(None, validation_alias="soc_rib_code_iban", description="Primary IBAN")
+    ribBic: Optional[str] = Field(None, validation_alias="soc_rib_code_bic", description="Primary BIC/SWIFT")
+    ribBankCode: Optional[str] = Field(None, validation_alias="soc_rib_bank_code", description="Primary bank code")
+    ribAgencyCode: Optional[str] = Field(None, validation_alias="soc_rib_agence_code", description="Primary agency code")
+    ribAccountNumber: Optional[str] = Field(None, validation_alias="soc_rib_account_number", description="Primary account number")
+    ribKey: Optional[str] = Field(None, validation_alias="soc_rib_key", description="Primary RIB key")
+    ribDomiciliationAgency: Optional[str] = Field(None, validation_alias="soc_rib_domiciliation_agency", description="Primary domiciliation agency")
+    ribAbbreviation: Optional[str] = Field(None, validation_alias="soc_rib_abbre", description="Primary bank abbreviation")
+
+    # Secondary bank/RIB
+    ribName2: Optional[str] = Field(None, validation_alias="soc_rib_name_2", description="Secondary bank account name")
+    ribAddress2: Optional[str] = Field(None, validation_alias="soc_rib_address_2", description="Secondary bank address")
+    ribIban2: Optional[str] = Field(None, validation_alias="soc_rib_code_iban_2", description="Secondary IBAN")
+    ribBic2: Optional[str] = Field(None, validation_alias="soc_rib_code_bic_2", description="Secondary BIC/SWIFT")
+    ribBankCode2: Optional[str] = Field(None, validation_alias="soc_rib_bank_code_2", description="Secondary bank code")
+    ribAgencyCode2: Optional[str] = Field(None, validation_alias="soc_rib_agence_code_2", description="Secondary agency code")
+    ribAccountNumber2: Optional[str] = Field(None, validation_alias="soc_rib_account_number_2", description="Secondary account number")
+    ribKey2: Optional[str] = Field(None, validation_alias="soc_rib_key_2", description="Secondary RIB key")
+    ribDomiciliationAgency2: Optional[str] = Field(None, validation_alias="soc_rib_domiciliation_agency_2", description="Secondary domiciliation agency")
+    ribAbbreviation2: Optional[str] = Field(None, validation_alias="soc_rib_abbre_2", description="Secondary bank abbreviation")
+
     @computed_field
     @property
     def fullAddress(self) -> Optional[str]:

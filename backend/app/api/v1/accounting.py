@@ -11,11 +11,13 @@ Provides endpoints for:
 Uses synchronous Session with asyncio.to_thread() pattern.
 """
 import asyncio
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Path
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
+from sqlalchemy import select, func, and_
 
 from app.database import get_db
 from app.services.accounting_service import AccountingService, get_accounting_service
@@ -24,6 +26,12 @@ from app.services.payment_allocation_service import (
     PaymentAllocationError,
     get_payment_allocation_service,
 )
+from app.models.client import Client
+from app.models.costplan import CostPlan
+from app.models.order import ClientOrderLine
+from app.models.delivery_form import DeliveryForm, DeliveryFormLine
+from app.models.invoice import ClientInvoice
+from app.models.logistics import Logistic
 from app.services.statement_service import (
     StatementService,
     StatementServiceError,
@@ -277,3 +285,199 @@ async def get_customer_statement(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"message": e.message, "code": e.code}
         )
+
+
+@router.get(
+    "/clients/{client_id}/statement/export/csv",
+    summary="Export customer statement as CSV",
+    description="Generate and export customer statement in CSV format for the selected period.",
+    responses={
+        200: {"description": "CSV exported successfully", "content": {"text/csv": {}}},
+        404: {"description": "Client not found"},
+    },
+)
+async def export_customer_statement_csv(
+    client_id: int = Path(..., description="Client ID"),
+    from_date: date = Query(..., description="Start date of statement period"),
+    to_date: date = Query(..., description="End date of statement period"),
+    include_paid: bool = Query(True, description="Include fully paid invoices"),
+    society_id: Optional[int] = Query(None, description="Filter by society ID"),
+    service: StatementService = Depends(get_statement_service),
+):
+    """Export customer statement as CSV."""
+    def _sync():
+        return service.export_customer_statement_csv(
+            client_id=client_id,
+            from_date=from_date,
+            to_date=to_date,
+            include_paid_invoices=include_paid,
+            society_id=society_id,
+        )
+
+    try:
+        csv_result = await asyncio.to_thread(_sync)
+        return Response(
+            content=csv_result["data"],
+            media_type=csv_result["content_type"],
+            headers={"Content-Disposition": f'attachment; filename="{csv_result["filename"]}"'},
+        )
+    except ClientNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Client with ID {client_id} not found",
+        )
+    except StatementServiceError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": e.message, "code": e.code},
+        )
+
+
+def _sync_dashboard_kpis(db: Session) -> dict:
+    """
+    Compute dashboard KPI counters for legacy widget parity.
+
+    Includes:
+    - active clients
+    - quotes in progress (overall + current/previous month)
+    - backorder lines
+    - pending deliveries + pending invoicing
+    - unpaid invoices + unpaid proformas
+    - unshipped/arriving containers
+    """
+    now = datetime.utcnow()
+    month_start = datetime(now.year, now.month, 1)
+    prev_month_start = datetime(now.year - 1, 12, 1) if now.month == 1 else datetime(now.year, now.month - 1, 1)
+
+    active_clients = (
+        db.execute(select(func.count(Client.cli_id)).where(Client.cli_isactive == True)).scalar() or 0
+    )
+    quotes_in_progress = (
+        db.execute(select(func.count(CostPlan.cpl_id)).where(CostPlan.cst_id == 1)).scalar() or 0
+    )
+    quotes_recent_in_progress = (
+        db.execute(
+            select(func.count(CostPlan.cpl_id)).where(
+                and_(CostPlan.cst_id == 1, CostPlan.cpl_d_creation >= prev_month_start)
+            )
+        ).scalar()
+        or 0
+    )
+
+    delivered_qty_subq = (
+        select(
+            DeliveryFormLine.col_id.label("col_id"),
+            func.coalesce(func.sum(DeliveryFormLine.dfl_quantity), 0).label("delivered_qty"),
+        )
+        .where(DeliveryFormLine.col_id.is_not(None))
+        .group_by(DeliveryFormLine.col_id)
+        .subquery()
+    )
+    backorder_lines = (
+        db.execute(
+            select(func.count(ClientOrderLine.col_id)).outerjoin(
+                delivered_qty_subq, ClientOrderLine.col_id == delivered_qty_subq.c.col_id
+            ).where(
+                func.coalesce(ClientOrderLine.col_quantity, 0) > func.coalesce(delivered_qty_subq.c.delivered_qty, 0)
+            )
+        ).scalar()
+        or 0
+    )
+
+    pending_deliveries = (
+        db.execute(
+            select(func.count(DeliveryForm.dfo_id)).where(
+                func.coalesce(DeliveryForm.dfo_deliveried, False) == False
+            )
+        ).scalar()
+        or 0
+    )
+
+    pending_invoicing = (
+        db.execute(
+            select(func.count(DeliveryForm.dfo_id))
+            .outerjoin(ClientInvoice, ClientInvoice.dfo_id == DeliveryForm.dfo_id)
+            .where(ClientInvoice.cin_id.is_(None))
+        ).scalar()
+        or 0
+    )
+
+    unpaid_invoices = (
+        db.execute(
+            select(func.count(ClientInvoice.cin_id)).where(
+                and_(
+                    ClientInvoice.cin_isinvoice == True,
+                    func.coalesce(ClientInvoice.cin_rest_to_pay, 0) > 0,
+                )
+            )
+        ).scalar()
+        or 0
+    )
+
+    # Legacy parity approximation: unpaid proformas are non-invoice docs with outstanding balance.
+    unpaid_proformas = (
+        db.execute(
+            select(func.count(ClientInvoice.cin_id)).where(
+                and_(
+                    ClientInvoice.cin_isinvoice == False,
+                    func.coalesce(ClientInvoice.cin_rest_to_pay, 0) > 0,
+                )
+            )
+        ).scalar()
+        or 0
+    )
+
+    unshipped_containers = (
+        db.execute(
+            select(func.count(Logistic.lgs_id)).where(
+                func.coalesce(Logistic.lgs_is_send, False) == False
+            )
+        ).scalar()
+        or 0
+    )
+    arriving_containers = (
+        db.execute(
+            select(func.count(Logistic.lgs_id)).where(
+                and_(
+                    func.coalesce(Logistic.lgs_is_send, False) == True,
+                    func.coalesce(Logistic.lgs_is_received, False) == False,
+                )
+            )
+        ).scalar()
+        or 0
+    )
+
+    quote_status_rows = db.execute(
+        select(CostPlan.cst_id, func.count(CostPlan.cpl_id).label("count"))
+        .group_by(CostPlan.cst_id)
+        .order_by(CostPlan.cst_id)
+    ).all()
+
+    return {
+        "generatedAt": now.isoformat(),
+        "activeClients": int(active_clients),
+        "quotesInProgress": int(quotes_in_progress),
+        "quotesRecentInProgress": int(quotes_recent_in_progress),
+        "backorderLines": int(backorder_lines),
+        "pendingDeliveries": int(pending_deliveries),
+        "pendingInvoicing": int(pending_invoicing),
+        "unpaidInvoices": int(unpaid_invoices),
+        "unpaidProformas": int(unpaid_proformas),
+        "unshippedContainers": int(unshipped_containers),
+        "arrivingContainers": int(arriving_containers),
+        "quoteStatusBreakdown": [
+            {"statusId": int(r.cst_id), "count": int(r.count)} for r in quote_status_rows
+        ],
+    }
+
+
+@router.get(
+    "/dashboard/kpis",
+    summary="Get dashboard KPI summary",
+    description="Returns legacy-style dashboard KPI counters for widgets.",
+)
+async def get_dashboard_kpis(
+    db: Session = Depends(get_db),
+):
+    """Get dashboard KPI summary used by the main dashboard widgets."""
+    return await asyncio.to_thread(_sync_dashboard_kpis, db)

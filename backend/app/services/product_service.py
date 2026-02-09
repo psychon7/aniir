@@ -360,6 +360,10 @@ class ProductService:
             prd_d_update=product.prd_d_update,
             # Physical dimensions
             prd_outside_diameter=product.prd_outside_diameter,
+            prd_interior_length=product.prd_interior_length,
+            prd_interior_width=product.prd_interior_width,
+            prd_opening_diameter=product.prd_opening_diameter,
+            prd_thickness=product.prd_thickness,
             prd_length=product.prd_length,
             prd_width=product.prd_width,
             prd_height=product.prd_height,

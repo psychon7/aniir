@@ -76,6 +76,30 @@ class Society(Base):
     soc_tva_intra: Mapped[Optional[str]] = mapped_column("soc_tva_intra", String(100), nullable=True)
     soc_capital: Mapped[Optional[str]] = mapped_column("soc_capital", String(1000), nullable=True)
 
+    # Primary bank/RIB
+    soc_rib_name: Mapped[Optional[str]] = mapped_column("soc_rib_name", String(500), nullable=True)
+    soc_rib_address: Mapped[Optional[str]] = mapped_column("soc_rib_address", String(1000), nullable=True)
+    soc_rib_code_iban: Mapped[Optional[str]] = mapped_column("soc_rib_code_iban", String(1000), nullable=True)
+    soc_rib_code_bic: Mapped[Optional[str]] = mapped_column("soc_rib_code_bic", String(1000), nullable=True)
+    soc_rib_bank_code: Mapped[Optional[str]] = mapped_column("soc_rib_bank_code", String(50), nullable=True)
+    soc_rib_agence_code: Mapped[Optional[str]] = mapped_column("soc_rib_agence_code", String(50), nullable=True)
+    soc_rib_account_number: Mapped[Optional[str]] = mapped_column("soc_rib_account_number", String(50), nullable=True)
+    soc_rib_key: Mapped[Optional[str]] = mapped_column("soc_rib_key", String(50), nullable=True)
+    soc_rib_domiciliation_agency: Mapped[Optional[str]] = mapped_column("soc_rib_domiciliation_agency", String(200), nullable=True)
+    soc_rib_abbre: Mapped[Optional[str]] = mapped_column("soc_rib_abbre", String(50), nullable=True)
+
+    # Secondary bank/RIB
+    soc_rib_name_2: Mapped[Optional[str]] = mapped_column("soc_rib_name_2", String(500), nullable=True)
+    soc_rib_address_2: Mapped[Optional[str]] = mapped_column("soc_rib_address_2", String(1000), nullable=True)
+    soc_rib_code_iban_2: Mapped[Optional[str]] = mapped_column("soc_rib_code_iban_2", String(1000), nullable=True)
+    soc_rib_code_bic_2: Mapped[Optional[str]] = mapped_column("soc_rib_code_bic_2", String(1000), nullable=True)
+    soc_rib_bank_code_2: Mapped[Optional[str]] = mapped_column("soc_rib_bank_code_2", String(50), nullable=True)
+    soc_rib_agence_code_2: Mapped[Optional[str]] = mapped_column("soc_rib_agence_code_2", String(50), nullable=True)
+    soc_rib_account_number_2: Mapped[Optional[str]] = mapped_column("soc_rib_account_number_2", String(50), nullable=True)
+    soc_rib_key_2: Mapped[Optional[str]] = mapped_column("soc_rib_key_2", String(50), nullable=True)
+    soc_rib_domiciliation_agency_2: Mapped[Optional[str]] = mapped_column("soc_rib_domiciliation_agency_2", String(200), nullable=True)
+    soc_rib_abbre_2: Mapped[Optional[str]] = mapped_column("soc_rib_abbre_2", String(50), nullable=True)
+
     # Flags
     soc_email_auto: Mapped[Optional[bool]] = mapped_column("soc_email_auto", Boolean, nullable=True)
     soc_mask_commission: Mapped[Optional[bool]] = mapped_column("soc_mask_commission", Boolean, nullable=True)
