@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.services.cache_service import cache_service, CacheTTL, CacheKeys
 from app.models.costplan import CostPlan, CostPlanLine
 from app.models.client import Client
 from app.models.cost_plan_status import CostPlanStatus
@@ -860,6 +861,10 @@ async def update_quote_discount(
     )
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Quote {quote_id} not found")
+
+    # Invalidate cache (detail + all list caches)
+    await cache_service.invalidate_entity(CacheKeys.QUOTE, quote_id)
+
     return updated
 
 
@@ -878,22 +883,41 @@ async def change_quote_status(
         request.quote_ids,
         request.status_id,
     )
+
+    # Invalidate cache for all affected quotes (detail + all list caches)
+    for qid in request.quote_ids:
+        await cache_service.invalidate_entity(CacheKeys.QUOTE, qid)
+
     return {"success": True, **result}
 
 
 @router.get(
     "/{quote_id}",
     summary="Get quote details",
-    description="Get detailed information about a quote (cost plan) by ID."
+    description="Get detailed information about a quote (cost plan) by ID. Cached for 2 minutes."
 )
 async def get_quote(
     quote_id: int = Path(..., gt=0, description="Quote ID (cpl_id)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
 ):
-    """Get quote details with resolved lookup names."""
+    """Get quote details with resolved lookup names. Cached for 2 minutes."""
+    cache_key = f"{CacheKeys.QUOTE}:detail:{quote_id}"
+
+    # Try cache first (unless bypassing)
+    if not bypass_cache:
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
     result = await asyncio.to_thread(_sync_get_quote_detail, db, quote_id)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Quote {quote_id} not found")
+
+    # Cache the result for 2 minutes
+    await cache_service.set(cache_key, result, CacheTTL.MEDIUM)
+
     return result
 
 
@@ -927,7 +951,10 @@ async def update_quote(
 ):
     """Update a quote."""
     try:
-        return await service.update_quote(quote_id, data)
+        result = await service.update_quote(quote_id, data)
+        # Invalidate cache (detail + all list caches)
+        await cache_service.invalidate_entity(CacheKeys.QUOTE, quote_id)
+        return result
     except QuoteNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except QuoteServiceError as e:
@@ -947,6 +974,8 @@ async def delete_quote(
     """Delete a quote."""
     try:
         await service.delete_quote(quote_id)
+        # Invalidate cache (detail + all list caches)
+        await cache_service.invalidate_entity(CacheKeys.QUOTE, quote_id)
     except QuoteNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
@@ -969,7 +998,10 @@ async def add_quote_line(
 ):
     """Add a line to a quote."""
     try:
-        return await service.add_quote_line(quote_id, data)
+        result = await service.add_quote_line(quote_id, data)
+        # Invalidate cache (detail + all list caches)
+        await cache_service.invalidate_entity(CacheKeys.QUOTE, quote_id)
+        return result
     except QuoteNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except QuoteServiceError as e:
@@ -1019,11 +1051,18 @@ async def get_quote_line(
 async def update_quote_line(
     line_id: int = Path(..., description="Line ID"),
     data: QuoteLineUpdate = ...,
+    db: Session = Depends(get_db),
     service: QuoteService = Depends(get_quote_service)
 ):
     """Update a quote line."""
     try:
-        return await service.update_quote_line(line_id, data)
+        result = await service.update_quote_line(line_id, data)
+        # Invalidate cache for parent quote (detail + all list caches)
+        from app.models.costplan import CostPlanLine
+        line = db.get(CostPlanLine, line_id)
+        if line and line.cpl_id:
+            await cache_service.invalidate_entity(CacheKeys.QUOTE, line.cpl_id)
+        return result
     except QuoteLineNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except QuoteServiceError as e:
@@ -1038,11 +1077,21 @@ async def update_quote_line(
 )
 async def delete_quote_line(
     line_id: int = Path(..., description="Line ID"),
+    db: Session = Depends(get_db),
     service: QuoteService = Depends(get_quote_service)
 ):
     """Delete a quote line."""
     try:
+        # Get parent quote_id before deletion
+        from app.models.costplan import CostPlanLine
+        line = db.get(CostPlanLine, line_id)
+        quote_id = line.cpl_id if line else None
+
         await service.delete_quote_line(line_id)
+
+        # Invalidate cache (detail + all list caches)
+        if quote_id:
+            await cache_service.invalidate_entity(CacheKeys.QUOTE, quote_id)
     except QuoteLineNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except QuoteServiceError as e:

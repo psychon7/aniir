@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import io
 
 from app.database import get_db
+from app.services.cache_service import cache_service, CacheTTL, CacheKeys
 from app.services.client_service import (
     ClientService,
     get_client_service,
@@ -167,6 +168,8 @@ async def create_client(
     """Create a new client."""
     try:
         client = await service.create_client(data)
+        # Invalidate list caches (new record affects all lists)
+        await cache_service.invalidate_entity_lists(CacheKeys.CLIENT)
         return client
     except ClientServiceError as e:
         raise handle_client_error(e)
@@ -300,15 +303,25 @@ async def export_clients_csv(
     "/{client_id}",
     response_model=ClientDetailResponse,
     summary="Get client by ID",
-    description="Get detailed information about a specific client with resolved lookup names."
+    description="Get detailed information about a specific client with resolved lookup names. Cached until modified."
 )
 async def get_client(
     client_id: int = Path(..., gt=0, description="Client ID"),
-    service: ClientService = Depends(get_client_service)
+    service: ClientService = Depends(get_client_service),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
 ):
-    """Get a specific client by ID with resolved lookup names."""
+    """Get a specific client by ID with resolved lookup names. Cached until modified."""
+    # Try cache first (unless bypassing)
+    if not bypass_cache:
+        cached = await cache_service.get_detail(CacheKeys.CLIENT, client_id)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
     try:
         client_detail = await service.get_client_detail(client_id)
+        # Cache the result (indefinitely until invalidated)
+        await cache_service.set_detail(CacheKeys.CLIENT, client_id, client_detail)
         return client_detail
     except ClientServiceError as e:
         raise handle_client_error(e)
@@ -346,6 +359,8 @@ async def update_client(
     """Update an existing client."""
     try:
         client = await service.update_client(client_id, data)
+        # Invalidate cache (detail + all lists)
+        await cache_service.invalidate_entity(CacheKeys.CLIENT, client_id)
         return client
     except ClientServiceError as e:
         raise handle_client_error(e)
@@ -369,6 +384,8 @@ async def delete_client(
     """Soft delete a client."""
     try:
         await service.delete_client(client_id)
+        # Invalidate cache (detail + all lists)
+        await cache_service.invalidate_entity(CacheKeys.CLIENT, client_id)
     except ClientServiceError as e:
         raise handle_client_error(e)
 
@@ -391,6 +408,8 @@ async def hard_delete_client(
     """Permanently delete a client."""
     try:
         await service.hard_delete_client(client_id)
+        # Invalidate cache (detail + all lists)
+        await cache_service.invalidate_entity(CacheKeys.CLIENT, client_id)
     except ClientServiceError as e:
         raise handle_client_error(e)
 
@@ -431,6 +450,8 @@ async def activate_client(
     try:
         update_data = ClientUpdate(cli_is_active=True)
         client = await service.update_client(client_id, update_data)
+        # Invalidate cache
+        await cache_service.invalidate_entity(CacheKeys.CLIENT, client_id)
         return client
     except ClientServiceError as e:
         raise handle_client_error(e)
@@ -450,6 +471,8 @@ async def deactivate_client(
     try:
         update_data = ClientUpdate(cli_is_active=False)
         client = await service.update_client(client_id, update_data)
+        # Invalidate cache
+        await cache_service.invalidate_entity(CacheKeys.CLIENT, client_id)
         return client
     except ClientServiceError as e:
         raise handle_client_error(e)

@@ -1,6 +1,8 @@
 """Orders API router.
 
 Provides REST API endpoints for:
+- Order CRUD (create, read, update, delete)
+- Order line CRUD (add, update, delete, list)
 - Order status updates with transition validation
 - Order status history retrieval
 - Order status workflow information
@@ -30,6 +32,7 @@ from app.services.order_service import (
 )
 from app.schemas.order import OrderDetailResponse, OrderResponse
 from app.utils.row_level import apply_commercial_filter
+from app.services.cache_service import cache_service, CacheTTL, CacheKeys
 
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
@@ -189,6 +192,63 @@ class OrderLineMergeRequest(BaseModel):
     keep_line_id: Optional[int] = Field(default=None, alias="keepLineId")
 
 
+class CreateOrderLineRequest(BaseModel):
+    """Request to create an order line."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    description: str = Field(..., max_length=4000, alias="description")
+    quantity: float = Field(1, ge=0, alias="quantity")
+    unit_price: float = Field(0, ge=0, alias="unitPrice")
+    discount_percentage: Optional[float] = Field(None, ge=0, le=100, alias="discountPercentage")
+    discount_amount: Optional[float] = Field(None, ge=0, alias="discountAmount")
+    product_id: Optional[int] = Field(None, alias="productId")
+    product_name: Optional[str] = Field(None, max_length=100, alias="productName")
+    product_reference: Optional[str] = Field(None, max_length=100, alias="productReference")
+    vat_id: Optional[int] = Field(None, alias="vatId")
+    line_type_id: int = Field(1, alias="lineTypeId")
+
+
+class UpdateOrderLineRequest(BaseModel):
+    """Request to update an order line."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    description: Optional[str] = Field(None, max_length=4000, alias="description")
+    quantity: Optional[float] = Field(None, ge=0, alias="quantity")
+    unit_price: Optional[float] = Field(None, ge=0, alias="unitPrice")
+    discount_percentage: Optional[float] = Field(None, ge=0, le=100, alias="discountPercentage")
+    discount_amount: Optional[float] = Field(None, ge=0, alias="discountAmount")
+    product_id: Optional[int] = Field(None, alias="productId")
+    product_name: Optional[str] = Field(None, max_length=100, alias="productName")
+    product_reference: Optional[str] = Field(None, max_length=100, alias="productReference")
+    vat_id: Optional[int] = Field(None, alias="vatId")
+    line_type_id: Optional[int] = Field(None, alias="lineTypeId")
+
+
+class CreateOrderRequest(BaseModel):
+    """Request to create a new client order."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    client_id: int = Field(..., alias="clientId")
+    society_id: int = Field(..., alias="societyId")
+    vat_id: int = Field(..., alias="vatId")
+    currency_id: Optional[int] = Field(None, alias="currencyId")
+    payment_condition_id: Optional[int] = Field(None, alias="paymentConditionId")
+    payment_mode_id: Optional[int] = Field(None, alias="paymentModeId")
+    project_id: Optional[int] = Field(None, alias="projectId")
+    cost_plan_id: Optional[int] = Field(None, alias="costPlanId")
+    order_name: Optional[str] = Field(None, max_length=1000, alias="orderName")
+    order_date: Optional[str] = Field(None, alias="orderDate")
+    expected_delivery_from: Optional[str] = Field(None, alias="expectedDeliveryFrom")
+    expected_delivery_to: Optional[str] = Field(None, alias="expectedDeliveryTo")
+    header_text: Optional[str] = Field(None, alias="headerText")
+    footer_text: Optional[str] = Field(None, alias="footerText")
+    client_comment: Optional[str] = Field(None, max_length=4000, alias="clientComment")
+    internal_comment: Optional[str] = Field(None, max_length=4000, alias="internalComment")
+    discount_percentage: Optional[float] = Field(None, ge=0, le=100, alias="discountPercentage")
+    discount_amount: Optional[float] = Field(None, ge=0, alias="discountAmount")
+    lines: List[CreateOrderLineRequest] = Field(default_factory=list)
+
+
 # =============================================================================
 # Sync Database Helper
 # =============================================================================
@@ -199,6 +259,321 @@ def _decimal_or_zero(value: Any) -> Decimal:
     if value is None:
         return Decimal("0")
     return Decimal(str(value))
+
+
+def _generate_order_code(db: Session) -> str:
+    """Generate unique order reference code."""
+    year = datetime.utcnow().year
+    max_id = db.execute(select(func.max(ClientOrder.cod_id))).scalar() or 0
+    return f"COD-{year}-{int(max_id) + 1:05d}"
+
+
+def _compute_line_totals(
+    quantity: float,
+    unit_price: float,
+    discount_percentage: Optional[float],
+    discount_amount: Optional[float],
+) -> tuple:
+    """Compute line total, discount_amount, and price_with_discount_ht."""
+    total_price = Decimal(str(quantity)) * Decimal(str(unit_price))
+    if discount_percentage is not None and discount_percentage > 0:
+        disc_amt = total_price * Decimal(str(discount_percentage)) / Decimal("100")
+    elif discount_amount is not None:
+        disc_amt = Decimal(str(discount_amount))
+    else:
+        disc_amt = Decimal("0")
+    price_with_discount = total_price - disc_amt
+    disc_pct = (
+        Decimal(str(discount_percentage))
+        if discount_percentage is not None
+        else (disc_amt * Decimal("100") / total_price if total_price > 0 and disc_amt > 0 else Decimal("0"))
+    )
+    return total_price, disc_amt, price_with_discount, disc_pct
+
+
+def _sync_create_order(
+    db: Session,
+    data: CreateOrderRequest,
+    current_user: Optional[Any] = None,
+):
+    """Sync helper to create a new client order with optional lines."""
+    now = datetime.utcnow()
+    code = _generate_order_code(db)
+
+    # Resolve order_date
+    order_date = now
+    if data.order_date:
+        try:
+            order_date = datetime.fromisoformat(data.order_date.replace("Z", "+00:00").replace("T", " ").split("+")[0])
+        except (ValueError, TypeError):
+            order_date = now
+
+    # Resolve delivery dates
+    delivery_from = None
+    delivery_to = None
+    if data.expected_delivery_from:
+        try:
+            delivery_from = datetime.fromisoformat(data.expected_delivery_from.replace("Z", "+00:00").replace("T", " ").split("+")[0])
+        except (ValueError, TypeError):
+            pass
+    if data.expected_delivery_to:
+        try:
+            delivery_to = datetime.fromisoformat(data.expected_delivery_to.replace("Z", "+00:00").replace("T", " ").split("+")[0])
+        except (ValueError, TypeError):
+            pass
+
+    # Get creator user ID from current_user
+    creator_id = 1  # default fallback
+    if current_user:
+        creator_id = getattr(current_user, "usr_id", None) or getattr(current_user, "id", None) or 1
+
+    # Default payment condition and mode to 1 if not provided (required columns)
+    pco_id = data.payment_condition_id or 1
+    pmo_id = data.payment_mode_id or 1
+    prj_id = data.project_id or 1
+
+    order = ClientOrder(
+        cod_code=code,
+        cod_d_creation=order_date,
+        cod_d_update=now,
+        cli_id=data.client_id,
+        soc_id=data.society_id,
+        vat_id=data.vat_id,
+        pco_id=pco_id,
+        pmo_id=pmo_id,
+        prj_id=prj_id,
+        cpl_id=data.cost_plan_id,
+        cod_name=data.order_name,
+        cod_d_pre_delivery_from=delivery_from,
+        cod_d_pre_delivery_to=delivery_to,
+        cod_header_text=data.header_text,
+        cod_footer_text=data.footer_text,
+        cod_client_comment=data.client_comment,
+        cod_inter_comment=data.internal_comment,
+        cod_discount_percentage=Decimal(str(data.discount_percentage)) if data.discount_percentage else None,
+        cod_discount_amount=Decimal(str(data.discount_amount)) if data.discount_amount else None,
+        usr_creator_id=creator_id,
+    )
+    db.add(order)
+    db.flush()
+
+    # Add lines if provided
+    for idx, line_data in enumerate(data.lines, start=1):
+        total_price, disc_amt, price_with_discount, disc_pct = _compute_line_totals(
+            line_data.quantity, line_data.unit_price,
+            line_data.discount_percentage, line_data.discount_amount,
+        )
+        line = ClientOrderLine(
+            cod_id=order.cod_id,
+            col_level1=idx,
+            col_description=line_data.description,
+            col_quantity=Decimal(str(line_data.quantity)),
+            col_unit_price=Decimal(str(line_data.unit_price)),
+            col_total_price=total_price,
+            col_discount_percentage=disc_pct,
+            col_discount_amount=disc_amt,
+            col_price_with_discount_ht=price_with_discount,
+            prd_id=line_data.product_id,
+            col_prd_name=line_data.product_name,
+            col_ref=line_data.product_reference,
+            vat_id=line_data.vat_id or data.vat_id,
+            ltp_id=line_data.line_type_id or 1,
+        )
+        db.add(line)
+
+    db.commit()
+    return _sync_get_order_detail(db, order.cod_id)
+
+
+def _sync_add_order_line(
+    db: Session,
+    order_id: int,
+    data: CreateOrderLineRequest,
+):
+    """Sync helper to add a line to an existing order."""
+    order = db.get(ClientOrder, order_id)
+    if not order:
+        return None
+
+    # Get next level1
+    max_level = db.execute(
+        select(func.max(ClientOrderLine.col_level1)).where(ClientOrderLine.cod_id == order_id)
+    ).scalar() or 0
+    next_level = (max_level or 0) + 1
+
+    total_price, disc_amt, price_with_discount, disc_pct = _compute_line_totals(
+        data.quantity, data.unit_price,
+        data.discount_percentage, data.discount_amount,
+    )
+
+    line = ClientOrderLine(
+        cod_id=order_id,
+        col_level1=next_level,
+        col_description=data.description,
+        col_quantity=Decimal(str(data.quantity)),
+        col_unit_price=Decimal(str(data.unit_price)),
+        col_total_price=total_price,
+        col_discount_percentage=disc_pct,
+        col_discount_amount=disc_amt,
+        col_price_with_discount_ht=price_with_discount,
+        prd_id=data.product_id,
+        col_prd_name=data.product_name,
+        col_ref=data.product_reference,
+        vat_id=data.vat_id,
+        ltp_id=data.line_type_id or 1,
+    )
+    db.add(line)
+
+    order.cod_d_update = datetime.utcnow()
+    db.commit()
+
+    return {
+        "id": line.col_id,
+        "productName": line.col_prd_name or "",
+        "description": line.col_description or "",
+        "productReference": line.col_ref or "",
+        "quantity": float(line.col_quantity or 0),
+        "unitPrice": float(line.col_unit_price or 0),
+        "lineTotal": float(line.col_price_with_discount_ht or line.col_total_price or 0),
+        "discountPercentage": float(line.col_discount_percentage or 0),
+        "discountAmount": float(line.col_discount_amount or 0),
+    }
+
+
+def _sync_update_order_line(
+    db: Session,
+    order_id: int,
+    line_id: int,
+    data: UpdateOrderLineRequest,
+):
+    """Sync helper to update an existing order line."""
+    line = db.execute(
+        select(ClientOrderLine).where(
+            and_(ClientOrderLine.col_id == line_id, ClientOrderLine.cod_id == order_id)
+        )
+    ).scalar_one_or_none()
+
+    if not line:
+        return None
+
+    if data.description is not None:
+        line.col_description = data.description
+    if data.product_id is not None:
+        line.prd_id = data.product_id
+    if data.product_name is not None:
+        line.col_prd_name = data.product_name
+    if data.product_reference is not None:
+        line.col_ref = data.product_reference
+    if data.vat_id is not None:
+        line.vat_id = data.vat_id
+    if data.line_type_id is not None:
+        line.ltp_id = data.line_type_id
+
+    # Recalculate totals if pricing fields changed
+    qty = data.quantity if data.quantity is not None else float(line.col_quantity or 0)
+    price = data.unit_price if data.unit_price is not None else float(line.col_unit_price or 0)
+    disc_pct = data.discount_percentage if data.discount_percentage is not None else (float(line.col_discount_percentage or 0))
+    disc_amt_input = data.discount_amount
+
+    total_price, disc_amt, price_with_discount, final_disc_pct = _compute_line_totals(
+        qty, price, disc_pct, disc_amt_input,
+    )
+
+    line.col_quantity = Decimal(str(qty))
+    line.col_unit_price = Decimal(str(price))
+    line.col_total_price = total_price
+    line.col_discount_percentage = final_disc_pct
+    line.col_discount_amount = disc_amt
+    line.col_price_with_discount_ht = price_with_discount
+
+    # Update order timestamp
+    order = db.get(ClientOrder, order_id)
+    if order:
+        order.cod_d_update = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "id": line.col_id,
+        "productName": line.col_prd_name or "",
+        "description": line.col_description or "",
+        "productReference": line.col_ref or "",
+        "quantity": float(line.col_quantity or 0),
+        "unitPrice": float(line.col_unit_price or 0),
+        "lineTotal": float(line.col_price_with_discount_ht or line.col_total_price or 0),
+        "discountPercentage": float(line.col_discount_percentage or 0),
+        "discountAmount": float(line.col_discount_amount or 0),
+    }
+
+
+def _sync_delete_order_line(
+    db: Session,
+    order_id: int,
+    line_id: int,
+):
+    """Sync helper to delete a line from an order."""
+    line = db.execute(
+        select(ClientOrderLine).where(
+            and_(ClientOrderLine.col_id == line_id, ClientOrderLine.cod_id == order_id)
+        )
+    ).scalar_one_or_none()
+
+    if not line:
+        return False
+
+    db.delete(line)
+
+    # Update order timestamp
+    order = db.get(ClientOrder, order_id)
+    if order:
+        order.cod_d_update = datetime.utcnow()
+
+    db.commit()
+    return True
+
+
+def _sync_get_order_lines(db: Session, order_id: int):
+    """Sync helper to get all lines for an order."""
+    order = db.get(ClientOrder, order_id)
+    if not order:
+        return None
+
+    lines_query = (
+        select(
+            ClientOrderLine.col_id,
+            ClientOrderLine.col_prd_name,
+            ClientOrderLine.col_description,
+            ClientOrderLine.col_ref,
+            ClientOrderLine.col_quantity,
+            ClientOrderLine.col_unit_price,
+            ClientOrderLine.col_total_price,
+            ClientOrderLine.col_price_with_discount_ht,
+            ClientOrderLine.col_discount_percentage,
+            ClientOrderLine.col_discount_amount,
+            ClientOrderLine.col_image_url,
+            ClientOrderLine.prd_id,
+        )
+        .where(ClientOrderLine.cod_id == order_id)
+        .order_by(func.coalesce(ClientOrderLine.col_level1, 999999), ClientOrderLine.col_id)
+    )
+    line_rows = db.execute(lines_query).all()
+
+    return [
+        {
+            "id": l.col_id,
+            "productId": l.prd_id,
+            "productName": l.col_prd_name or "",
+            "description": l.col_description or "",
+            "productReference": l.col_ref or "",
+            "quantity": float(l.col_quantity or 0),
+            "unitPrice": float(l.col_unit_price or 0),
+            "lineTotal": float(l.col_price_with_discount_ht or l.col_total_price or 0),
+            "discountPercentage": float(l.col_discount_percentage or 0),
+            "discountAmount": float(l.col_discount_amount or 0),
+            "imageUrl": l.col_image_url,
+        }
+        for l in line_rows
+    ]
 
 
 def _sync_list_orders(
@@ -355,6 +730,22 @@ async def list_orders(
         "hasNextPage": page < total_pages,
         "hasPreviousPage": page > 1,
     }
+
+
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new client order",
+    description="Create a new order with optional line items.",
+)
+async def create_order(
+    data: CreateOrderRequest,
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
+):
+    """Create a new client order."""
+    result = await asyncio.to_thread(_sync_create_order, db, data, current_user)
+    return result
 
 
 def _sync_get_order_detail(db: Session, order_id: int):
@@ -939,6 +1330,10 @@ async def update_order_discount(
     )
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
+
+    # Invalidate cache (detail + all list caches)
+    await cache_service.invalidate_entity(CacheKeys.ORDER, order_id)
+
     return updated
 
 
@@ -961,17 +1356,112 @@ async def convert_order_to_quote(
 @router.get(
     "/{order_id}",
     summary="Get order details",
-    description="Get detailed information about a client order by ID."
+    description="Get detailed information about a client order by ID. Cached for 2 minutes."
 )
 async def get_order_detail(
     order_id: int = Path(..., gt=0, description="Order ID (cod_id)"),
     db: Session = Depends(get_db),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
 ):
-    """Get detailed order information with resolved lookup names."""
+    """Get detailed order information with resolved lookup names. Cached for 2 minutes."""
+    cache_key = f"{CacheKeys.ORDER}:detail:{order_id}"
+
+    # Try cache first (unless bypassing)
+    if not bypass_cache:
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
     result = await asyncio.to_thread(_sync_get_order_detail, db, order_id)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
+
+    # Cache the result for 2 minutes
+    await cache_service.set(cache_key, result, CacheTTL.MEDIUM)
+
     return result
+
+
+# =============================================================================
+# Order Line CRUD Endpoints
+# =============================================================================
+
+
+@router.get(
+    "/{order_id}/lines",
+    summary="Get order lines",
+    description="Get all lines for an order.",
+)
+async def get_order_lines(
+    order_id: int = Path(..., gt=0, description="Order ID"),
+    db: Session = Depends(get_db),
+):
+    """Get all lines for an order."""
+    result = await asyncio.to_thread(_sync_get_order_lines, db, order_id)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
+    return result
+
+
+@router.post(
+    "/{order_id}/lines",
+    status_code=status.HTTP_201_CREATED,
+    summary="Add line to order",
+    description="Add a new line to an existing order.",
+)
+async def add_order_line(
+    order_id: int = Path(..., gt=0, description="Order ID"),
+    data: CreateOrderLineRequest = ...,
+    db: Session = Depends(get_db),
+):
+    """Add a new line to an order."""
+    result = await asyncio.to_thread(_sync_add_order_line, db, order_id, data)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
+    return result
+
+
+@router.put(
+    "/{order_id}/lines/{line_id}",
+    summary="Update order line",
+    description="Update an existing order line.",
+)
+async def update_order_line(
+    order_id: int = Path(..., gt=0, description="Order ID"),
+    line_id: int = Path(..., gt=0, description="Line ID"),
+    data: UpdateOrderLineRequest = ...,
+    db: Session = Depends(get_db),
+):
+    """Update an existing order line."""
+    result = await asyncio.to_thread(_sync_update_order_line, db, order_id, line_id, data)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order line {line_id} not found in order {order_id}")
+
+    # Invalidate cache (detail + all list caches)
+    await cache_service.invalidate_entity(CacheKeys.ORDER, order_id)
+
+    return result
+
+
+@router.delete(
+    "/{order_id}/lines/{line_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete order line",
+    description="Delete a line from an order.",
+)
+async def delete_order_line(
+    order_id: int = Path(..., gt=0, description="Order ID"),
+    line_id: int = Path(..., gt=0, description="Line ID"),
+    db: Session = Depends(get_db),
+):
+    """Delete a line from an order."""
+    deleted = await asyncio.to_thread(_sync_delete_order_line, db, order_id, line_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order line {line_id} not found in order {order_id}")
+
+    # Invalidate cache (detail + all list caches)
+    await cache_service.invalidate_entity(CacheKeys.ORDER, order_id)
 
 
 @router.post(
@@ -1203,6 +1693,9 @@ async def update_order_status(
             request.status_id,
             request.notes,
         )
+
+        # Invalidate cache (detail + all list caches)
+        await cache_service.invalidate_entity(CacheKeys.ORDER, order_id)
 
         return UpdateOrderStatusResponse(
             success=True,

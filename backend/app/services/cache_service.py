@@ -2,29 +2,44 @@
 Redis Caching Service for ERP Application.
 
 Provides:
+- Cache-aside pattern with write-through invalidation
 - Decorator-based caching for expensive operations
 - JSON serialization/deserialization for cached data
-- Configurable TTL with sensible defaults
+- Pattern-based invalidation for list caches
 - Graceful fallback when Redis is unavailable
+
+Caching Strategy:
+-----------------
+1. DETAIL endpoints (e.g., /clients/{id}):
+   - Cache indefinitely (FOREVER TTL = 24 hours as safety net)
+   - Invalidate immediately on UPDATE/DELETE
+
+2. LIST endpoints (e.g., /clients with pagination/filters):
+   - Cache with moderate TTL
+   - Invalidate ALL list caches when ANY record changes
+   - Use pattern: "client:list:*" to match all list variations
+
+3. LOOKUP/Reference data:
+   - Long TTL (rarely changes)
+   - Invalidate on admin updates
 
 Usage:
     cache_service = CacheService()
-    
-    # Cache a function result
-    @cache_service.cached("my_key", ttl=300)
-    async def expensive_operation():
-        ...
-    
-    # Manual cache operations
-    await cache_service.get("key")
-    await cache_service.set("key", value, ttl=300)
-    await cache_service.delete("key")
+
+    # Cache a detail record (forever until invalidated)
+    await cache_service.set_detail("client", 123, data)
+    await cache_service.get_detail("client", 123)
+
+    # Invalidate on write
+    await cache_service.invalidate_entity("client", 123)  # Clears detail + all lists
+
+    # Cache a list with params
+    await cache_service.set_list("client", {"page": 1, "search": "acme"}, data)
 """
 import json
 import hashlib
 import functools
 from typing import Optional, Any, Callable, TypeVar, ParamSpec
-from datetime import datetime
 from loguru import logger
 
 from app.utils.redis_client import get_redis_client
@@ -41,6 +56,7 @@ class CacheTTL:
     MEDIUM = 300          # 5 minutes - entity lists
     LONG = 600            # 10 minutes - lookup/reference data
     VERY_LONG = 1800      # 30 minutes - rarely changing config
+    FOREVER = 86400       # 24 hours - "permanent" with safety net
 
 
 class CacheKeys:
@@ -52,6 +68,8 @@ class CacheKeys:
     INVOICE = "invoice"
     DELIVERY = "delivery"
     QUOTE = "quote"
+    PRODUCT = "product"
+    SUPPLIER = "supplier"
 
 
 class CacheService:
@@ -130,12 +148,163 @@ class CacheService:
             async for key in self.client.scan_iter(match=full_pattern):
                 keys.append(key)
             if keys:
-                return await self.client.delete(*keys)
+                deleted = await self.client.delete(*keys)
+                logger.debug(f"Cache INVALIDATED {deleted} keys matching: {pattern}")
+                return deleted
             return 0
         except Exception as e:
             logger.warning(f"Cache DELETE pattern failed for {pattern}: {e}")
             return 0
-    
+
+    # =========================================================================
+    # HIGH-LEVEL CACHING API (Cache-Aside with Invalidation)
+    # =========================================================================
+
+    async def get_detail(self, entity: str, entity_id: int) -> Optional[Any]:
+        """
+        Get a cached detail record.
+
+        Args:
+            entity: Entity type (e.g., "client", "order")
+            entity_id: Record ID
+
+        Returns:
+            Cached data or None if not cached
+        """
+        cache_key = f"{entity}:detail:{entity_id}"
+        return await self.get(cache_key)
+
+    async def set_detail(
+        self,
+        entity: str,
+        entity_id: int,
+        data: Any,
+        ttl: int = CacheTTL.FOREVER
+    ) -> bool:
+        """
+        Cache a detail record (indefinitely until invalidated).
+
+        Args:
+            entity: Entity type (e.g., "client", "order")
+            entity_id: Record ID
+            data: Data to cache
+            ttl: Safety-net TTL (default 24 hours)
+        """
+        cache_key = f"{entity}:detail:{entity_id}"
+        return await self.set(cache_key, data, ttl)
+
+    async def get_list(self, entity: str, params: dict) -> Optional[Any]:
+        """
+        Get a cached list result.
+
+        Args:
+            entity: Entity type (e.g., "client")
+            params: Query parameters (page, search, filters, etc.)
+        """
+        param_hash = self._hash_params(params)
+        cache_key = f"{entity}:list:{param_hash}"
+        return await self.get(cache_key)
+
+    async def set_list(
+        self,
+        entity: str,
+        params: dict,
+        data: Any,
+        ttl: int = CacheTTL.MEDIUM
+    ) -> bool:
+        """
+        Cache a list result.
+
+        Args:
+            entity: Entity type
+            params: Query parameters used (for cache key)
+            data: List data to cache
+            ttl: Time-to-live (shorter than detail, as lists change frequently)
+        """
+        param_hash = self._hash_params(params)
+        cache_key = f"{entity}:list:{param_hash}"
+        return await self.set(cache_key, data, ttl)
+
+    async def invalidate_entity(self, entity: str, entity_id: int) -> dict:
+        """
+        Invalidate all caches related to an entity.
+
+        This is the KEY method for cache-aside pattern.
+        Call this after CREATE, UPDATE, or DELETE operations.
+
+        Invalidates:
+        1. The specific detail cache (entity:detail:{id})
+        2. ALL list caches for this entity type (entity:list:*)
+
+        Args:
+            entity: Entity type (e.g., "client", "order")
+            entity_id: The specific record ID
+
+        Returns:
+            Dict with counts of invalidated keys
+
+        Example:
+            # After updating a client
+            await cache_service.invalidate_entity("client", 123)
+        """
+        # Delete the specific detail cache
+        detail_deleted = await self.delete(f"{entity}:detail:{entity_id}")
+
+        # Delete ALL list caches for this entity (since any record change affects lists)
+        list_deleted = await self.delete_pattern(f"{entity}:list:*")
+
+        logger.info(f"Cache INVALIDATED for {entity}:{entity_id} - detail: {detail_deleted}, lists: {list_deleted}")
+
+        return {
+            "entity": entity,
+            "entity_id": entity_id,
+            "detail_invalidated": detail_deleted,
+            "lists_invalidated": list_deleted
+        }
+
+    async def invalidate_entity_lists(self, entity: str) -> int:
+        """
+        Invalidate only list caches for an entity type.
+
+        Useful when a new record is created (no existing detail cache to clear).
+
+        Args:
+            entity: Entity type (e.g., "client")
+
+        Returns:
+            Number of list caches invalidated
+        """
+        count = await self.delete_pattern(f"{entity}:list:*")
+        logger.info(f"Cache INVALIDATED {count} list caches for {entity}")
+        return count
+
+    async def warm_detail(
+        self,
+        entity: str,
+        entity_id: int,
+        fetcher: Callable[[], Any]
+    ) -> Any:
+        """
+        Warm cache for a detail record (fetch and cache if not present).
+
+        Args:
+            entity: Entity type
+            entity_id: Record ID
+            fetcher: Async function to fetch data if not cached
+
+        Returns:
+            Cached or freshly fetched data
+        """
+        cached = await self.get_detail(entity, entity_id)
+        if cached is not None:
+            return cached
+
+        # Fetch and cache
+        data = await fetcher()
+        if data is not None:
+            await self.set_detail(entity, entity_id, data)
+        return data
+
     def cached(
         self,
         key_prefix: str,
@@ -144,12 +313,12 @@ class CacheService:
     ):
         """
         Decorator to cache async function results.
-        
+
         Args:
             key_prefix: Prefix for the cache key
             ttl: Time-to-live in seconds
             key_builder: Optional function to build cache key from args
-        
+
         Example:
             @cache_service.cached("dashboard:kpis", ttl=60)
             async def get_dashboard_kpis():
@@ -164,19 +333,19 @@ class CacheService:
                 else:
                     param_hash = self._hash_params(kwargs)
                     cache_key = f"{key_prefix}:{param_hash}"
-                
+
                 # Try to get from cache
                 cached_value = await self.get(cache_key)
                 if cached_value is not None:
                     logger.debug(f"Cache HIT: {cache_key}")
                     return cached_value
-                
+
                 # Execute function and cache result
                 logger.debug(f"Cache MISS: {cache_key}")
                 result = await func(*args, **kwargs)
                 await self.set(cache_key, result, ttl)
                 return result
-            
+
             return wrapper
         return decorator
 

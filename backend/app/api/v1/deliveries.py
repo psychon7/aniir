@@ -8,14 +8,17 @@ Provides REST API endpoints for:
 - Delivery search and lookup
 """
 import asyncio
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
+from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, and_, desc, asc
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from app.database import get_db
+from app.dependencies import get_current_user
+from app.services.cache_service import cache_service, CacheTTL, CacheKeys
 from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.models.client import Client
 from app.models.order import ClientOrder, ClientOrderLine
@@ -63,8 +66,125 @@ class DeliveryListPaginatedResponse(BaseModel):
 
 
 # ==========================================================================
-# Sync Database Helper
+# Create Delivery Request Schema (camelCase from frontend)
 # ==========================================================================
+
+class CreateDeliveryLineRequest(BaseModel):
+    """Line item for delivery creation from frontend."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    order_line_id: Optional[int] = Field(None, alias="orderLineId")
+    product_id: Optional[int] = Field(None, alias="productId")
+    description: Optional[str] = Field(None)
+    quantity: float = Field(0)
+
+
+class CreateDeliveryRequest(BaseModel):
+    """Request to create a new delivery form from frontend."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    order_id: int = Field(..., alias="orderId")
+    client_id: int = Field(..., alias="clientId")
+    society_id: Optional[int] = Field(None, alias="societyId")
+    expected_delivery_date: Optional[str] = Field(None, alias="expectedDeliveryDate")
+    delivery_address: Optional[str] = Field(None, alias="deliveryAddress")
+    delivery_address2: Optional[str] = Field(None, alias="deliveryAddress2")
+    delivery_city: Optional[str] = Field(None, alias="deliveryCity")
+    delivery_postcode: Optional[str] = Field(None, alias="deliveryPostcode")
+    delivery_country: Optional[str] = Field(None, alias="deliveryCountry")
+    internal_notes: Optional[str] = Field(None, alias="internalNotes")
+    delivery_notes: Optional[str] = Field(None, alias="deliveryNotes")
+    lines: List[CreateDeliveryLineRequest] = Field(default_factory=list)
+
+
+# ==========================================================================
+# Sync Database Helpers
+# ==========================================================================
+
+
+def _generate_delivery_code(db: Session) -> str:
+    """Generate unique delivery form reference code."""
+    year = datetime.utcnow().year
+    max_id = db.execute(select(func.max(DeliveryForm.dfo_id))).scalar() or 0
+    return f"DFO-{year}-{int(max_id) + 1:05d}"
+
+
+def _sync_create_delivery(
+    db: Session,
+    data: CreateDeliveryRequest,
+    current_user: Optional[Any] = None,
+):
+    """Sync helper to create a new delivery form with optional lines."""
+    now = datetime.utcnow()
+    code = _generate_delivery_code(db)
+
+    # Resolve delivery date
+    delivery_date = now
+    if data.expected_delivery_date:
+        try:
+            delivery_date = datetime.fromisoformat(
+                data.expected_delivery_date
+                .replace("Z", "+00:00")
+                .replace("T", " ")
+                .split("+")[0]
+            )
+        except (ValueError, TypeError):
+            delivery_date = now
+
+    # Get creator user ID
+    creator_id = 1  # default fallback
+    if current_user:
+        creator_id = (
+            getattr(current_user, "usr_id", None)
+            or getattr(current_user, "id", None)
+            or 1
+        )
+
+    # Resolve society_id from order if not provided
+    society_id = data.society_id
+    if not society_id:
+        order = db.get(ClientOrder, data.order_id)
+        if order:
+            society_id = order.soc_id
+        else:
+            society_id = 1  # fallback
+
+    delivery = DeliveryForm(
+        dfo_code=code,
+        dfo_d_creation=now,
+        dfo_d_update=now,
+        dfo_d_delivery=delivery_date,
+        cod_id=data.order_id,
+        cli_id=data.client_id,
+        soc_id=society_id,
+        usr_creator_id=creator_id,
+        dfo_deliveried=False,
+        dfo_dlv_cco_address1=data.delivery_address,
+        dfo_dlv_cco_address2=data.delivery_address2,
+        dfo_dlv_cco_city=data.delivery_city,
+        dfo_dlv_cco_postcode=data.delivery_postcode,
+        dfo_dlv_cco_country=data.delivery_country,
+        dfo_inter_comment=data.internal_notes,
+        dfo_delivery_comment=data.delivery_notes,
+    )
+    db.add(delivery)
+    db.flush()
+
+    # Create lines if provided
+    for line_data in data.lines:
+        if line_data.quantity and line_data.quantity > 0:
+            line = DeliveryFormLine(
+                dfo_id=delivery.dfo_id,
+                col_id=line_data.order_line_id,
+                dfl_description=line_data.description,
+                dfl_quantity=Decimal(str(line_data.quantity)),
+            )
+            db.add(line)
+
+    db.commit()
+
+    # Return the created delivery using the existing detail function
+    return _sync_get_delivery_detail(db, delivery.dfo_id)
 
 
 def _sync_list_deliveries(
@@ -190,32 +310,33 @@ def handle_delivery_error(error: DeliveryServiceError) -> HTTPException:
 
 @router.post(
     "",
-    response_model=DeliveryFormWithLinesResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new delivery form",
     description="""
     Create a new delivery form with optional lines.
 
-    A delivery form requires:
-    - Reference number (unique)
-    - Order ID
-    - Client ID
-    - Expected delivery date
-    - Status ID
-
-    Optional fields include carrier info, tracking number, shipping address, and lines.
+    Accepts camelCase fields from frontend:
+    - orderId (required): Order ID
+    - clientId (required): Client ID
+    - societyId (required): Society ID
+    - expectedDeliveryDate: Delivery date string
+    - deliveryAddress, deliveryCity, etc.: Address fields
+    - lines: Array of line items with orderLineId, quantity, description
     """
 )
 async def create_delivery(
-    data: DeliveryFormCreate,
-    service: DeliveryService = Depends(get_delivery_service)
+    data: CreateDeliveryRequest,
+    db: Session = Depends(get_db),
+    current_user: Any = Depends(get_current_user),
 ):
     """Create a new delivery form."""
-    try:
-        delivery = await service.create_delivery(data)
-        return delivery
-    except DeliveryServiceError as e:
-        raise handle_delivery_error(e)
+    result = await asyncio.to_thread(_sync_create_delivery, db, data, current_user)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create delivery form"
+        )
+    return result
 
 
 @router.get(
@@ -463,16 +584,28 @@ def _sync_get_delivery_detail(db: Session, delivery_id: int):
 @router.get(
     "/{delivery_id}",
     summary="Get delivery form by ID",
-    description="Get detailed information about a specific delivery form including its lines and resolved lookup names."
+    description="Get detailed information about a specific delivery form including its lines and resolved lookup names. Cached until modified."
 )
 async def get_delivery(
     delivery_id: int = Path(..., gt=0, description="Delivery form ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
 ):
-    """Get a specific delivery form by ID with resolved lookup names."""
+    """Get a specific delivery form by ID with resolved lookup names. Cached until modified."""
+    # Try cache first (unless bypassing)
+    if not bypass_cache:
+        cached = await cache_service.get_detail(CacheKeys.DELIVERY, delivery_id)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
     result = await asyncio.to_thread(_sync_get_delivery_detail, db, delivery_id)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Delivery {delivery_id} not found")
+
+    # Cache the result indefinitely (invalidated on update/delete)
+    await cache_service.set_detail(CacheKeys.DELIVERY, delivery_id, result)
+
     return result
 
 
@@ -506,7 +639,10 @@ async def update_delivery(
 ):
     """Update an existing delivery form."""
     try:
-        return await service.update_delivery(delivery_id, data)
+        result = await service.update_delivery(delivery_id, data)
+        # Invalidate cache (detail + all list caches)
+        await cache_service.invalidate_entity(CacheKeys.DELIVERY, delivery_id)
+        return result
     except DeliveryServiceError as e:
         raise handle_delivery_error(e)
 
@@ -528,6 +664,8 @@ async def delete_delivery(
     """Delete a delivery form."""
     try:
         await service.delete_delivery(delivery_id)
+        # Invalidate cache (detail + all list caches)
+        await cache_service.invalidate_entity(CacheKeys.DELIVERY, delivery_id)
     except DeliveryServiceError as e:
         raise handle_delivery_error(e)
 
@@ -718,7 +856,10 @@ async def create_line(
 ):
     """Create a new delivery form line."""
     try:
-        return await service.create_line(delivery_id, data)
+        result = await service.create_line(delivery_id, data)
+        # Invalidate cache (detail + all list caches)
+        await cache_service.invalidate_entity(CacheKeys.DELIVERY, delivery_id)
+        return result
     except DeliveryServiceError as e:
         raise handle_delivery_error(e)
 
@@ -766,11 +907,21 @@ async def get_line(
 async def update_line(
     line_id: int = Path(..., gt=0, description="Line ID"),
     data: DeliveryFormLineUpdate = ...,
+    db: Session = Depends(get_db),
     service: DeliveryService = Depends(get_delivery_service)
 ):
     """Update an existing delivery form line."""
     try:
-        return await service.update_line(line_id, data)
+        # Get parent delivery_id for cache invalidation
+        line = db.get(DeliveryFormLine, line_id)
+        delivery_id = line.dfo_id if line else None
+
+        result = await service.update_line(line_id, data)
+
+        # Invalidate cache (detail + all list caches)
+        if delivery_id:
+            await cache_service.invalidate_entity(CacheKeys.DELIVERY, delivery_id)
+        return result
     except DeliveryServiceError as e:
         raise handle_delivery_error(e)
 
@@ -783,10 +934,19 @@ async def update_line(
 )
 async def delete_line(
     line_id: int = Path(..., gt=0, description="Line ID"),
+    db: Session = Depends(get_db),
     service: DeliveryService = Depends(get_delivery_service)
 ):
     """Delete a delivery form line."""
     try:
+        # Get parent delivery_id before deletion
+        line = db.get(DeliveryFormLine, line_id)
+        delivery_id = line.dfo_id if line else None
+
         await service.delete_line(line_id)
+
+        # Invalidate cache (detail + all list caches)
+        if delivery_id:
+            await cache_service.invalidate_entity(CacheKeys.DELIVERY, delivery_id)
     except DeliveryServiceError as e:
         raise handle_delivery_error(e)

@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.services.cache_service import cache_service, CacheTTL, CacheKeys
 from app.models.invoice import ClientInvoice
 from app.models.client_invoice_line import ClientInvoiceLine
 from app.models.client import Client
@@ -1383,7 +1384,7 @@ async def create_invoices_from_deliveries(
 @router.get(
     "/{invoice_id}",
     summary="Get invoice details",
-    description="Get an invoice by ID with all line items and resolved lookup names.",
+    description="Get an invoice by ID with all line items and resolved lookup names. Cached for 2 minutes.",
     responses={
         200: {"description": "Invoice found"},
         404: {"model": InvoiceErrorResponse, "description": "Invoice not found"}
@@ -1391,12 +1392,26 @@ async def create_invoices_from_deliveries(
 )
 async def get_invoice(
     invoice_id: int = Path(..., description="Invoice ID"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
 ):
-    """Get invoice by ID with resolved lookup names."""
+    """Get invoice by ID with resolved lookup names. Cached for 2 minutes."""
+    cache_key = f"{CacheKeys.INVOICE}:detail:{invoice_id}"
+
+    # Try cache first (unless bypassing)
+    if not bypass_cache:
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Fetch from database
     result = await asyncio.to_thread(_sync_get_invoice_detail, db, invoice_id)
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Invoice {invoice_id} not found")
+
+    # Cache the result for 2 minutes
+    await cache_service.set(cache_key, result, CacheTTL.MEDIUM)
+
     return result
 
 
@@ -1447,7 +1462,10 @@ async def update_invoice(
     service = get_invoice_service(db)
 
     try:
-        return await service.update_invoice(invoice_id, data)
+        result = await service.update_invoice(invoice_id, data)
+        # Invalidate cache (detail + all list caches)
+        await cache_service.invalidate_entity(CacheKeys.INVOICE, invoice_id)
+        return result
     except InvoiceServiceError as e:
         raise handle_invoice_error(e)
 
@@ -1476,6 +1494,8 @@ async def delete_invoice(
 
     try:
         await service.delete_invoice(invoice_id)
+        # Invalidate cache (detail + all list caches)
+        await cache_service.invalidate_entity(CacheKeys.INVOICE, invoice_id)
     except InvoiceServiceError as e:
         raise handle_invoice_error(e)
 
@@ -1524,7 +1544,11 @@ async def update_invoice_line(
     service = get_invoice_service(db)
 
     try:
-        return await service.update_invoice_line(line_id, data)
+        result = await service.update_invoice_line(line_id, data)
+        # Invalidate cache for parent invoice (detail + all list caches)
+        if hasattr(result, 'inl_inv_id') and result.inl_inv_id:
+            await cache_service.invalidate_entity(CacheKeys.INVOICE, result.inl_inv_id)
+        return result
     except InvoiceServiceError as e:
         raise handle_invoice_error(e)
 
@@ -1543,7 +1567,16 @@ async def delete_invoice_line(
     service = get_invoice_service(db)
 
     try:
+        # Get the invoice_id before deletion for cache invalidation
+        from app.models.client_invoice_line import ClientInvoiceLine
+        line = db.get(ClientInvoiceLine, line_id)
+        invoice_id = line.cin_id if line else None
+
         await service.delete_invoice_line(line_id)
+
+        # Invalidate cache for parent invoice (detail + all list caches)
+        if invoice_id:
+            await cache_service.invalidate_entity(CacheKeys.INVOICE, invoice_id)
     except InvoiceServiceError as e:
         raise handle_invoice_error(e)
 
@@ -1570,6 +1603,9 @@ async def reorder_invoice_lines(
 
     if ordered_ids is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Invoice {invoice_id} not found")
+
+    # Invalidate cache (detail + all list caches)
+    await cache_service.invalidate_entity(CacheKeys.INVOICE, invoice_id)
 
     return {
         "success": True,
