@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { suppliersApi } from '@/api/suppliers'
 import { lookupsApi } from '@/api/lookups'
-import type { SupplierCreateDto, SupplierUpdateDto, SupplierSearchParams } from '@/types/supplier'
+import type { SupplierContact, SupplierCreateDto, SupplierUpdateDto, SupplierSearchParams } from '@/types/supplier'
 
 // Query keys
 export const supplierKeys = {
@@ -109,6 +109,38 @@ export function useExportSuppliers() {
       link.download = `suppliers-export-${new Date().toISOString().slice(0, 10)}.csv`
       link.click()
       URL.revokeObjectURL(link.href)
+    },
+  })
+}
+
+/**
+ * Hook to create a contact for a supplier
+ */
+export function useCreateSupplierContact(supplierId: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: Omit<SupplierContact, 'id' | 'supplierId'>) =>
+      suppliersApi.createContact(supplierId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: supplierKeys.contacts(supplierId) })
+      queryClient.invalidateQueries({ queryKey: supplierKeys.detail(supplierId) })
+    },
+  })
+}
+
+/**
+ * Hook to delete a contact from a supplier
+ */
+export function useDeleteSupplierContact(supplierId: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (contactId: number) =>
+      suppliersApi.deleteContact(supplierId, contactId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: supplierKeys.contacts(supplierId) })
+      queryClient.invalidateQueries({ queryKey: supplierKeys.detail(supplierId) })
     },
   })
 }

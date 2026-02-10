@@ -12,12 +12,33 @@ import { FormModal, FormModalFooter } from '@/components/ui/form/FormModal'
 import { useToast } from '@/components/ui/feedback/Toast'
 import { useOrdersByQuote } from '@/hooks/useOrders'
 import { useInvoicesByQuote } from '@/hooks/useInvoices'
-import { useConvertQuoteToOrder, useUpdateQuoteDiscount } from '@/hooks/useQuotes'
+import {
+  useConvertQuoteToOrder,
+  useUpdateQuoteDiscount,
+  useAddQuoteLine,
+  useUpdateQuoteLine,
+  useDeleteQuoteLine,
+} from '@/hooks/useQuotes'
+import { LineType } from '@/types/quote'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/quotes/$quoteId')({
   component: QuoteDetailPage,
 })
+
+interface LineFormState {
+  description: string
+  quantity: string
+  unitPrice: string
+  discount: string
+}
+
+const emptyLineForm: LineFormState = {
+  description: '',
+  quantity: '1',
+  unitPrice: '0',
+  discount: '0',
+}
 
 function QuoteDetailPage() {
   const { quoteId } = Route.useParams()
@@ -30,6 +51,14 @@ function QuoteDetailPage() {
   const [selectedLineIds, setSelectedLineIds] = useState<number[]>([])
   const [isLineActionPending, setIsLineActionPending] = useState(false)
 
+  // Line management state
+  const [isAddLineModalOpen, setIsAddLineModalOpen] = useState(false)
+  const [isEditLineModalOpen, setIsEditLineModalOpen] = useState(false)
+  const [isDeleteLineDialogOpen, setIsDeleteLineDialogOpen] = useState(false)
+  const [editingLineId, setEditingLineId] = useState<number | null>(null)
+  const [deletingLineId, setDeletingLineId] = useState<number | null>(null)
+  const [lineForm, setLineForm] = useState<LineFormState>(emptyLineForm)
+
   const { data: quote, isLoading } = useQuery({
     queryKey: ['quote', quoteId],
     queryFn: async () => {
@@ -41,6 +70,9 @@ function QuoteDetailPage() {
   const { data: invoices = [] } = useInvoicesByQuote(Number(quoteId))
   const convertMutation = useConvertQuoteToOrder()
   const updateDiscountMutation = useUpdateQuoteDiscount()
+  const addLineMutation = useAddQuoteLine()
+  const updateLineMutation = useUpdateQuoteLine()
+  const deleteLineMutation = useDeleteQuoteLine()
 
   if (isLoading) {
     return (
@@ -68,6 +100,10 @@ function QuoteDetailPage() {
 
   const invoicingSnapshot = quote.invoicingContactSnapshot
   const deliverySnapshot = quote.deliveryContactSnapshot
+  const currencyCode = quote.currency || 'EUR'
+
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(amount)
 
   const openPdfUtility = (mode: 'pdf-viewer' | 'pdf-download') => {
     const safeReference = quote.reference || quoteId
@@ -127,6 +163,107 @@ function QuoteDetailPage() {
       setIsLineActionPending(false)
     }
   }
+
+  // Line management handlers
+  const openAddLineModal = () => {
+    setLineForm(emptyLineForm)
+    setIsAddLineModalOpen(true)
+  }
+
+  const openEditLineModal = (line: any) => {
+    setEditingLineId(Number(line.id))
+    setLineForm({
+      description: line.description || line.productName || '',
+      quantity: String(line.quantity || 1),
+      unitPrice: String(line.unitPrice || 0),
+      discount: String(line.discountPercentage || 0),
+    })
+    setIsEditLineModalOpen(true)
+  }
+
+  const openDeleteLineDialog = (lineId: number) => {
+    setDeletingLineId(lineId)
+    setIsDeleteLineDialogOpen(true)
+  }
+
+  const handleAddLine = async () => {
+    if (!lineForm.description.trim()) {
+      showError('Error', 'Description is required.')
+      return
+    }
+
+    try {
+      await addLineMutation.mutateAsync({
+        quoteId: Number(quoteId),
+        data: {
+          description: lineForm.description,
+          quantity: Number(lineForm.quantity) || 1,
+          unitPrice: Number(lineForm.unitPrice) || 0,
+          discountPercentage: Number(lineForm.discount) || undefined,
+          lineTypeId: LineType.SALE,
+        },
+      })
+      await queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
+      success('Line added', 'Quote line has been added.')
+      setIsAddLineModalOpen(false)
+      setLineForm(emptyLineForm)
+    } catch {
+      showError('Error', 'Unable to add line.')
+    }
+  }
+
+  const handleUpdateLine = async () => {
+    if (!editingLineId) return
+    if (!lineForm.description.trim()) {
+      showError('Error', 'Description is required.')
+      return
+    }
+
+    try {
+      await updateLineMutation.mutateAsync({
+        quoteId: Number(quoteId),
+        lineId: editingLineId,
+        data: {
+          description: lineForm.description,
+          quantity: Number(lineForm.quantity) || 1,
+          unitPrice: Number(lineForm.unitPrice) || 0,
+          discountPercentage: Number(lineForm.discount) || undefined,
+        },
+      })
+      await queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
+      success('Line updated', 'Quote line has been updated.')
+      setIsEditLineModalOpen(false)
+      setEditingLineId(null)
+      setLineForm(emptyLineForm)
+    } catch {
+      showError('Error', 'Unable to update line.')
+    }
+  }
+
+  const handleDeleteLine = async () => {
+    if (!deletingLineId) return
+
+    try {
+      await deleteLineMutation.mutateAsync({
+        quoteId: Number(quoteId),
+        lineId: deletingLineId,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
+      setSelectedLineIds((prev) => prev.filter((id) => id !== deletingLineId))
+      success('Line deleted', 'Quote line has been removed.')
+      setIsDeleteLineDialogOpen(false)
+      setDeletingLineId(null)
+    } catch {
+      showError('Error', 'Unable to delete line.')
+    }
+  }
+
+  // Recalculate totals from lines
+  const computedSubtotal = (quote.lines || []).reduce(
+    (sum: number, line: any) => sum + (line.lineTotal || 0),
+    0
+  )
+  const computedTotal = computedSubtotal - (quote.discountAmount || 0)
 
   const actions = (
     <div className="flex gap-2">
@@ -225,7 +362,14 @@ function QuoteDetailPage() {
           )}
 
           <Card>
-            <CardHeader title="Line Items" />
+            <CardHeader
+              title="Line Items"
+              action={
+                <button onClick={openAddLineModal} className="btn-secondary text-sm">
+                  + Add Line
+                </button>
+              }
+            />
             <CardContent>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm text-muted-foreground">
@@ -248,7 +392,7 @@ function QuoteDetailPage() {
                     <th className="text-right py-2 text-sm text-muted-foreground">Qty</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">Unit Price</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">Total</th>
-                    <th className="text-right py-2 text-sm text-muted-foreground w-28">Order</th>
+                    <th className="text-right py-2 text-sm text-muted-foreground w-36">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -289,13 +433,38 @@ function QuoteDetailPage() {
                       </td>
                       <td className="text-right py-3">{line.quantity}</td>
                       <td className="text-right py-3">
-                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: quote.currency || 'USD' }).format(line.unitPrice)}
+                        {formatCurrency(line.unitPrice)}
                       </td>
                       <td className="text-right py-3 font-medium">
-                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: quote.currency || 'USD' }).format(line.lineTotal)}
+                        {formatCurrency(line.lineTotal)}
                       </td>
                       <td className="text-right py-3">
                         <div className="flex items-center justify-end gap-1">
+                          {/* Edit button */}
+                          <button
+                            type="button"
+                            className="p-1.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            onClick={() => openEditLineModal(line)}
+                            disabled={isLineActionPending}
+                            title="Edit line"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                            </svg>
+                          </button>
+                          {/* Delete button */}
+                          <button
+                            type="button"
+                            className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            onClick={() => openDeleteLineDialog(Number(line.id))}
+                            disabled={isLineActionPending}
+                            title="Delete line"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                          </button>
+                          {/* Reorder buttons */}
                           <button
                             type="button"
                             className="btn-secondary px-2 py-1 text-xs"
@@ -318,7 +487,7 @@ function QuoteDetailPage() {
                   )) || (
                     <tr>
                       <td colSpan={7} className="text-center py-8 text-muted-foreground">
-                        No line items
+                        No line items. Click "Add Line" to get started.
                       </td>
                     </tr>
                   )}
@@ -442,21 +611,21 @@ function QuoteDetailPage() {
               <dl className="space-y-2">
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Subtotal</dt>
-                  <dd>{new Intl.NumberFormat('en-US', { style: 'currency', currency: quote.currency || 'USD' }).format(quote.subtotal || quote.totalAmount)}</dd>
+                  <dd>{formatCurrency(computedSubtotal || quote.subtotal || quote.totalAmount)}</dd>
                 </div>
-                {quote.discountAmount > 0 && (
+                {(quote.discountAmount > 0) && (
                   <div className="flex justify-between text-green-600">
                     <dt>Discount</dt>
-                    <dd>-{new Intl.NumberFormat('en-US', { style: 'currency', currency: quote.currency || 'USD' }).format(quote.discountAmount)}</dd>
+                    <dd>-{formatCurrency(quote.discountAmount)}</dd>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Tax</dt>
-                  <dd>{new Intl.NumberFormat('en-US', { style: 'currency', currency: quote.currency || 'USD' }).format(quote.taxAmount || 0)}</dd>
+                  <dd>{formatCurrency(quote.taxAmount || 0)}</dd>
                 </div>
                 <div className="flex justify-between text-lg font-semibold border-t pt-2">
                   <dt>Total</dt>
-                  <dd>{new Intl.NumberFormat('en-US', { style: 'currency', currency: quote.currency || 'USD' }).format(quote.totalAmount)}</dd>
+                  <dd>{formatCurrency(computedTotal || quote.totalAmount)}</dd>
                 </div>
               </dl>
             </CardContent>
@@ -470,6 +639,7 @@ function QuoteDetailPage() {
         </div>
       </div>
 
+      {/* Discount Modal */}
       <FormModal
         isOpen={isDiscountModalOpen}
         onClose={() => setIsDiscountModalOpen(false)}
@@ -515,6 +685,165 @@ function QuoteDetailPage() {
             placeholder="0"
           />
         </div>
+      </FormModal>
+
+      {/* Add Line Modal */}
+      <FormModal
+        isOpen={isAddLineModalOpen}
+        onClose={() => setIsAddLineModalOpen(false)}
+        title="Add Line Item"
+        description="Add a new line to this quote."
+        footer={
+          <FormModalFooter
+            onCancel={() => setIsAddLineModalOpen(false)}
+            onSubmit={handleAddLine}
+            submitText="Add Line"
+            isSubmitting={addLineMutation.isPending}
+          />
+        }
+      >
+        <div className="space-y-4">
+          <FormInput
+            label="Description"
+            value={lineForm.description}
+            onChange={(e) => setLineForm({ ...lineForm, description: e.target.value })}
+            placeholder="Line description..."
+            required
+          />
+          <div className="grid grid-cols-3 gap-4">
+            <FormInput
+              type="number"
+              label="Quantity"
+              value={lineForm.quantity}
+              onChange={(e) => setLineForm({ ...lineForm, quantity: e.target.value })}
+              min={1}
+              step="1"
+            />
+            <FormInput
+              type="number"
+              label="Unit Price"
+              value={lineForm.unitPrice}
+              onChange={(e) => setLineForm({ ...lineForm, unitPrice: e.target.value })}
+              min={0}
+              step="0.01"
+            />
+            <FormInput
+              type="number"
+              label="Discount %"
+              value={lineForm.discount}
+              onChange={(e) => setLineForm({ ...lineForm, discount: e.target.value })}
+              min={0}
+              max={100}
+              step="0.01"
+            />
+          </div>
+          <div className="text-right text-sm text-muted-foreground">
+            Line total: <span className="font-medium text-foreground">
+              {formatCurrency(
+                (Number(lineForm.quantity) || 0) *
+                (Number(lineForm.unitPrice) || 0) *
+                (1 - (Number(lineForm.discount) || 0) / 100)
+              )}
+            </span>
+          </div>
+        </div>
+      </FormModal>
+
+      {/* Edit Line Modal */}
+      <FormModal
+        isOpen={isEditLineModalOpen}
+        onClose={() => {
+          setIsEditLineModalOpen(false)
+          setEditingLineId(null)
+          setLineForm(emptyLineForm)
+        }}
+        title="Edit Line Item"
+        description="Update the line item details."
+        footer={
+          <FormModalFooter
+            onCancel={() => {
+              setIsEditLineModalOpen(false)
+              setEditingLineId(null)
+              setLineForm(emptyLineForm)
+            }}
+            onSubmit={handleUpdateLine}
+            submitText="Save Changes"
+            isSubmitting={updateLineMutation.isPending}
+          />
+        }
+      >
+        <div className="space-y-4">
+          <FormInput
+            label="Description"
+            value={lineForm.description}
+            onChange={(e) => setLineForm({ ...lineForm, description: e.target.value })}
+            placeholder="Line description..."
+            required
+          />
+          <div className="grid grid-cols-3 gap-4">
+            <FormInput
+              type="number"
+              label="Quantity"
+              value={lineForm.quantity}
+              onChange={(e) => setLineForm({ ...lineForm, quantity: e.target.value })}
+              min={1}
+              step="1"
+            />
+            <FormInput
+              type="number"
+              label="Unit Price"
+              value={lineForm.unitPrice}
+              onChange={(e) => setLineForm({ ...lineForm, unitPrice: e.target.value })}
+              min={0}
+              step="0.01"
+            />
+            <FormInput
+              type="number"
+              label="Discount %"
+              value={lineForm.discount}
+              onChange={(e) => setLineForm({ ...lineForm, discount: e.target.value })}
+              min={0}
+              max={100}
+              step="0.01"
+            />
+          </div>
+          <div className="text-right text-sm text-muted-foreground">
+            Line total: <span className="font-medium text-foreground">
+              {formatCurrency(
+                (Number(lineForm.quantity) || 0) *
+                (Number(lineForm.unitPrice) || 0) *
+                (1 - (Number(lineForm.discount) || 0) / 100)
+              )}
+            </span>
+          </div>
+        </div>
+      </FormModal>
+
+      {/* Delete Line Confirmation Dialog */}
+      <FormModal
+        isOpen={isDeleteLineDialogOpen}
+        onClose={() => {
+          setIsDeleteLineDialogOpen(false)
+          setDeletingLineId(null)
+        }}
+        title="Delete Line Item"
+        description="Are you sure you want to delete this line item? This action cannot be undone."
+        size="sm"
+        footer={
+          <FormModalFooter
+            onCancel={() => {
+              setIsDeleteLineDialogOpen(false)
+              setDeletingLineId(null)
+            }}
+            onSubmit={handleDeleteLine}
+            submitText="Delete"
+            isSubmitting={deleteLineMutation.isPending}
+          />
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          This will permanently remove the line from this quote and recalculate totals.
+        </p>
       </FormModal>
     </PageContainer>
   )

@@ -71,7 +71,7 @@ export interface DeliveryLine {
  * DTO for creating a new delivery form
  */
 export interface DeliveryFormCreateDto {
-  orderId?: number
+  orderId: number
   clientId: number
   projectId?: number
   name?: string
@@ -83,7 +83,7 @@ export interface DeliveryFormCreateDto {
   deliveryCountry?: string
   internalNotes?: string
   deliveryNotes?: string
-  societyId: number
+  societyId?: number
   lines?: DeliveryLineCreateDto[]
 }
 
@@ -91,10 +91,12 @@ export interface DeliveryFormCreateDto {
  * DTO for creating a delivery line
  */
 export interface DeliveryLineCreateDto {
+  orderLineId?: number
   productId?: number
   productName?: string
   productDescription?: string
   reference?: string
+  description?: string
   quantity: number
   unitPrice?: number
   notes?: string

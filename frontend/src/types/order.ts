@@ -73,12 +73,23 @@ export interface OrderLine {
  */
 export interface OrderCreateDto {
   clientId: number
-  expectedDeliveryDate?: string
-  paymentModeId?: number
-  shippingAddress?: string
-  billingAddress?: string
-  notes?: string
   societyId: number
+  vatId: number
+  currencyId?: number
+  paymentConditionId?: number
+  paymentModeId?: number
+  projectId?: number
+  costPlanId?: number
+  orderName?: string
+  orderDate?: string
+  expectedDeliveryFrom?: string
+  expectedDeliveryTo?: string
+  headerText?: string
+  footerText?: string
+  clientComment?: string
+  internalComment?: string
+  discountPercentage?: number
+  discountAmount?: number
   lines: OrderLineCreateDto[]
 }
 
@@ -86,11 +97,16 @@ export interface OrderCreateDto {
  * DTO for creating an order line
  */
 export interface OrderLineCreateDto {
-  productId: number
+  description: string
   quantity: number
   unitPrice: number
-  discount?: number
-  notes?: string
+  discountPercentage?: number
+  discountAmount?: number
+  productId?: number
+  productName?: string
+  productReference?: string
+  vatId?: number
+  lineTypeId?: number
 }
 
 /**

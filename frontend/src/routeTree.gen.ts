@@ -42,6 +42,7 @@ import { Route as AuthenticatedSettingsEmailLogsRouteImport } from './routes/_au
 import { Route as AuthenticatedSettingsEnterpriseRouteImport } from './routes/_authenticated/settings/enterprise'
 import { Route as AuthenticatedQuotesNewRouteImport } from './routes/_authenticated/quotes/new'
 import { Route as AuthenticatedQuotesQuoteIdRouteImport } from './routes/_authenticated/quotes/$quoteId'
+import { Route as AuthenticatedPurchaseIntentsNewRouteImport } from './routes/_authenticated/purchase-intents/new'
 import { Route as AuthenticatedPurchaseIntentsIntentIdRouteImport } from './routes/_authenticated/purchase-intents/$intentId'
 import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenticated/projects/new'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects/$projectId'
@@ -263,6 +264,12 @@ const AuthenticatedQuotesQuoteIdRoute =
     path: '/quotes/$quoteId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedPurchaseIntentsNewRoute =
+  AuthenticatedPurchaseIntentsNewRouteImport.update({
+    id: '/purchase-intents/new',
+    path: '/purchase-intents/new',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedPurchaseIntentsIntentIdRoute =
   AuthenticatedPurchaseIntentsIntentIdRouteImport.update({
     id: '/purchase-intents/$intentId',
@@ -462,6 +469,7 @@ export interface FileRoutesByFullPath {
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
   '/purchase-intents/$intentId': typeof AuthenticatedPurchaseIntentsIntentIdRoute
+  '/purchase-intents/new': typeof AuthenticatedPurchaseIntentsNewRoute
   '/quotes/$quoteId': typeof AuthenticatedQuotesQuoteIdRoute
   '/quotes/new': typeof AuthenticatedQuotesNewRoute
   '/settings/email-logs': typeof AuthenticatedSettingsEmailLogsRoute
@@ -526,6 +534,7 @@ export interface FileRoutesByTo {
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
   '/purchase-intents/$intentId': typeof AuthenticatedPurchaseIntentsIntentIdRoute
+  '/purchase-intents/new': typeof AuthenticatedPurchaseIntentsNewRoute
   '/quotes/$quoteId': typeof AuthenticatedQuotesQuoteIdRoute
   '/quotes/new': typeof AuthenticatedQuotesNewRoute
   '/settings/email-logs': typeof AuthenticatedSettingsEmailLogsRoute
@@ -592,6 +601,7 @@ export interface FileRoutesById {
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/projects/new': typeof AuthenticatedProjectsNewRoute
   '/_authenticated/purchase-intents/$intentId': typeof AuthenticatedPurchaseIntentsIntentIdRoute
+  '/_authenticated/purchase-intents/new': typeof AuthenticatedPurchaseIntentsNewRoute
   '/_authenticated/quotes/$quoteId': typeof AuthenticatedQuotesQuoteIdRoute
   '/_authenticated/quotes/new': typeof AuthenticatedQuotesNewRoute
   '/_authenticated/settings/email-logs': typeof AuthenticatedSettingsEmailLogsRoute
@@ -658,6 +668,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/purchase-intents/$intentId'
+    | '/purchase-intents/new'
     | '/quotes/$quoteId'
     | '/quotes/new'
     | '/settings/email-logs'
@@ -722,6 +733,7 @@ export interface FileRouteTypes {
     | '/projects/$projectId'
     | '/projects/new'
     | '/purchase-intents/$intentId'
+    | '/purchase-intents/new'
     | '/quotes/$quoteId'
     | '/quotes/new'
     | '/settings/email-logs'
@@ -787,6 +799,7 @@ export interface FileRouteTypes {
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/projects/new'
     | '/_authenticated/purchase-intents/$intentId'
+    | '/_authenticated/purchase-intents/new'
     | '/_authenticated/quotes/$quoteId'
     | '/_authenticated/quotes/new'
     | '/_authenticated/settings/email-logs'
@@ -1079,6 +1092,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPurchaseIntentsIntentIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/purchase-intents/new': {
+      id: '/_authenticated/purchase-intents/new'
+      path: '/purchase-intents/new'
+      fullPath: '/purchase-intents/new'
+      preLoaderRoute: typeof AuthenticatedPurchaseIntentsNewRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/projects/new': {
       id: '/_authenticated/projects/new'
       path: '/projects/new'
@@ -1302,6 +1322,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
   AuthenticatedProjectsNewRoute: typeof AuthenticatedProjectsNewRoute
   AuthenticatedPurchaseIntentsIntentIdRoute: typeof AuthenticatedPurchaseIntentsIntentIdRoute
+  AuthenticatedPurchaseIntentsNewRoute: typeof AuthenticatedPurchaseIntentsNewRoute
   AuthenticatedQuotesQuoteIdRoute: typeof AuthenticatedQuotesQuoteIdRoute
   AuthenticatedQuotesNewRoute: typeof AuthenticatedQuotesNewRoute
   AuthenticatedSettingsEmailLogsRoute: typeof AuthenticatedSettingsEmailLogsRoute
@@ -1367,6 +1388,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedProjectsNewRoute: AuthenticatedProjectsNewRoute,
   AuthenticatedPurchaseIntentsIntentIdRoute:
     AuthenticatedPurchaseIntentsIntentIdRoute,
+  AuthenticatedPurchaseIntentsNewRoute: AuthenticatedPurchaseIntentsNewRoute,
   AuthenticatedQuotesQuoteIdRoute: AuthenticatedQuotesQuoteIdRoute,
   AuthenticatedQuotesNewRoute: AuthenticatedQuotesNewRoute,
   AuthenticatedSettingsEmailLogsRoute: AuthenticatedSettingsEmailLogsRoute,

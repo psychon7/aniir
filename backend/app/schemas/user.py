@@ -308,6 +308,152 @@ class UserResponse(BaseModel):
     civility: Optional[CivilityInfo] = Field(None, description="Civility information")
     society: Optional[SocietyInfo] = Field(None, description="Society information")
 
+    # --- camelCase computed fields for frontend ---
+
+    @computed_field
+    @property
+    def id(self) -> int:
+        return self.usr_id
+
+    @computed_field
+    @property
+    def login(self) -> str:
+        return self.usr_login
+
+    @computed_field
+    @property
+    def firstName(self) -> Optional[str]:
+        return self.usr_firstname
+
+    @computed_field
+    @property
+    def lastName(self) -> Optional[str]:
+        return self.usr_lastname
+
+    @computed_field
+    @property
+    def fullName(self) -> str:
+        if self.usr_firstname and self.usr_lastname:
+            return f"{self.usr_firstname} {self.usr_lastname}"
+        return self.usr_login
+
+    @computed_field
+    @property
+    def title(self) -> Optional[str]:
+        return self.usr_title
+
+    @computed_field
+    @property
+    def email(self) -> Optional[str]:
+        return self.usr_email
+
+    @computed_field
+    @property
+    def telephone(self) -> Optional[str]:
+        return self.usr_tel
+
+    @computed_field
+    @property
+    def cellphone(self) -> Optional[str]:
+        return self.usr_cellphone
+
+    @computed_field
+    @property
+    def fax(self) -> Optional[str]:
+        return self.usr_fax
+
+    @computed_field
+    @property
+    def hrCode(self) -> Optional[str]:
+        return self.usr_code_hr
+
+    @computed_field
+    @property
+    def address1(self) -> Optional[str]:
+        return self.usr_address1
+
+    @computed_field
+    @property
+    def address2(self) -> Optional[str]:
+        return self.usr_address2
+
+    @computed_field
+    @property
+    def postcode(self) -> Optional[str]:
+        return self.usr_postcode
+
+    @computed_field
+    @property
+    def city(self) -> Optional[str]:
+        return self.usr_city
+
+    @computed_field
+    @property
+    def county(self) -> Optional[str]:
+        return self.usr_county
+
+    @computed_field
+    @property
+    def photoPath(self) -> Optional[str]:
+        return self.usr_photo_path
+
+    @computed_field
+    @property
+    def roleId(self) -> int:
+        return self.rol_id
+
+    @computed_field
+    @property
+    def roleName(self) -> Optional[str]:
+        return self.role.rol_name if self.role else None
+
+    @computed_field
+    @property
+    def civilityId(self) -> int:
+        return self.civ_id
+
+    @computed_field
+    @property
+    def civilityDesignation(self) -> Optional[str]:
+        return self.civility.civ_designation if self.civility else None
+
+    @computed_field
+    @property
+    def societyId(self) -> int:
+        return self.soc_id
+
+    @computed_field
+    @property
+    def societyName(self) -> Optional[str]:
+        return self.society.soc_society_name if self.society else None
+
+    @computed_field
+    @property
+    def creatorId(self) -> Optional[int]:
+        return self.usr_creator_id
+
+    @computed_field
+    @property
+    def isActive(self) -> bool:
+        return self.usr_is_actived
+
+    @computed_field
+    @property
+    def isAdmin(self) -> bool:
+        return self.usr_super_right or (self.role is not None and self.role.is_admin_role)
+
+    @computed_field
+    @property
+    def createdAt(self) -> str:
+        return self.usr_d_creation.isoformat()
+
+    @computed_field
+    @property
+    def updatedAt(self) -> str:
+        return self.usr_d_update.isoformat()
+
+    # --- legacy snake_case computed fields ---
+
     @computed_field
     @property
     def display_name(self) -> str:
@@ -374,6 +520,60 @@ class UserListResponse(BaseModel):
     # Nested related data (lightweight)
     role: Optional[RoleInfo] = Field(None, description="Role information")
     society: Optional[SocietyInfo] = Field(None, description="Society information")
+
+    # --- camelCase computed fields for frontend ---
+
+    @computed_field
+    @property
+    def id(self) -> int:
+        return self.usr_id
+
+    @computed_field
+    @property
+    def login(self) -> str:
+        return self.usr_login
+
+    @computed_field
+    @property
+    def firstName(self) -> Optional[str]:
+        return self.usr_firstname
+
+    @computed_field
+    @property
+    def lastName(self) -> Optional[str]:
+        return self.usr_lastname
+
+    @computed_field
+    @property
+    def fullName(self) -> str:
+        if self.usr_firstname and self.usr_lastname:
+            return f"{self.usr_firstname} {self.usr_lastname}"
+        return self.usr_login
+
+    @computed_field
+    @property
+    def email(self) -> Optional[str]:
+        return self.usr_email
+
+    @computed_field
+    @property
+    def roleName(self) -> Optional[str]:
+        return self.role.rol_name if self.role else None
+
+    @computed_field
+    @property
+    def societyName(self) -> Optional[str]:
+        return self.society.soc_society_name if self.society else None
+
+    @computed_field
+    @property
+    def isActive(self) -> bool:
+        return self.usr_is_actived
+
+    @computed_field
+    @property
+    def isAdmin(self) -> bool:
+        return self.usr_super_right or (self.role is not None and self.role.is_admin_role)
 
     @computed_field
     @property
@@ -459,6 +659,38 @@ class UserLookup(BaseModel):
 
     @computed_field
     @property
+    def id(self) -> int:
+        return self.usr_id
+
+    @computed_field
+    @property
+    def login(self) -> str:
+        return self.usr_login
+
+    @computed_field
+    @property
+    def firstName(self) -> Optional[str]:
+        return self.usr_firstname
+
+    @computed_field
+    @property
+    def lastName(self) -> Optional[str]:
+        return self.usr_lastname
+
+    @computed_field
+    @property
+    def fullName(self) -> str:
+        if self.usr_firstname and self.usr_lastname:
+            return f"{self.usr_firstname} {self.usr_lastname}"
+        return self.usr_login
+
+    @computed_field
+    @property
+    def isActive(self) -> bool:
+        return self.usr_is_actived
+
+    @computed_field
+    @property
     def display_name(self) -> str:
         """Get user's display name."""
         if self.usr_firstname and self.usr_lastname:
@@ -476,6 +708,21 @@ class RoleLookup(BaseModel):
 
     @computed_field
     @property
+    def id(self) -> int:
+        return self.rol_id
+
+    @computed_field
+    @property
+    def name(self) -> str:
+        return self.rol_name
+
+    @computed_field
+    @property
+    def isActive(self) -> bool:
+        return self.rol_active
+
+    @computed_field
+    @property
     def display_name(self) -> str:
         """Get role display name."""
         return self.rol_name
@@ -488,6 +735,21 @@ class CivilityLookup(BaseModel):
     civ_id: int = Field(..., description="Civility ID")
     civ_designation: str = Field(..., description="Civility designation")
     civ_active: bool = Field(..., description="Is active")
+
+    @computed_field
+    @property
+    def id(self) -> int:
+        return self.civ_id
+
+    @computed_field
+    @property
+    def designation(self) -> str:
+        return self.civ_designation
+
+    @computed_field
+    @property
+    def isActive(self) -> bool:
+        return self.civ_active
 
     @computed_field
     @property

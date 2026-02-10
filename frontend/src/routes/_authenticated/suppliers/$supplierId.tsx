@@ -11,10 +11,12 @@ import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
 import { DataTable, Column } from '@/components/ui/data-table'
 import { SupplierForm } from '@/components/features/suppliers/SupplierForm'
-import { useSupplier, useUpdateSupplier, useDeleteSupplier, useSupplierContacts } from '@/hooks/useSuppliers'
-import { useSupplierPrices, useSupplierProducts } from '@/hooks/usePricing'
-import type { SupplierCreateDto } from '@/types/supplier'
-import type { SupplierProduct } from '@/types/pricing'
+import { SupplierContactModal } from '@/components/features/suppliers/SupplierContactModal'
+import { SupplierPriceModal } from '@/components/features/suppliers/SupplierPriceModal'
+import { useSupplier, useUpdateSupplier, useDeleteSupplier, useSupplierContacts, useCreateSupplierContact, useDeleteSupplierContact } from '@/hooks/useSuppliers'
+import { useSupplierPrices, useSupplierProducts, useCreateSupplierPrice, useDeleteSupplierPrice } from '@/hooks/usePricing'
+import type { SupplierCreateDto, SupplierContact } from '@/types/supplier'
+import type { SupplierProduct, SupplierProductPrice, SupplierProductPriceCreateDto } from '@/types/pricing'
 
 export const Route = createFileRoute('/_authenticated/suppliers/$supplierId')({
   component: SupplierDetailPage,
@@ -28,6 +30,10 @@ function SupplierDetailPage() {
 
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false)
+  const [isPriceModalOpen, setIsPriceModalOpen] = useState(false)
+  const [deleteContactTarget, setDeleteContactTarget] = useState<SupplierContact | null>(null)
+  const [deletePriceTarget, setDeletePriceTarget] = useState<SupplierProductPrice | null>(null)
   const [activeTab, setActiveTab] = useState<'details' | 'products'>('details')
 
   // Products tab state
@@ -49,6 +55,10 @@ function SupplierDetailPage() {
   const prices = pricesData?.data || []
   const updateMutation = useUpdateSupplier()
   const deleteMutation = useDeleteSupplier()
+  const createContactMutation = useCreateSupplierContact(Number(supplierId))
+  const deleteContactMutation = useDeleteSupplierContact(Number(supplierId))
+  const createPriceMutation = useCreateSupplierPrice(Number(supplierId))
+  const deletePriceMutation = useDeleteSupplierPrice(Number(supplierId))
 
   const handleUpdate = async (data: SupplierCreateDto) => {
     try {
@@ -67,6 +77,72 @@ function SupplierDetailPage() {
       navigate({ to: '/suppliers' })
     } catch (err) {
       showError('Error', 'An error occurred while deleting the supplier.')
+    }
+  }
+
+  const handleCreateContact = async (data: Omit<SupplierContact, 'id' | 'supplierId'>) => {
+    try {
+      await createContactMutation.mutateAsync(data)
+      success(
+        t('suppliers.contactCreated', 'Contact added'),
+        t('suppliers.contactCreatedDescription', 'The contact has been added successfully.')
+      )
+      setIsContactModalOpen(false)
+    } catch (err) {
+      showError(
+        t('common.error', 'Error'),
+        t('suppliers.contactCreateError', 'An error occurred while adding the contact.')
+      )
+    }
+  }
+
+  const handleDeleteContact = async () => {
+    if (!deleteContactTarget) return
+    try {
+      await deleteContactMutation.mutateAsync(deleteContactTarget.id)
+      success(
+        t('suppliers.contactDeleted', 'Contact removed'),
+        t('suppliers.contactDeletedDescription', 'The contact has been removed successfully.')
+      )
+      setDeleteContactTarget(null)
+    } catch (err) {
+      showError(
+        t('common.error', 'Error'),
+        t('suppliers.contactDeleteError', 'An error occurred while removing the contact.')
+      )
+    }
+  }
+
+  const handleCreatePrice = async (data: SupplierProductPriceCreateDto) => {
+    try {
+      await createPriceMutation.mutateAsync(data)
+      success(
+        t('pricing.priceCreated', 'Price added'),
+        t('pricing.priceCreatedDescription', 'The product price has been added successfully.')
+      )
+      setIsPriceModalOpen(false)
+    } catch (err) {
+      showError(
+        t('common.error', 'Error'),
+        t('pricing.priceCreateError', 'An error occurred while adding the price.')
+      )
+    }
+  }
+
+  const handleDeletePrice = async () => {
+    if (!deletePriceTarget) return
+    try {
+      await deletePriceMutation.mutateAsync(deletePriceTarget.id)
+      success(
+        t('pricing.priceDeleted', 'Price removed'),
+        t('pricing.priceDeletedDescription', 'The product price has been removed successfully.')
+      )
+      setDeletePriceTarget(null)
+    } catch (err) {
+      showError(
+        t('common.error', 'Error'),
+        t('pricing.priceDeleteError', 'An error occurred while removing the price.')
+      )
     }
   }
 
@@ -291,8 +367,14 @@ function SupplierDetailPage() {
             <CardHeader
               title={t('suppliers.contacts', 'Contacts')}
               action={
-                <button className="text-sm text-primary hover:text-primary/80 transition-colors">
-                  + {t('common.add', 'Add')}
+                <button
+                  onClick={() => setIsContactModalOpen(true)}
+                  className="text-sm text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  {t('common.add', 'Add')}
                 </button>
               }
             />
@@ -321,6 +403,15 @@ function SupplierDetailPage() {
                           </a>
                         )}
                       </div>
+                      <button
+                        onClick={() => setDeleteContactTarget(contact)}
+                        className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0"
+                        title={t('common.delete', 'Delete')}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -333,8 +424,14 @@ function SupplierDetailPage() {
             <CardHeader
               title={t('pricing.productPrices')}
               action={
-                <button className="text-sm text-primary hover:text-primary/80 transition-colors">
-                  + {t('pricing.addPrice')}
+                <button
+                  onClick={() => setIsPriceModalOpen(true)}
+                  className="text-sm text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  {t('pricing.addPrice')}
                 </button>
               }
             />
@@ -361,13 +458,24 @@ function SupplierDetailPage() {
                           {price.leadTimeDays ? `${price.leadTimeDays} ${t('pricing.days')}` : ''}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-foreground">
-                          {price.currencyCode || '€'}{price.unitCost.toFixed(2)}
-                        </p>
-                        {price.discountPercent && price.discountPercent > 0 && (
-                          <p className="text-xs text-green-600">-{price.discountPercent}%</p>
-                        )}
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-foreground">
+                            {price.currencyCode || '\u20AC'}{price.unitCost.toFixed(2)}
+                          </p>
+                          {price.discountPercent && price.discountPercent > 0 && (
+                            <p className="text-xs text-green-600">-{price.discountPercent}%</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setDeletePriceTarget(price)}
+                          className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0"
+                          title={t('common.delete', 'Delete')}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -425,6 +533,41 @@ function SupplierDetailPage() {
         onConfirm={handleDelete}
         itemName={supplier.companyName}
         isLoading={deleteMutation.isPending}
+      />
+
+      {/* Add Contact Modal */}
+      <SupplierContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+        onSubmit={handleCreateContact}
+        isSubmitting={createContactMutation.isPending}
+      />
+
+      {/* Delete Contact Confirmation */}
+      <DeleteConfirmDialog
+        isOpen={!!deleteContactTarget}
+        onClose={() => setDeleteContactTarget(null)}
+        onConfirm={handleDeleteContact}
+        itemName={deleteContactTarget ? `${deleteContactTarget.firstName} ${deleteContactTarget.lastName}` : t('suppliers.contact', 'contact')}
+        isLoading={deleteContactMutation.isPending}
+      />
+
+      {/* Add Price Modal */}
+      <SupplierPriceModal
+        isOpen={isPriceModalOpen}
+        onClose={() => setIsPriceModalOpen(false)}
+        onSubmit={handleCreatePrice}
+        supplierId={Number(supplierId)}
+        isSubmitting={createPriceMutation.isPending}
+      />
+
+      {/* Delete Price Confirmation */}
+      <DeleteConfirmDialog
+        isOpen={!!deletePriceTarget}
+        onClose={() => setDeletePriceTarget(null)}
+        onConfirm={handleDeletePrice}
+        itemName={deletePriceTarget?.productName || t('pricing.price', 'price')}
+        isLoading={deletePriceMutation.isPending}
       />
     </PageContainer>
   )
