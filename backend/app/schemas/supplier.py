@@ -375,48 +375,48 @@ class SupplierListResponse(BaseModel):
 
 class SupplierContactBase(BaseModel):
     """Base schema for SupplierContact."""
-    sco_first_name: str = Field(
+    sco_firstname: str = Field(
         ...,
         min_length=1,
-        max_length=50,
+        max_length=200,
         description="Contact first name"
     )
-    sco_last_name: str = Field(
+    sco_lastname: str = Field(
         ...,
         min_length=1,
-        max_length=50,
+        max_length=200,
         description="Contact last name"
+    )
+    civ_id: int = Field(
+        ...,
+        description="Civility ID"
     )
     sco_email: Optional[str] = Field(
         None,
         max_length=100,
         description="Email address"
     )
-    sco_phone: Optional[str] = Field(
+    sco_tel1: Optional[str] = Field(
         None,
-        max_length=30,
+        max_length=100,
         description="Phone number"
     )
-    sco_mobile: Optional[str] = Field(
+    sco_tel2: Optional[str] = Field(
         None,
-        max_length=30,
+        max_length=100,
+        description="Secondary phone"
+    )
+    sco_cellphone: Optional[str] = Field(
+        None,
+        max_length=100,
         description="Mobile phone number"
     )
-    sco_job_title: Optional[str] = Field(
+    sco_fax: Optional[str] = Field(
         None,
         max_length=100,
-        description="Job title"
+        description="Fax number"
     )
-    sco_department: Optional[str] = Field(
-        None,
-        max_length=100,
-        description="Department"
-    )
-    sco_is_primary: bool = Field(
-        False,
-        description="Whether this is the primary contact"
-    )
-    sco_notes: Optional[str] = Field(
+    sco_comment: Optional[str] = Field(
         None,
         description="Notes about the contact"
     )
@@ -424,7 +424,7 @@ class SupplierContactBase(BaseModel):
 
 class SupplierContactCreate(SupplierContactBase):
     """Schema for creating a SupplierContact."""
-    sco_sup_id: int = Field(
+    sup_id: int = Field(
         ...,
         description="Supplier ID (FK to TM_SUP_Supplier)"
     )
@@ -432,48 +432,48 @@ class SupplierContactCreate(SupplierContactBase):
 
 class SupplierContactUpdate(BaseModel):
     """Schema for updating a SupplierContact (all fields optional)."""
-    sco_first_name: Optional[str] = Field(
+    sco_firstname: Optional[str] = Field(
         None,
         min_length=1,
-        max_length=50,
+        max_length=200,
         description="Contact first name"
     )
-    sco_last_name: Optional[str] = Field(
+    sco_lastname: Optional[str] = Field(
         None,
         min_length=1,
-        max_length=50,
+        max_length=200,
         description="Contact last name"
+    )
+    civ_id: Optional[int] = Field(
+        None,
+        description="Civility ID"
     )
     sco_email: Optional[str] = Field(
         None,
         max_length=100,
         description="Email address"
     )
-    sco_phone: Optional[str] = Field(
+    sco_tel1: Optional[str] = Field(
         None,
-        max_length=30,
+        max_length=100,
         description="Phone number"
     )
-    sco_mobile: Optional[str] = Field(
+    sco_tel2: Optional[str] = Field(
         None,
-        max_length=30,
+        max_length=100,
+        description="Secondary phone"
+    )
+    sco_cellphone: Optional[str] = Field(
+        None,
+        max_length=100,
         description="Mobile phone number"
     )
-    sco_job_title: Optional[str] = Field(
+    sco_fax: Optional[str] = Field(
         None,
         max_length=100,
-        description="Job title"
+        description="Fax number"
     )
-    sco_department: Optional[str] = Field(
-        None,
-        max_length=100,
-        description="Department"
-    )
-    sco_is_primary: Optional[bool] = Field(
-        None,
-        description="Whether this is the primary contact"
-    )
-    sco_notes: Optional[str] = Field(
+    sco_comment: Optional[str] = Field(
         None,
         description="Notes about the contact"
     )
@@ -484,13 +484,13 @@ class SupplierContactResponse(SupplierContactBase):
     model_config = ConfigDict(from_attributes=True)
 
     sco_id: int = Field(..., description="Contact ID")
-    sco_sup_id: int = Field(..., description="Supplier ID")
+    sup_id: int = Field(..., description="Supplier ID")
 
     @computed_field
     @property
     def full_name(self) -> str:
         """Get contact's full name."""
-        return f"{self.sco_first_name} {self.sco_last_name}"
+        return f"{self.sco_firstname} {self.sco_lastname}"
 
 
 class SupplierContactListResponse(BaseModel):
@@ -498,19 +498,17 @@ class SupplierContactListResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     sco_id: int = Field(..., description="Contact ID")
-    sco_sup_id: int = Field(..., description="Supplier ID")
-    sco_first_name: str = Field(..., description="First name")
-    sco_last_name: str = Field(..., description="Last name")
+    sup_id: int = Field(..., description="Supplier ID")
+    sco_firstname: str = Field(..., description="First name")
+    sco_lastname: str = Field(..., description="Last name")
     sco_email: Optional[str] = Field(None, description="Email address")
-    sco_phone: Optional[str] = Field(None, description="Phone number")
-    sco_job_title: Optional[str] = Field(None, description="Job title")
-    sco_is_primary: bool = Field(..., description="Whether primary contact")
+    sco_tel1: Optional[str] = Field(None, description="Phone number")
 
     @computed_field
     @property
     def full_name(self) -> str:
         """Get contact's full name."""
-        return f"{self.sco_first_name} {self.sco_last_name}"
+        return f"{self.sco_firstname} {self.sco_lastname}"
 
 
 # ==========================================================================
