@@ -336,6 +336,8 @@ async def create_delivery(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create delivery form"
         )
+    # Invalidate list caches (new record affects all lists)
+    await cache_service.invalidate_entity_lists(CacheKeys.DELIVERY)
     return result
 
 
@@ -351,9 +353,22 @@ async def search_deliveries(
     page_size: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
     sort_by: str = Query("dfo_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
     db: Session = Depends(get_db)
 ):
-    """Search and list delivery forms with pagination."""
+    """Search and list delivery forms with pagination. Cached until data changes."""
+    # Build cache params
+    cache_params = {
+        "page": page, "page_size": page_size, "search": search,
+        "client_id": client_id, "sort_by": sort_by, "sort_order": sort_order
+    }
+
+    # Try cache first
+    if not bypass_cache:
+        cached = await cache_service.get_list(CacheKeys.DELIVERY, cache_params)
+        if cached is not None:
+            return cached
+
     rows, total = await asyncio.to_thread(
         _sync_list_deliveries, db, page, page_size, search, client_id, sort_by, sort_order
     )
@@ -392,7 +407,7 @@ async def search_deliveries(
 
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
 
-    return {
+    result = {
         "success": True,
         "data": items,
         "page": page,
@@ -402,6 +417,11 @@ async def search_deliveries(
         "hasNextPage": page < total_pages,
         "hasPreviousPage": page > 1,
     }
+
+    # Cache the result (invalidated when any delivery changes)
+    await cache_service.set_list(CacheKeys.DELIVERY, cache_params, result)
+
+    return result
 
 
 @router.get(

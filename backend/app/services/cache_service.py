@@ -70,6 +70,8 @@ class CacheKeys:
     QUOTE = "quote"
     PRODUCT = "product"
     SUPPLIER = "supplier"
+    PURCHASE_INTENT = "purchase_intent"
+    SUPPLIER_ORDER = "supplier_order"
 
 
 class CacheService:
@@ -210,16 +212,16 @@ class CacheService:
         entity: str,
         params: dict,
         data: Any,
-        ttl: int = CacheTTL.MEDIUM
+        ttl: int = CacheTTL.FOREVER
     ) -> bool:
         """
-        Cache a list result.
+        Cache a list result (indefinitely until invalidated).
 
         Args:
             entity: Entity type
             params: Query parameters used (for cache key)
             data: List data to cache
-            ttl: Time-to-live (shorter than detail, as lists change frequently)
+            ttl: Safety-net TTL (default 24 hours, invalidated on any entity change)
         """
         param_hash = self._hash_params(params)
         cache_key = f"{entity}:list:{param_hash}"

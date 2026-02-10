@@ -48,6 +48,7 @@ from app.schemas.supplier_product_price import (
     SupplierProductPriceAPIResponse, SupplierProductListPaginatedResponse,
     SupplierProductResponse, BestSupplierPriceResponse
 )
+from app.services.cache_service import cache_service, CacheKeys
 
 router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
 
@@ -125,6 +126,8 @@ async def create_supplier(
     """Create a new supplier."""
     try:
         supplier = await service.create_supplier(data)
+        # Invalidate list caches (new record affects all lists)
+        await cache_service.invalidate_entity_lists(CacheKeys.SUPPLIER)
         return supplier
     except SupplierServiceError as e:
         raise handle_supplier_error(e)
@@ -167,13 +170,30 @@ async def list_suppliers(
     is_blocked: Optional[bool] = Query(None, description="Filter by blocked status"),
     country: Optional[str] = Query(None, max_length=200, description="Filter by country"),
     city: Optional[str] = Query(None, max_length=200, description="Filter by city"),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
     service: SupplierService = Depends(get_supplier_service)
 ):
-    """List all suppliers with pagination and filtering."""
+    """List all suppliers with pagination and filtering. Cached until data changes."""
+    # Build cache params
+    cache_params = {
+        "page": page, "pageSize": pageSize, "skip": skip, "limit": limit,
+        "sortBy": sortBy, "sortOrder": sortOrder, "search": search,
+        "society_id": society_id, "supplier_type_id": supplier_type_id,
+        "payment_condition_id": payment_condition_id, "payment_mode_id": payment_mode_id,
+        "currency_id": currency_id, "is_active": is_active, "is_blocked": is_blocked,
+        "country": country, "city": city
+    }
+
+    # Try cache first
+    if not bypass_cache:
+        cached = await cache_service.get_list(CacheKeys.SUPPLIER, cache_params)
+        if cached is not None:
+            return cached
+
     # Convert page/pageSize to skip/limit if not using legacy params
     actual_skip = skip if skip is not None else (page - 1) * pageSize
     actual_limit = limit if limit is not None else pageSize
-    
+
     search_params = SupplierSearchParams(
         search=search,
         society_id=society_id,
@@ -220,7 +240,7 @@ async def list_suppliers(
             "updatedAt": s.sup_d_update.isoformat() if s.sup_d_update else None,
         })
 
-    return {
+    result = {
         "success": True,
         "data": items,
         "page": page,
@@ -230,6 +250,11 @@ async def list_suppliers(
         "hasNextPage": has_next,
         "hasPreviousPage": has_previous,
     }
+
+    # Cache the result (invalidated when any supplier changes)
+    await cache_service.set_list(CacheKeys.SUPPLIER, cache_params, result)
+
+    return result
 
 
 @router.get(
@@ -345,6 +370,8 @@ async def update_supplier(
     """Update an existing supplier."""
     try:
         supplier = await service.update_supplier(supplier_id, data)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.SUPPLIER, supplier_id)
         return supplier
     except SupplierServiceError as e:
         raise handle_supplier_error(e)
@@ -368,6 +395,8 @@ async def delete_supplier(
     """Soft delete a supplier."""
     try:
         await service.delete_supplier(supplier_id)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.SUPPLIER, supplier_id)
     except SupplierServiceError as e:
         raise handle_supplier_error(e)
 
@@ -390,6 +419,8 @@ async def hard_delete_supplier(
     """Permanently delete a supplier."""
     try:
         await service.hard_delete_supplier(supplier_id)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.SUPPLIER, supplier_id)
     except SupplierServiceError as e:
         raise handle_supplier_error(e)
 
@@ -429,6 +460,8 @@ async def activate_supplier(
     """Activate a supplier."""
     try:
         supplier = await service.activate_supplier(supplier_id)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.SUPPLIER, supplier_id)
         return supplier
     except SupplierServiceError as e:
         raise handle_supplier_error(e)
@@ -447,6 +480,8 @@ async def deactivate_supplier(
     """Deactivate a supplier."""
     try:
         supplier = await service.deactivate_supplier(supplier_id)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.SUPPLIER, supplier_id)
         return supplier
     except SupplierServiceError as e:
         raise handle_supplier_error(e)

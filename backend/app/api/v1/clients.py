@@ -202,9 +202,29 @@ async def list_clients(
     business_unit_id: Optional[int] = Query(None, description="Filter by business unit ID"),
     society_id: Optional[int] = Query(None, description="Filter by society ID"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
     service: ClientService = Depends(get_client_service)
 ):
-    """List all clients with pagination and filtering."""
+    """List all clients with pagination and filtering. Cached until data changes."""
+    # Build cache params
+    cache_params = {
+        "page": page,
+        "pageSize": pageSize,
+        "search": search,
+        "status_id": status_id,
+        "client_type_id": client_type_id,
+        "country_id": country_id,
+        "business_unit_id": business_unit_id,
+        "society_id": society_id,
+        "is_active": is_active
+    }
+
+    # Try cache first
+    if not bypass_cache:
+        cached = await cache_service.get_list(CacheKeys.CLIENT, cache_params)
+        if cached is not None:
+            return cached
+
     search_params = ClientSearchParams(
         search=search,
         status_id=status_id,
@@ -230,7 +250,7 @@ async def list_clients(
     has_next = page < total_pages
     has_previous = page > 1
 
-    return ClientListPaginatedResponse(
+    result = ClientListPaginatedResponse(
         success=True,
         data=[ClientListResponse.model_validate(c) for c in clients],
         page=page,
@@ -240,6 +260,11 @@ async def list_clients(
         hasNextPage=has_next,
         hasPreviousPage=has_previous
     )
+
+    # Cache the result (invalidated when any client changes)
+    await cache_service.set_list(CacheKeys.CLIENT, cache_params, result.model_dump())
+
+    return result
 
 
 @router.get(

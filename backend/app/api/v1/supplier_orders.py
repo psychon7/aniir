@@ -49,6 +49,7 @@ from app.schemas.supplier_payment import (
     SupplierPaymentUpdate,
     SupplierPaymentResponse,
 )
+from app.services.cache_service import cache_service, CacheKeys
 
 router = APIRouter(prefix="/supplier-orders", tags=["Supplier Orders"])
 
@@ -315,6 +316,8 @@ async def create_supplier_order(
     """Create a new supplier order."""
     try:
         order = await service.create_order(data)
+        # Invalidate list caches (new record affects all lists)
+        await cache_service.invalidate_entity_lists(CacheKeys.SUPPLIER_ORDER)
         return order
     except SupplierOrderServiceError as e:
         raise handle_supplier_order_error(e)
@@ -331,9 +334,22 @@ async def list_supplier_orders(
     supplier_id: Optional[int] = Query(None, alias="supplierId"),
     is_started: Optional[bool] = Query(None, alias="isStarted"),
     is_canceled: Optional[bool] = Query(None, alias="isCanceled"),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
     db: Session = Depends(get_db),
 ):
-    """List all supplier orders with pagination and filtering."""
+    """List all supplier orders with pagination and filtering. Cached until data changes."""
+    # Build cache params
+    cache_params = {
+        "page": page, "pageSize": pageSize, "search": search,
+        "supplier_id": supplier_id, "is_started": is_started, "is_canceled": is_canceled
+    }
+
+    # Try cache first
+    if not bypass_cache:
+        cached = await cache_service.get_list(CacheKeys.SUPPLIER_ORDER, cache_params)
+        if cached is not None:
+            return cached
+
     rows, total = await asyncio.to_thread(
         _sync_list_supplier_orders, db, page, pageSize, search, supplier_id, is_started, is_canceled
     )
@@ -360,7 +376,7 @@ async def list_supplier_orders(
 
     total_pages = (total + pageSize - 1) // pageSize if total > 0 else 0
 
-    return {
+    result = {
         "success": True,
         "data": items,
         "page": page,
@@ -370,6 +386,11 @@ async def list_supplier_orders(
         "hasNextPage": page < total_pages,
         "hasPreviousPage": page > 1,
     }
+
+    # Cache the result (invalidated when any supplier order changes)
+    await cache_service.set_list(CacheKeys.SUPPLIER_ORDER, cache_params, result)
+
+    return result
 
 
 @router.get(
@@ -402,6 +423,8 @@ async def update_supplier_order(
     """Update an existing supplier order."""
     try:
         order = await service.update_order(order_id, data)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.SUPPLIER_ORDER, order_id)
         return order
     except SupplierOrderServiceError as e:
         raise handle_supplier_order_error(e)
@@ -419,6 +442,8 @@ async def delete_supplier_order(
     """Soft delete (cancel) a supplier order."""
     try:
         await service.delete_order(order_id)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.SUPPLIER_ORDER, order_id)
     except SupplierOrderServiceError as e:
         raise handle_supplier_order_error(e)
 
@@ -435,6 +460,8 @@ async def hard_delete_supplier_order(
     """Permanently delete a supplier order."""
     try:
         await service.permanent_delete_order(order_id)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.SUPPLIER_ORDER, order_id)
     except SupplierOrderServiceError as e:
         raise handle_supplier_order_error(e)
 
@@ -514,6 +541,8 @@ async def confirm_supplier_order(
     try:
         notes = data.notes if data else None
         order = await service.confirm_order(order_id, notes)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.SUPPLIER_ORDER, order_id)
         return ConfirmSupplierOrderResponse(
             success=True,
             orderId=order.sod_id,
@@ -537,6 +566,8 @@ async def cancel_supplier_order(
     """Cancel a supplier order."""
     try:
         order = await service.cancel_order(order_id, data.reason)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.SUPPLIER_ORDER, order_id)
         return CancelSupplierOrderResponse(
             success=True,
             orderId=order.sod_id,

@@ -833,10 +833,25 @@ async def list_invoices(
     order_id: Optional[int] = Query(None, description="Filter by order ID"),
     sort_by: str = Query("cin_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
     db: Session = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    """List invoices with pagination."""
+    """List invoices with pagination. Cached until data changes."""
+    # Build cache params (include user for row-level security)
+    cache_params = {
+        "page": page, "page_size": page_size, "search": search,
+        "client_id": client_id, "project_id": project_id, "order_id": order_id,
+        "sort_by": sort_by, "sort_order": sort_order,
+        "user_id": current_user.usr_id if current_user else None
+    }
+
+    # Try cache first
+    if not bypass_cache:
+        cached = await cache_service.get_list(CacheKeys.INVOICE, cache_params)
+        if cached is not None:
+            return cached
+
     rows, total = await asyncio.to_thread(
         _sync_list_invoices,
         db,
@@ -880,7 +895,7 @@ async def list_invoices(
 
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
 
-    return {
+    result = {
         "success": True,
         "data": items,
         "page": page,
@@ -890,6 +905,11 @@ async def list_invoices(
         "hasNextPage": page < total_pages,
         "hasPreviousPage": page > 1,
     }
+
+    # Cache the result (invalidated when any invoice changes)
+    await cache_service.set_list(CacheKeys.INVOICE, cache_params, result)
+
+    return result
 
 
 @router.post(
@@ -916,6 +936,8 @@ async def create_invoice(
 
     try:
         invoice = await service.create_invoice(data, created_by=None)  # TODO: current_user_id
+        # Invalidate list caches (new record affects all lists)
+        await cache_service.invalidate_entity_lists(CacheKeys.INVOICE)
         return invoice
     except InvoiceServiceError as e:
         raise handle_invoice_error(e)
@@ -966,6 +988,9 @@ async def create_invoice_from_order(
 
     if not invoice:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
+
+    # Invalidate list caches (new record affects all lists)
+    await cache_service.invalidate_entity_lists(CacheKeys.INVOICE)
 
     return CreateInvoiceFromOrderResponse(
         success=True,

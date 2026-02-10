@@ -30,6 +30,7 @@ from app.schemas.purchase_intent import (
     PurchaseIntentLineCreate, PurchaseIntentLineUpdate, PurchaseIntentLineResponse,
     ConvertToSupplierOrderRequest, ConvertToSupplierOrderResponse,
 )
+from app.services.cache_service import cache_service, CacheKeys
 
 router = APIRouter(prefix="/purchase-intents", tags=["Purchase Intents"])
 
@@ -84,6 +85,8 @@ async def create_purchase_intent(
     """Create a new purchase intent."""
     try:
         purchase_intent = await service.create_purchase_intent(data)
+        # Invalidate list caches (new record affects all lists)
+        await cache_service.invalidate_entity_lists(CacheKeys.PURCHASE_INTENT)
         return purchase_intent
     except PurchaseIntentServiceError as e:
         raise handle_purchase_intent_error(e)
@@ -115,9 +118,23 @@ async def list_purchase_intents(
     society_id: Optional[int] = Query(None, alias="societyId", description="Filter by society ID"),
     creator_id: Optional[int] = Query(None, alias="creatorId", description="Filter by creator user ID"),
     is_closed: Optional[bool] = Query(None, alias="isClosed", description="Filter by closed status"),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
     service: PurchaseIntentService = Depends(get_purchase_intent_service)
 ):
-    """List all purchase intents with pagination and filtering."""
+    """List all purchase intents with pagination and filtering. Cached until data changes."""
+    # Build cache params
+    cache_params = {
+        "page": page, "pageSize": pageSize, "skip": skip, "limit": limit,
+        "sortBy": sortBy, "sortOrder": sortOrder, "search": search,
+        "society_id": society_id, "creator_id": creator_id, "is_closed": is_closed
+    }
+
+    # Try cache first
+    if not bypass_cache:
+        cached = await cache_service.get_list(CacheKeys.PURCHASE_INTENT, cache_params)
+        if cached is not None:
+            return cached
+
     # Convert page/pageSize to skip/limit if not using legacy params
     actual_skip = skip if skip is not None else (page - 1) * pageSize
     actual_limit = limit if limit is not None else pageSize
@@ -140,7 +157,7 @@ async def list_purchase_intents(
     has_next = page < total_pages
     has_previous = page > 1
 
-    return PurchaseIntentListPaginatedResponse(
+    result = PurchaseIntentListPaginatedResponse(
         success=True,
         data=[PurchaseIntentListResponse.model_validate(pi) for pi in purchase_intents],
         page=page,
@@ -150,6 +167,11 @@ async def list_purchase_intents(
         hasNextPage=has_next,
         hasPreviousPage=has_previous
     )
+
+    # Cache the result (invalidated when any purchase intent changes)
+    await cache_service.set_list(CacheKeys.PURCHASE_INTENT, cache_params, result.model_dump())
+
+    return result
 
 
 @router.get(
@@ -208,6 +230,8 @@ async def update_purchase_intent(
     """Update an existing purchase intent."""
     try:
         purchase_intent = await service.update_purchase_intent(purchase_intent_id, data)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.PURCHASE_INTENT, purchase_intent_id)
         return purchase_intent
     except PurchaseIntentServiceError as e:
         raise handle_purchase_intent_error(e)
@@ -231,6 +255,8 @@ async def delete_purchase_intent(
     """Soft delete a purchase intent."""
     try:
         await service.delete_purchase_intent(purchase_intent_id)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.PURCHASE_INTENT, purchase_intent_id)
     except PurchaseIntentServiceError as e:
         raise handle_purchase_intent_error(e)
 
@@ -253,6 +279,8 @@ async def hard_delete_purchase_intent(
     """Permanently delete a purchase intent."""
     try:
         await service.permanent_delete_purchase_intent(purchase_intent_id)
+        # Invalidate detail and list caches
+        await cache_service.invalidate_entity(CacheKeys.PURCHASE_INTENT, purchase_intent_id)
     except PurchaseIntentServiceError as e:
         raise handle_purchase_intent_error(e)
 

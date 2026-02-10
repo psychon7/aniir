@@ -225,10 +225,25 @@ async def list_quotes(
     project_id: Optional[int] = Query(None, description="Filter by project ID"),
     sort_by: str = Query("cpl_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
     db: Session = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    """List quotes with pagination."""
+    """List quotes with pagination. Cached until data changes."""
+    # Build cache params (include user for row-level security)
+    cache_params = {
+        "page": page, "page_size": page_size, "search": search,
+        "client_id": client_id, "project_id": project_id,
+        "sort_by": sort_by, "sort_order": sort_order,
+        "user_id": current_user.usr_id if current_user else None
+    }
+
+    # Try cache first
+    if not bypass_cache:
+        cached = await cache_service.get_list(CacheKeys.QUOTE, cache_params)
+        if cached is not None:
+            return cached
+
     rows, total = await asyncio.to_thread(
         _sync_list_quotes, db, page, page_size, search, client_id, project_id, sort_by, sort_order, current_user
     )
@@ -251,7 +266,7 @@ async def list_quotes(
 
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
 
-    return {
+    result = {
         "success": True,
         "data": items,
         "page": page,
@@ -261,6 +276,11 @@ async def list_quotes(
         "hasNextPage": page < total_pages,
         "hasPreviousPage": page > 1,
     }
+
+    # Cache the result (invalidated when any quote changes)
+    await cache_service.set_list(CacheKeys.QUOTE, cache_params, result)
+
+    return result
 
 
 @router.post(
@@ -277,7 +297,10 @@ async def create_quote(
 ):
     """Create a new quote."""
     try:
-        return await service.create_quote(data, created_by=None)  # TODO: Pass current_user_id
+        quote = await service.create_quote(data, created_by=None)  # TODO: Pass current_user_id
+        # Invalidate list caches (new record affects all lists)
+        await cache_service.invalidate_entity_lists(CacheKeys.QUOTE)
+        return quote
     except QuoteServiceError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

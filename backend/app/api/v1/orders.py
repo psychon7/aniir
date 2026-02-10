@@ -695,10 +695,25 @@ async def list_orders(
     quote_id: Optional[int] = Query(None, description="Filter by quote/cost plan ID"),
     sort_by: str = Query("cod_d_creation", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache"),
     db: Session = Depends(get_db),
     current_user: Any = Depends(get_current_user),
 ):
-    """List orders with pagination."""
+    """List orders with pagination. Cached until data changes."""
+    # Build cache params (include user for row-level security)
+    cache_params = {
+        "page": page, "page_size": page_size, "search": search,
+        "client_id": client_id, "status_id": status_id, "project_id": project_id,
+        "quote_id": quote_id, "sort_by": sort_by, "sort_order": sort_order,
+        "user_id": current_user.usr_id if current_user else None
+    }
+
+    # Try cache first
+    if not bypass_cache:
+        cached = await cache_service.get_list(CacheKeys.ORDER, cache_params)
+        if cached is not None:
+            return cached
+
     rows, total = await asyncio.to_thread(
         _sync_list_orders, db, page, page_size, search, client_id, status_id, project_id, quote_id, sort_by, sort_order, current_user
     )
@@ -720,7 +735,7 @@ async def list_orders(
 
     total_pages = (total + page_size - 1) // page_size if total > 0 else 0
 
-    return {
+    result = {
         "success": True,
         "data": items,
         "page": page,
@@ -730,6 +745,11 @@ async def list_orders(
         "hasNextPage": page < total_pages,
         "hasPreviousPage": page > 1,
     }
+
+    # Cache the result (invalidated when any order changes)
+    await cache_service.set_list(CacheKeys.ORDER, cache_params, result)
+
+    return result
 
 
 @router.post(
@@ -745,6 +765,8 @@ async def create_order(
 ):
     """Create a new client order."""
     result = await asyncio.to_thread(_sync_create_order, db, data, current_user)
+    # Invalidate list caches (new record affects all lists)
+    await cache_service.invalidate_entity_lists(CacheKeys.ORDER)
     return result
 
 
