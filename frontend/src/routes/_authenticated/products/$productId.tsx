@@ -260,6 +260,19 @@ function ProductDetailPage() {
     updateComponentDraft(type, { componentProductId: '', quantity: '1', isRequired: type === 'DRIVER' })
   }
 
+  const openTechnicalSheetPdf = (mode: 'pdf-viewer' | 'pdf-download') => {
+    const safeReference = product.reference || productId
+    navigate({
+      to: '/accounting/export' as any,
+      search: {
+        mode,
+        source: `/products/${productId}/technical-sheet-pdf`,
+        title: `Technical Sheet ${safeReference}`,
+        filename: `technical-sheet-${safeReference}.pdf`,
+      } as any,
+    })
+  }
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -286,6 +299,12 @@ function ProductDetailPage() {
               entityId={Number(productId)}
               variant="outline"
             />
+            <button
+              onClick={() => openTechnicalSheetPdf('pdf-viewer')}
+              className="btn-secondary"
+            >
+              Technical Sheet
+            </button>
             <button
               onClick={() => setIsDeleteOpen(true)}
               className="btn-secondary text-destructive hover:bg-destructive/10"

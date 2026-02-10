@@ -26,7 +26,8 @@ from app.models.country import Country
 from app.models.language import Language
 from app.models.society import Society
 from app.models.business_unit import BusinessUnit
-from app.models.user import Civility
+from app.models.user import User, Civility
+from app.models.product import ProductInstance
 
 router = APIRouter(prefix="/lookup", tags=["Lookup (Frontend Alias)"])
 
@@ -369,6 +370,119 @@ async def get_supplier_types(
 ):
     """Get supplier types - frontend alias endpoint."""
     # Supplier types may not exist, return empty
+    return wrap_response([])
+
+
+# ==========================================================================
+# Legacy Parity Lookup Endpoints
+# ==========================================================================
+
+@router.get("/sub-commercials", summary="Get sub-commercial users")
+async def get_sub_commercials(
+    manager_id: Optional[int] = Query(None, description="Optional manager user ID"),
+    db: Session = Depends(get_db)
+):
+    """
+    Legacy parity endpoint for sub-commercial hierarchy lookup.
+
+    Approximates hierarchy with usr_creator_id when manager_id is provided.
+    """
+    try:
+        query = (
+            select(User)
+            .where(User.usr_is_actived == True)
+            .order_by(User.usr_firstname, User.usr_lastname)
+            .limit(500)
+        )
+        if manager_id:
+            query = query.where(User.usr_creator_id == manager_id)
+        users = db.execute(query).scalars().all()
+        return wrap_response([
+            {
+                "id": u.usr_id,
+                "name": " ".join(part for part in [u.usr_firstname, u.usr_lastname] if part).strip() or u.usr_login,
+                "login": u.usr_login,
+                "email": u.usr_email,
+                "managerId": u.usr_creator_id,
+            }
+            for u in users
+        ])
+    except Exception:
+        return wrap_response([])
+
+
+@router.get("/line-types", summary="Get document line types")
+async def get_line_types(
+    db: Session = Depends(get_db)
+):
+    """Legacy parity endpoint for line-type lookup."""
+    candidates = [
+        "SELECT TOP 100 ltp_id AS id, ltp_designation AS name FROM TR_LTP_Line_Type ORDER BY ltp_id",
+        "SELECT TOP 100 ltp_id AS id, ltp_name AS name FROM TR_LTP_Line_Type ORDER BY ltp_id",
+    ]
+    for sql in candidates:
+        try:
+            rows = db.execute(text(sql)).mappings().all()
+            if rows:
+                return wrap_response([{"id": int(r["id"]), "name": str(r["name"])} for r in rows])
+        except Exception:
+            continue
+
+    return wrap_response([
+        {"id": 1, "name": "Text"},
+        {"id": 2, "name": "Sale"},
+        {"id": 3, "name": "Description"},
+        {"id": 4, "name": "Variant"},
+        {"id": 5, "name": "Subtotal"},
+        {"id": 6, "name": "Total"},
+    ])
+
+
+@router.get("/product-instances/by-ref", summary="Get product instance by reference")
+async def get_product_instance_by_ref(
+    pit_ref: str = Query(..., min_length=1, description="Product instance reference"),
+    prd_id: Optional[int] = Query(None, gt=0, description="Optional product ID"),
+    db: Session = Depends(get_db)
+):
+    """Legacy parity endpoint equivalent to GetPitByRef(pitRef, prdId)."""
+    try:
+        query = select(ProductInstance).where(ProductInstance.pit_ref == pit_ref)
+        if prd_id:
+            query = query.where(ProductInstance.prd_id == prd_id)
+        instance = db.execute(query).scalars().first()
+        if not instance:
+            return wrap_response([])
+        return wrap_response([{
+            "id": instance.pit_id,
+            "productId": instance.prd_id,
+            "reference": instance.pit_ref,
+            "description": instance.pit_description,
+            "price": float(instance.pit_price or 0),
+            "purchasePrice": float(instance.pit_purchase_price or 0),
+            "inventoryThreshold": int(instance.pit_inventory_threshold or 0),
+        }])
+    except Exception:
+        return wrap_response([])
+
+
+@router.get("/communes/by-postcode", summary="Get commune/city suggestions by postcode")
+async def get_communes_by_postcode(
+    postcode: str = Query(..., min_length=2, max_length=20, description="Postal code"),
+    db: Session = Depends(get_db)
+):
+    """Legacy parity endpoint equivalent to GetAllCommuneNameByPostcode(postcode)."""
+    candidates = [
+        "SELECT TOP 20 cty_name AS name FROM TR_CTY_City WHERE cty_postcode = :postcode ORDER BY cty_name",
+        "SELECT TOP 20 com_name AS name FROM TR_COM_Commune WHERE com_postcode = :postcode ORDER BY com_name",
+        "SELECT TOP 20 cmt_name AS name FROM TR_CMT_Commune WHERE cmt_postcode = :postcode ORDER BY cmt_name",
+    ]
+    for sql in candidates:
+        try:
+            rows = db.execute(text(sql), {"postcode": postcode}).mappings().all()
+            if rows:
+                return wrap_response([{"name": str(r["name"])} for r in rows if r.get("name")])
+        except Exception:
+            continue
     return wrap_response([])
 
 

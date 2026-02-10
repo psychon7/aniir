@@ -397,6 +397,7 @@ class LandedCostService:
         total_freight = Decimal("0")
         total_customs = Decimal("0")
         total_insurance = Decimal("0")
+        total_local = Decimal("0")
         total_other = Decimal("0")
 
         for fc in lot.freight_costs:
@@ -408,18 +409,21 @@ class LandedCostService:
                 total_customs += amount
             elif cost_type == ModelFreightCostType.INSURANCE.value:
                 total_insurance += amount
+            elif cost_type == ModelFreightCostType.LOCAL.value:
+                total_local += amount
             else:
                 total_other += amount
 
-        total_cost = total_freight + total_customs + total_insurance + total_other
+        total_cost = total_freight + total_customs + total_insurance + total_local + total_other
 
         if total_cost <= 0:
             # Use lot-level cost totals as fallback
             total_freight = lot.lot_total_freight_cost or Decimal("0")
             total_customs = lot.lot_total_customs_cost or Decimal("0")
             total_insurance = lot.lot_total_insurance_cost or Decimal("0")
+            total_local = lot.lot_total_local_cost or Decimal("0")
             total_other = lot.lot_total_other_cost or Decimal("0")
-            total_cost = total_freight + total_customs + total_insurance + total_other
+            total_cost = total_freight + total_customs + total_insurance + total_local + total_other
 
         if total_cost <= 0:
             raise InsufficientDataError("No costs to allocate")
@@ -483,13 +487,16 @@ class LandedCostService:
             allocated_insurance = (total_insurance * share_decimal).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
+            allocated_local_item = (total_local * share_decimal).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
             allocated_other_item = (total_other * share_decimal).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
             )
 
             total_allocated = (
                 allocated_freight + allocated_customs +
-                allocated_insurance + allocated_other_item
+                allocated_insurance + allocated_local_item + allocated_other_item
             )
 
             qty = metrics["quantity"]
@@ -497,6 +504,20 @@ class LandedCostService:
             landed_cost_per_unit = (
                 unit_value + (total_allocated / qty if qty > 0 else Decimal("0"))
             ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            total_landed_cost_item = (metrics["value"] + total_allocated).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
+
+            # Persist allocation data on the lot item for downstream UI/reporting.
+            item.sli_allocated_freight = allocated_freight
+            item.sli_allocated_customs = allocated_customs
+            item.sli_allocated_insurance = allocated_insurance
+            item.sli_allocated_local = allocated_local_item
+            item.sli_allocated_other = allocated_other_item
+            item.sli_total_allocated_cost = total_allocated
+            item.sli_landed_cost_per_unit = landed_cost_per_unit
+            item.sli_total_landed_cost = total_landed_cost_item
+            item.sli_updated_at = datetime.utcnow()
 
             product_ref = product.prd_ref if product else (item.sli_sku or "")
             product_name = product.prd_name if product else (item.sli_description or "")
@@ -516,7 +537,7 @@ class LandedCostService:
                 allocated_freight=allocated_freight,
                 allocated_customs=allocated_customs,
                 allocated_insurance=allocated_insurance,
-                allocated_other=allocated_other_item,
+                allocated_other=allocated_local_item + allocated_other_item,
                 total_allocated=total_allocated,
                 landed_cost_per_unit=landed_cost_per_unit,
             ))
@@ -529,6 +550,7 @@ class LandedCostService:
             lcl_total_freight=total_freight,
             lcl_total_customs=total_customs,
             lcl_total_insurance=total_insurance,
+            lcl_total_local=total_local,
             lcl_total_other=total_other,
             lcl_total_allocated=total_cost,
             lcl_items_count=len(allocations),
@@ -538,6 +560,17 @@ class LandedCostService:
         self.db.add(log)
 
         # Mark lot allocation
+        lot.lot_total_items = len(lot.items)
+        lot.lot_total_quantity = sum(Decimal(str(i.sli_quantity or 0)) for i in lot.items)
+        lot.lot_total_weight_kg = sum(Decimal(str(i.sli_weight_kg or 0)) for i in lot.items)
+        lot.lot_total_volume_cbm = sum(Decimal(str(i.sli_volume_cbm or 0)) for i in lot.items)
+        lot.lot_total_value = sum(Decimal(str(i.sli_total_price or 0)) for i in lot.items)
+        lot.lot_total_freight_cost = total_freight
+        lot.lot_total_customs_cost = total_customs
+        lot.lot_total_insurance_cost = total_insurance
+        lot.lot_total_local_cost = total_local
+        lot.lot_total_other_cost = total_other
+        lot.lot_total_landed_cost = lot.lot_total_value + total_cost
         lot.lot_allocation_strategy = strategy.value
         lot.lot_allocation_completed = True
         lot.lot_allocation_date = datetime.utcnow()
@@ -595,8 +628,10 @@ class LandedCostService:
             "total_freight_cost": lot.lot_total_freight_cost,
             "total_customs_cost": lot.lot_total_customs_cost,
             "total_insurance_cost": lot.lot_total_insurance_cost,
+            "total_local_cost": lot.lot_total_local_cost,
             "total_other_cost": lot.lot_total_other_cost,
             "total_landed_cost": lot.lot_total_landed_cost,
+            "allocation_completed": lot.lot_allocation_completed,
             "items": items,
             "calculated_at": lot.lot_allocation_date,
         }

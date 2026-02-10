@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardContent } from '@/components/ui/layout/Card'
-import { StatusBadge } from '@/components/ui/Badge'
 import { LoadingSkeletonCard } from '@/components/ui/feedback/LoadingSkeleton'
 import { EmptyState } from '@/components/ui/feedback/EmptyState'
-import { useSupplyLots } from '@/hooks/useLandedCost'
+import { useToast } from '@/components/ui/feedback/Toast'
+import { FormInput } from '@/components/ui/form/FormInput'
+import { FormSelect } from '@/components/ui/form/FormSelect'
+import { FormModal, FormModalFooter } from '@/components/ui/form/FormModal'
+import { useSupplyLots, useCreateSupplyLot } from '@/hooks/useLandedCost'
+import { useSuppliers } from '@/hooks/useSuppliers'
 import type { SupplyLotSearchParams, LotStatus } from '@/types/landed-cost'
 import { LOT_STATUS_LABELS, LOT_STATUS_COLORS } from '@/types/landed-cost'
 import { cn } from '@/lib/utils'
@@ -18,14 +22,23 @@ export const Route = createFileRoute('/_authenticated/supply-lots/')({
 
 function SupplyLotsPage() {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
+  const { success, error: showError } = useToast()
   const [searchParams, setSearchParams] = useState<SupplyLotSearchParams>({
     page: 1,
     page_size: 20,
     sort_by: 'lot_created_at',
     sort_order: 'desc',
   })
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [newLotReference, setNewLotReference] = useState('')
+  const [newLotName, setNewLotName] = useState('')
+  const [newLotSupplierId, setNewLotSupplierId] = useState('')
 
   const { data, isLoading, error } = useSupplyLots(searchParams)
+  const createLotMutation = useCreateSupplyLot()
+  const { data: suppliersData } = useSuppliers({ page: 1, pageSize: 100 })
+  const suppliers = suppliersData?.data || []
 
   // Format currency helper
   const formatCurrency = (amount: number) => {
@@ -60,6 +73,38 @@ function SupplyLotsPage() {
 
   const handlePageChange = (newPage: number) => {
     setSearchParams((prev) => ({ ...prev, page: newPage }))
+  }
+
+  const openCreateModal = () => {
+    setIsCreateModalOpen(true)
+  }
+
+  const closeCreateModal = () => {
+    setIsCreateModalOpen(false)
+    setNewLotReference('')
+    setNewLotName('')
+    setNewLotSupplierId('')
+  }
+
+  const createSupplyLot = async () => {
+    const trimmedReference = newLotReference.trim()
+    if (!trimmedReference) {
+      showError('Validation', 'Supply lot reference is required.')
+      return
+    }
+
+    try {
+      const created = await createLotMutation.mutateAsync({
+        lot_reference: trimmedReference,
+        lot_name: newLotName.trim() || undefined,
+        lot_supplier_id: newLotSupplierId ? Number(newLotSupplierId) : undefined,
+      })
+      success('Supply Lot created', `Supply lot ${created.lot_reference} has been created.`)
+      closeCreateModal()
+      navigate({ to: '/supply-lots/$lotId', params: { lotId: String(created.lot_id) } })
+    } catch {
+      showError('Error', 'Unable to create supply lot.')
+    }
   }
 
   if (isLoading) {
@@ -105,12 +150,12 @@ function SupplyLotsPage() {
         title={t('supplyLots.title')}
         description={t('supplyLots.description')}
         actions={
-          <Link to="/supply-lots/new" className="btn-primary">
+          <button onClick={openCreateModal} className="btn-primary">
             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             {t('supplyLots.newSupplyLot')}
-          </Link>
+          </button>
         }
       />
 
@@ -129,12 +174,12 @@ function SupplyLotsPage() {
           title={t('supplyLots.noLotsFound')}
           description={t('supplyLots.createFirst')}
           action={
-            <Link to="/supply-lots/new" className="btn-primary">
+            <button onClick={openCreateModal} className="btn-primary">
               <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               {t('supplyLots.createSupplyLot')}
-            </Link>
+            </button>
           }
         />
       ) : (
@@ -253,6 +298,49 @@ function SupplyLotsPage() {
           )}
         </>
       )}
+
+      <FormModal
+        isOpen={isCreateModalOpen}
+        onClose={closeCreateModal}
+        title="Create Supply Lot"
+        description="Create a new lot to manage landed cost allocation."
+        footer={(
+          <FormModalFooter
+            onCancel={closeCreateModal}
+            onSubmit={createSupplyLot}
+            submitText="Create"
+            isSubmitting={createLotMutation.isPending}
+          />
+        )}
+      >
+        <div className="grid grid-cols-1 gap-4">
+          <FormInput
+            label="Reference"
+            value={newLotReference}
+            onChange={(event) => setNewLotReference(event.target.value)}
+            placeholder="LOT-2026-001"
+            required
+          />
+          <FormInput
+            label="Name (optional)"
+            value={newLotName}
+            onChange={(event) => setNewLotName(event.target.value)}
+            placeholder="Spring Container"
+          />
+          <FormSelect
+            label="Supplier (optional)"
+            value={newLotSupplierId}
+            onChange={(event) => setNewLotSupplierId(event.target.value)}
+            options={[
+              { value: '', label: 'No supplier' },
+              ...suppliers.map((supplier: any) => ({
+                value: String(supplier.id),
+                label: `${supplier.reference || `SUP-${supplier.id}`} - ${supplier.companyName || supplier.name || 'Supplier'}`,
+              })),
+            ]}
+          />
+        </div>
+      </FormModal>
     </PageContainer>
   )
 }

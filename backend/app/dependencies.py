@@ -16,7 +16,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2Pas
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import SessionLocal
+from app.database import SessionLocal, AsyncSessionWrapper
 
 logger = logging.getLogger(__name__)
 
@@ -49,14 +49,15 @@ def get_db() -> Generator[Session, None, None]:
 
 async def get_async_db():
     """
-    Async database session dependency placeholder.
-    For now, returns sync session wrapped for async compatibility.
+    Async database session dependency.
+    Returns sync session wrapped in AsyncSessionWrapper for async compatibility.
     """
     db = SessionLocal()
+    wrapper = AsyncSessionWrapper(db)
     try:
-        yield db
+        yield wrapper
     finally:
-        db.close()
+        await wrapper.close()
 
 
 # =============================================================================

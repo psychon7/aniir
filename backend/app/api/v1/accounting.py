@@ -7,6 +7,7 @@ Provides endpoints for:
 - Payment retrieval
 - Client unpaid invoices
 - Customer statements
+- Dashboard KPIs (cached)
 
 Uses synchronous Session with asyncio.to_thread() pattern.
 """
@@ -19,9 +20,10 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Path
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, desc, asc
 
 from app.database import get_db
+from app.services.cache_service import cache_service, CacheTTL, CacheKeys
 from app.services.accounting_service import AccountingService, get_accounting_service
 from app.services.payment_allocation_service import (
     PaymentAllocationService,
@@ -30,7 +32,7 @@ from app.services.payment_allocation_service import (
 )
 from app.models.client import Client
 from app.models.costplan import CostPlan
-from app.models.order import ClientOrderLine
+from app.models.order import ClientOrder, ClientOrderLine
 from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.models.invoice import ClientInvoice
 from app.models.logistics import Logistic
@@ -748,13 +750,130 @@ def _sync_dashboard_kpis(db: Session) -> dict:
     }
 
 
+def _sync_dashboard_backorders(db: Session, limit: int = 20) -> list[dict]:
+    """
+    Return top backorder (reliquat) lines where ordered quantity > delivered quantity.
+
+    Sorted by highest remaining quantity, then nearest expected delivery date.
+    """
+    delivered_qty_subq = (
+        select(
+            DeliveryFormLine.col_id.label("col_id"),
+            func.coalesce(func.sum(DeliveryFormLine.dfl_quantity), 0).label("delivered_qty"),
+        )
+        .where(DeliveryFormLine.col_id.is_not(None))
+        .group_by(DeliveryFormLine.col_id)
+        .subquery()
+    )
+
+    remaining_expr = (
+        func.coalesce(ClientOrderLine.col_quantity, 0) -
+        func.coalesce(delivered_qty_subq.c.delivered_qty, 0)
+    )
+
+    rows = db.execute(
+        select(
+            ClientOrder.cod_id.label("order_id"),
+            ClientOrder.cod_code.label("order_reference"),
+            Client.cli_company_name.label("client_name"),
+            ClientOrder.cod_d_pre_delivery_from.label("expected_delivery_date"),
+            ClientOrderLine.col_id.label("line_id"),
+            ClientOrderLine.col_ref.label("product_reference"),
+            ClientOrderLine.col_prd_name.label("product_name"),
+            ClientOrderLine.col_description.label("description"),
+            func.coalesce(ClientOrderLine.col_quantity, 0).label("ordered_quantity"),
+            func.coalesce(delivered_qty_subq.c.delivered_qty, 0).label("delivered_quantity"),
+            remaining_expr.label("remaining_quantity"),
+        )
+        .join(ClientOrder, ClientOrder.cod_id == ClientOrderLine.cod_id)
+        .outerjoin(Client, Client.cli_id == ClientOrder.cli_id)
+        .outerjoin(delivered_qty_subq, ClientOrderLine.col_id == delivered_qty_subq.c.col_id)
+        .where(remaining_expr > 0)
+        .order_by(
+            desc(remaining_expr),
+            asc(ClientOrder.cod_d_pre_delivery_from),
+            desc(ClientOrder.cod_d_creation),
+        )
+        .limit(limit)
+    ).all()
+
+    return [
+        {
+            "orderId": int(row.order_id),
+            "orderReference": row.order_reference or "",
+            "clientName": row.client_name or "",
+            "expectedDeliveryDate": row.expected_delivery_date.isoformat() if row.expected_delivery_date else None,
+            "lineId": int(row.line_id),
+            "productReference": row.product_reference or "",
+            "productName": row.product_name or "",
+            "description": row.description or "",
+            "orderedQuantity": float(row.ordered_quantity or 0),
+            "deliveredQuantity": float(row.delivered_quantity or 0),
+            "remainingQuantity": float(row.remaining_quantity or 0),
+        }
+        for row in rows
+    ]
+
+
 @router.get(
     "/dashboard/kpis",
     summary="Get dashboard KPI summary",
-    description="Returns legacy-style dashboard KPI counters for widgets.",
+    description="Returns legacy-style dashboard KPI counters for widgets. Results are cached for 60 seconds.",
 )
 async def get_dashboard_kpis(
     db: Session = Depends(get_db),
+    bypass_cache: bool = Query(False, description="Set to true to bypass cache and refresh data"),
 ):
-    """Get dashboard KPI summary used by the main dashboard widgets."""
-    return await asyncio.to_thread(_sync_dashboard_kpis, db)
+    """
+    Get dashboard KPI summary used by the main dashboard widgets.
+
+    Cached for 60 seconds to reduce database load.
+    Use bypass_cache=true to force refresh.
+    """
+    cache_key = f"{CacheKeys.DASHBOARD}:kpis"
+
+    # Try cache first (unless bypassing)
+    if not bypass_cache:
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            return cached
+
+    # Compute fresh KPIs
+    result = await asyncio.to_thread(_sync_dashboard_kpis, db)
+
+    # Cache the result
+    await cache_service.set(cache_key, result, CacheTTL.SHORT)
+
+    return result
+
+
+@router.get(
+    "/dashboard/backorders",
+    summary="Get dashboard backorder lines",
+    description="Returns reliquat/backorder lines with ordered vs delivered quantities.",
+)
+async def get_dashboard_backorders(
+    limit: int = Query(20, ge=1, le=200, description="Maximum number of backorder lines to return"),
+    db: Session = Depends(get_db),
+):
+    """
+    Get line-level backorder data for the dashboard reliquat widget.
+    """
+    items = await asyncio.to_thread(_sync_dashboard_backorders, db, limit)
+    return {
+        "generatedAt": datetime.utcnow().isoformat(),
+        "count": len(items),
+        "items": items,
+    }
+
+
+@router.post(
+    "/dashboard/kpis/invalidate",
+    summary="Invalidate dashboard KPI cache",
+    description="Force invalidation of the dashboard KPI cache.",
+)
+async def invalidate_dashboard_kpis_cache():
+    """Invalidate the dashboard KPI cache to force fresh data on next request."""
+    cache_key = f"{CacheKeys.DASHBOARD}:kpis"
+    await cache_service.delete(cache_key)
+    return {"success": True, "message": "Dashboard KPI cache invalidated"}

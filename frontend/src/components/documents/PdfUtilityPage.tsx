@@ -19,7 +19,9 @@ const ALLOWED_SOURCE_PATTERNS: RegExp[] = [
   /^\/quotes\/\d+\/pdf$/,
   /^\/orders\/\d+\/pdf$/,
   /^\/invoices\/\d+\/pdf$/,
+  /^\/invoices\/\d+\/inspection-form-pdf$/,
   /^\/deliveries\/\d+\/pdf$/,
+  /^\/products\/\d+\/technical-sheet-pdf$/,
   /^\/accounting\/clients\/\d+\/statement\/export\/pdf(\?.*)?$/,
   /^\/accounting\/clients\/\d+\/statement\/export\/bl-pdf(\?.*)?$/,
 ]
@@ -125,7 +127,7 @@ export function PdfUtilityPage({ mode, source, title, filename }: PdfUtilityPage
   return (
     <PageContainer>
       <PageHeader
-        title={mode === 'pdf-download' ? 'PageDownload' : 'PageForPDF'}
+        title={mode === 'pdf-download' ? 'PDF Download' : 'PDF Viewer'}
         description={normalizedTitle}
         actions={actions}
       />

@@ -180,6 +180,52 @@ export const lookupsApi = {
     return response.data.data
   },
 
+  async getSubCommercials(managerId?: number): Promise<KeyValue[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>('/lookup/sub-commercials', {
+      params: managerId ? { manager_id: managerId } : undefined,
+    })
+    return (response.data.data || []).map((row: any) => ({
+      key: Number(row.id),
+      value: row.name || row.login || `User ${row.id}`,
+      value2: row.email || '',
+      key2: row.managerId ?? undefined,
+    }))
+  },
+
+  async getLineTypes(): Promise<KeyValue[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>('/lookup/line-types')
+    return (response.data.data || []).map((row: any) => ({
+      key: Number(row.id),
+      value: row.name || `Type ${row.id}`,
+    }))
+  },
+
+  async getProductInstanceByRef(pitRef: string, productId?: number): Promise<KeyValue[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>('/lookup/product-instances/by-ref', {
+      params: {
+        pit_ref: pitRef,
+        prd_id: productId,
+      },
+    })
+    return (response.data.data || []).map((row: any) => ({
+      key: Number(row.id),
+      key2: Number(row.productId),
+      value: row.reference || '',
+      value2: row.description || '',
+      dcValue: row.price ?? undefined,
+    }))
+  },
+
+  async getCommunesByPostcode(postcode: string): Promise<KeyValue[]> {
+    const response = await apiClient.get<ApiResponse<any[]>>('/lookup/communes/by-postcode', {
+      params: { postcode },
+    })
+    return (response.data.data || []).map((row: any, index: number) => ({
+      key: index + 1,
+      value: row.name || '',
+    }))
+  },
+
   async getCarrierById(id: number): Promise<Carrier> {
     const response = await apiClient.get<ApiResponse<Carrier>>(`/lookup/carriers/${id}`)
     return response.data.data

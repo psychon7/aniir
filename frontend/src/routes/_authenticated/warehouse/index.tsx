@@ -6,9 +6,13 @@ import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { DataTable, Column } from '@/components/ui/data-table'
 import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
 import { useStock, useStockSummary } from '@/hooks/useWarehouse'
+import { Warehouse3DView } from '@/components/features/warehouse/Warehouse3DView'
 import type { StockListItem, StockSearchParams as StockParams } from '@/types/warehouse'
 
 export const Route = createFileRoute('/_authenticated/warehouse/')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    view: typeof search.view === 'string' ? search.view : undefined,
+  }),
   component: WarehousePage,
 })
 
@@ -25,6 +29,8 @@ interface LocalSearchParams {
 function WarehousePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const search = Route.useSearch()
+  const is3DView = search.view === '3d'
   const [searchParams, setSearchParams] = useState<LocalSearchParams>({
     page: 1,
     pageSize: 10,
@@ -150,22 +156,47 @@ function WarehousePage() {
       <Link to="/warehouse/movements" className="btn-secondary">
         {t('warehouse.viewMovements')}
       </Link>
+      <button
+        onClick={() => navigate({ to: '/warehouse', search: { view: '3d' } } as any)}
+        className="btn-secondary"
+      >
+        3D View
+      </button>
     </div>
   )
 
   // Calculate total pages from API response
   const totalPages = stockData ? Math.ceil(stockData.total / searchParams.pageSize) : 1
 
+  const headerActions = (
+    <div className="flex gap-2">
+      {is3DView ? (
+        <button
+          onClick={() => navigate({ to: '/warehouse', search: {} } as any)}
+          className="btn-secondary"
+        >
+          Table View
+        </button>
+      ) : (
+        <button
+          onClick={() => navigate({ to: '/warehouse', search: { view: '3d' } } as any)}
+          className="btn-secondary"
+        >
+          3D View
+        </button>
+      )}
+      <Link to="/warehouse/movements/new" className="btn-primary">
+        {t('warehouse.newMovement')}
+      </Link>
+    </div>
+  )
+
   return (
     <PageContainer>
       <PageHeader
-        title={t('warehouse.title')}
+        title={is3DView ? `${t('warehouse.title')} - 3D` : t('warehouse.title')}
         description={t('warehouse.manageDescription')}
-        actions={
-          <Link to="/warehouse/movements/new" className="btn-primary">
-            {t('warehouse.newMovement')}
-          </Link>
-        }
+        actions={headerActions}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -199,27 +230,31 @@ function WarehousePage() {
         </Card>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={stockData?.items || []}
-        keyField="stk_id"
-        isLoading={isLoading}
-        page={searchParams.page}
-        pageSize={searchParams.pageSize}
-        totalCount={stockData?.total || 0}
-        totalPages={totalPages}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
-        sortBy={searchParams.sortBy}
-        sortOrder={searchParams.sortOrder}
-        onSortChange={handleSortChange}
-        searchValue={searchParams.search}
-        onSearchChange={handleSearch}
-        searchPlaceholder={t('warehouse.searchProducts')}
-        filters={filters}
-        emptyMessage={t('warehouse.noStockItemsFound')}
-        emptyDescription={t('warehouse.createFirst')}
-      />
+      {is3DView ? (
+        <Warehouse3DView items={stockData?.items || []} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={stockData?.items || []}
+          keyField="stk_id"
+          isLoading={isLoading}
+          page={searchParams.page}
+          pageSize={searchParams.pageSize}
+          totalCount={stockData?.total || 0}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+          sortBy={searchParams.sortBy}
+          sortOrder={searchParams.sortOrder}
+          onSortChange={handleSortChange}
+          searchValue={searchParams.search}
+          onSearchChange={handleSearch}
+          searchPlaceholder={t('warehouse.searchProducts')}
+          filters={filters}
+          emptyMessage={t('warehouse.noStockItemsFound')}
+          emptyDescription={t('warehouse.createFirst')}
+        />
+      )}
     </PageContainer>
   )
 }

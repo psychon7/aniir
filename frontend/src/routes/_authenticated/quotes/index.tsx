@@ -7,7 +7,9 @@ import { DataTable, Column } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/Badge'
 import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
-import { useQuotes, useDeleteQuote } from '@/hooks/useQuotes'
+import { FormSelect } from '@/components/ui/form/FormSelect'
+import { useQuotes, useDeleteQuote, useChangeQuoteStatus } from '@/hooks/useQuotes'
+import { QuoteStatusLabels } from '@/types/quote'
 import type { QuoteListItem, QuoteSearchParams } from '@/types/quote'
 
 export const Route = createFileRoute('/_authenticated/quotes/')({
@@ -25,10 +27,13 @@ function QuotesPage() {
   })
 
   const [deletingQuote, setDeletingQuote] = useState<QuoteListItem | null>(null)
+  const [selectedQuotes, setSelectedQuotes] = useState<QuoteListItem[]>([])
+  const [bulkStatusId, setBulkStatusId] = useState('')
 
   // Data fetching with hooks
   const { data: quotesData, isLoading } = useQuotes(searchParams)
   const deleteMutation = useDeleteQuote()
+  const changeStatusMutation = useChangeQuoteStatus()
 
   const handleSearch = (search: string) => {
     setSearchParams((prev) => ({ ...prev, search, page: 1 }))
@@ -47,7 +52,7 @@ function QuotesPage() {
   }
 
   const handleRowClick = (quote: QuoteListItem) => {
-    navigate({ to: '/quotes/$quoteId' as any, params: { quoteId: String(quote.id) } })
+    navigate({ to: '/quotes/$quoteId' as any, params: { quoteId: String(quote.id) } } as any)
   }
 
   const handleConfirmDelete = async () => {
@@ -60,6 +65,50 @@ function QuotesPage() {
       showError(t('common.error'), t('quotes.deleteError'))
     }
   }
+
+  const handleBulkStatusApply = async () => {
+    if (!selectedQuotes.length || !bulkStatusId) return
+    try {
+      const result = await changeStatusMutation.mutateAsync({
+        quoteIds: selectedQuotes.map((quote) => quote.id),
+        statusId: Number(bulkStatusId),
+      })
+      success(
+        t('common.success'),
+        `${result.updatedCount} quote(s) updated${result.notFoundIds.length ? `, ${result.notFoundIds.length} skipped` : ''}.`
+      )
+      setSelectedQuotes([])
+      setBulkStatusId('')
+    } catch {
+      showError(t('common.error'), 'Unable to update selected quote statuses.')
+    }
+  }
+
+  const bulkStatusOptions = [
+    { value: '', label: 'Set status...' },
+    ...Object.entries(QuoteStatusLabels).map(([statusId, statusLabel]) => ({
+      value: statusId,
+      label: statusLabel,
+    })),
+  ]
+
+  const filters = (
+    <div className="flex items-center gap-2">
+      <FormSelect
+        value={bulkStatusId}
+        onChange={(e) => setBulkStatusId(e.target.value)}
+        options={bulkStatusOptions}
+        className="w-44"
+      />
+      <button
+        className="btn-secondary"
+        disabled={!selectedQuotes.length || !bulkStatusId || changeStatusMutation.isPending}
+        onClick={handleBulkStatusApply}
+      >
+        {changeStatusMutation.isPending ? 'Applying...' : 'Apply to Selected'}
+      </button>
+    </div>
+  )
 
   const columns = useMemo<Column<QuoteListItem>[]>(
     () => [
@@ -128,7 +177,7 @@ function QuotesPage() {
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                navigate({ to: '/quotes/$quoteId' as any, params: { quoteId: String(row.cplId) } })
+                navigate({ to: '/quotes/$quoteId' as any, params: { quoteId: String(row.id) } } as any)
               }}
               className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               title={t('common.view')}
@@ -181,7 +230,7 @@ function QuotesPage() {
       <DataTable
         columns={columns}
         data={quotesData?.data || []}
-        keyField="cplId"
+        keyField="id"
         isLoading={isLoading}
         page={searchParams.page || 1}
         pageSize={searchParams.pageSize || 10}
@@ -194,6 +243,9 @@ function QuotesPage() {
         onSearchChange={handleSearch}
         searchPlaceholder={t('quotes.searchPlaceholder')}
         onRowClick={handleRowClick}
+        selectedRows={selectedQuotes}
+        onSelectionChange={setSelectedQuotes}
+        filters={filters}
         emptyMessage={t('quotes.noQuotesFound')}
         emptyDescription={t('quotes.createFirst')}
       />

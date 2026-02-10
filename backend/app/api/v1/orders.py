@@ -16,6 +16,7 @@ from sqlalchemy import select, func, and_, desc, asc
 
 from app.database import get_db
 from app.models.order import ClientOrder, ClientOrderLine
+from app.models.delivery_form import DeliveryFormLine
 from app.models.client import Client
 from app.models.costplan import CostPlan, CostPlanLine
 from app.dependencies import get_current_user
@@ -173,9 +174,31 @@ class ConvertOrderToQuoteResponse(BaseModel):
     lines_converted: int
 
 
+class OrderLineReorderRequest(BaseModel):
+    """Reorder order lines by providing line IDs in the desired order."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    line_ids: List[int] = Field(default_factory=list, alias="lineIds")
+
+
+class OrderLineMergeRequest(BaseModel):
+    """Merge multiple order lines into one line."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    line_ids: List[int] = Field(default_factory=list, alias="lineIds")
+    keep_line_id: Optional[int] = Field(default=None, alias="keepLineId")
+
+
 # =============================================================================
 # Sync Database Helper
 # =============================================================================
+
+
+def _decimal_or_zero(value: Any) -> Decimal:
+    """Convert DB numeric values safely to Decimal."""
+    if value is None:
+        return Decimal("0")
+    return Decimal(str(value))
 
 
 def _sync_list_orders(
@@ -400,6 +423,17 @@ def _sync_get_order_detail(db: Session, order_id: int):
         if qr:
             quote_reference = qr.cpl_code
 
+    # Pre-aggregate delivered quantity per order line for reliquat/backorder visibility.
+    delivered_qty_subq = (
+        select(
+            DeliveryFormLine.col_id.label("col_id"),
+            func.coalesce(func.sum(DeliveryFormLine.dfl_quantity), 0).label("delivered_qty"),
+        )
+        .where(DeliveryFormLine.col_id.is_not(None))
+        .group_by(DeliveryFormLine.col_id)
+        .subquery()
+    )
+
     # Fetch lines
     lines_query = (
         select(
@@ -408,6 +442,7 @@ def _sync_get_order_detail(db: Session, order_id: int):
             ClientOrderLine.col_description,
             ClientOrderLine.col_ref,
             ClientOrderLine.col_quantity,
+            func.coalesce(delivered_qty_subq.c.delivered_qty, 0).label("delivered_quantity"),
             ClientOrderLine.col_unit_price,
             ClientOrderLine.col_total_price,
             ClientOrderLine.col_price_with_discount_ht,
@@ -415,7 +450,9 @@ def _sync_get_order_detail(db: Session, order_id: int):
             ClientOrderLine.col_discount_amount,
             ClientOrderLine.col_image_url,
         )
+        .outerjoin(delivered_qty_subq, ClientOrderLine.col_id == delivered_qty_subq.c.col_id)
         .where(ClientOrderLine.cod_id == order_id)
+        .order_by(func.coalesce(ClientOrderLine.col_level1, 999999), ClientOrderLine.col_id)
     )
     lines_result = db.execute(lines_query)
     line_rows = lines_result.all()
@@ -434,7 +471,7 @@ def _sync_get_order_detail(db: Session, order_id: int):
             "description": l.col_description or "",
             "productReference": l.col_ref or "",
             "quantity": float(l.col_quantity or 0),
-            "deliveredQuantity": 0,
+            "deliveredQuantity": float(l.delivered_quantity or 0),
             "unitPrice": float(l.col_unit_price or 0),
             "lineTotal": float(l.col_price_with_discount_ht or l.col_total_price or 0),
             "discountPercentage": float(l.col_discount_percentage or 0),
@@ -716,12 +753,12 @@ def _sync_convert_order_to_quote(db: Session, order_id: int):
             vat_id=line.vat_id,
             ltp_id=line.ltp_id,
             cln_prd_name=line.col_prd_name,
-            cln_ref=line.col_ref,
+            # cln_ref has no migration - not in database
+            cln_image_url=line.col_image_url,  # Added by migration V1.0.0.9
             cln_discount_percentage=line.col_discount_percentage,
             cln_discount_amount=line.col_discount_amount,
             cln_price_with_discount_ht=line.col_price_with_discount_ht,
             cln_margin=line.col_margin,
-            cln_image_url=line.col_image_url,
         )
         db.add(quote_line)
 
@@ -732,6 +769,130 @@ def _sync_convert_order_to_quote(db: Session, order_id: int):
         "quote_reference": quote.cpl_code,
         "converted_at": now,
         "lines_converted": len(order_lines),
+    }
+
+
+def _sync_reorder_order_lines(
+    db: Session,
+    order_id: int,
+    requested_line_ids: List[int],
+):
+    """Sync helper to reorder order lines."""
+    lines = db.execute(
+        select(ClientOrderLine).where(ClientOrderLine.cod_id == order_id)
+    ).scalars().all()
+    if not lines:
+        return None
+
+    unique_requested: List[int] = []
+    for raw_id in requested_line_ids:
+        line_id = int(raw_id)
+        if line_id > 0 and line_id not in unique_requested:
+            unique_requested.append(line_id)
+
+    lines_by_id = {line.col_id: line for line in lines}
+    invalid_ids = [line_id for line_id in unique_requested if line_id not in lines_by_id]
+    if invalid_ids:
+        raise ValueError(f"Line IDs do not belong to order {order_id}: {invalid_ids}")
+
+    current_order = sorted(
+        lines,
+        key=lambda line: (
+            int(line.col_level1) if line.col_level1 is not None else 999999,
+            int(line.col_id),
+        ),
+    )
+    final_order = unique_requested + [
+        line.col_id for line in current_order if line.col_id not in unique_requested
+    ]
+
+    for index, line_id in enumerate(final_order, start=1):
+        lines_by_id[line_id].col_level1 = index
+
+    db.commit()
+    return final_order
+
+
+def _sync_merge_order_lines(
+    db: Session,
+    order_id: int,
+    line_ids: List[int],
+    keep_line_id: Optional[int],
+):
+    """Sync helper to merge selected order lines."""
+    unique_ids: List[int] = []
+    for raw_id in line_ids:
+        line_id = int(raw_id)
+        if line_id > 0 and line_id not in unique_ids:
+            unique_ids.append(line_id)
+
+    if len(unique_ids) < 2:
+        raise ValueError("At least 2 line IDs are required to merge")
+
+    selected_lines = db.execute(
+        select(ClientOrderLine).where(
+            and_(
+                ClientOrderLine.cod_id == order_id,
+                ClientOrderLine.col_id.in_(unique_ids),
+            )
+        )
+    ).scalars().all()
+
+    if len(selected_lines) != len(unique_ids):
+        found_ids = {line.col_id for line in selected_lines}
+        missing = [line_id for line_id in unique_ids if line_id not in found_ids]
+        raise ValueError(f"Line IDs do not belong to order {order_id}: {missing}")
+
+    selected_by_id = {line.col_id: line for line in selected_lines}
+    primary_id = int(keep_line_id) if keep_line_id is not None else unique_ids[0]
+    if primary_id not in selected_by_id:
+        raise ValueError("keepLineId must be one of lineIds")
+
+    primary_line = selected_by_id[primary_id]
+    merged_lines = [selected_by_id[line_id] for line_id in unique_ids]
+    lines_to_delete = [line for line in merged_lines if line.col_id != primary_id]
+
+    total_quantity = sum(_decimal_or_zero(line.col_quantity) for line in merged_lines)
+    total_price = sum(
+        _decimal_or_zero(line.col_total_price)
+        if line.col_total_price is not None
+        else (_decimal_or_zero(line.col_unit_price) * _decimal_or_zero(line.col_quantity))
+        for line in merged_lines
+    )
+    total_discount = sum(_decimal_or_zero(line.col_discount_amount) for line in merged_lines)
+    total_price_after_discount = sum(
+        _decimal_or_zero(line.col_price_with_discount_ht)
+        if line.col_price_with_discount_ht is not None
+        else (_decimal_or_zero(line.col_total_price) - _decimal_or_zero(line.col_discount_amount))
+        for line in merged_lines
+    )
+    total_crude = sum(_decimal_or_zero(line.col_total_crude_price) for line in merged_lines)
+
+    if total_price_after_discount == Decimal("0") and total_price > Decimal("0"):
+        total_price_after_discount = total_price - total_discount
+
+    primary_line.col_quantity = total_quantity
+    primary_line.col_total_price = total_price
+    primary_line.col_discount_amount = total_discount
+    primary_line.col_price_with_discount_ht = total_price_after_discount
+    if total_quantity > Decimal("0"):
+        primary_line.col_unit_price = total_price / total_quantity
+
+    if total_crude > Decimal("0"):
+        primary_line.col_total_crude_price = total_crude
+        primary_line.col_margin = total_price_after_discount - total_crude
+
+    if not primary_line.col_description:
+        primary_line.col_description = "Merged line"
+
+    for line in lines_to_delete:
+        db.delete(line)
+
+    db.commit()
+    return {
+        "primaryLineId": primary_id,
+        "mergedLineIds": unique_ids,
+        "removedLineIds": [line.col_id for line in lines_to_delete],
     }
 
 
@@ -811,6 +972,60 @@ async def get_order_detail(
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
     return result
+
+
+@router.post(
+    "/{order_id}/lines/reorder",
+    summary="Reorder order lines",
+    description="Reorder lines of an order using the provided line IDs order.",
+)
+async def reorder_order_lines(
+    order_id: int = Path(..., gt=0, description="Order ID"),
+    request: OrderLineReorderRequest = ...,
+    db: Session = Depends(get_db),
+):
+    try:
+        ordered_ids = await asyncio.to_thread(
+            _sync_reorder_order_lines,
+            db,
+            order_id,
+            request.line_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    if ordered_ids is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
+
+    return {
+        "success": True,
+        "orderId": order_id,
+        "orderedLineIds": ordered_ids,
+    }
+
+
+@router.post(
+    "/{order_id}/lines/merge",
+    summary="Merge order lines",
+    description="Merge multiple order lines into one line.",
+)
+async def merge_order_lines(
+    order_id: int = Path(..., gt=0, description="Order ID"),
+    request: OrderLineMergeRequest = ...,
+    db: Session = Depends(get_db),
+):
+    try:
+        result = await asyncio.to_thread(
+            _sync_merge_order_lines,
+            db,
+            order_id,
+            request.line_ids,
+            request.keep_line_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    return {"success": True, "orderId": order_id, **result}
 
 
 @router.get(

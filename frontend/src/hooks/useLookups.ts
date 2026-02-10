@@ -20,6 +20,11 @@ export const lookupKeys = {
   orderStatuses: () => [...lookupKeys.all, 'orderStatuses'] as const,
   invoiceStatuses: () => [...lookupKeys.all, 'invoiceStatuses'] as const,
   paymentStatuses: () => [...lookupKeys.all, 'paymentStatuses'] as const,
+  subCommercials: (managerId?: number) => [...lookupKeys.all, 'subCommercials', managerId ?? 'all'] as const,
+  lineTypes: () => [...lookupKeys.all, 'lineTypes'] as const,
+  productInstanceByRef: (pitRef: string, productId?: number) =>
+    [...lookupKeys.all, 'productInstanceByRef', pitRef, productId ?? 'all'] as const,
+  communesByPostcode: (postcode: string) => [...lookupKeys.all, 'communesByPostcode', postcode] as const,
   brands: () => [...lookupKeys.all, 'brands'] as const,
 }
 
@@ -145,6 +150,40 @@ export function usePaymentStatuses() {
   return useQuery({
     queryKey: lookupKeys.paymentStatuses(),
     queryFn: lookupsApi.getPaymentStatuses,
+    ...lookupQueryOptions,
+  })
+}
+
+export function useSubCommercials(managerId?: number) {
+  return useQuery({
+    queryKey: lookupKeys.subCommercials(managerId),
+    queryFn: () => lookupsApi.getSubCommercials(managerId),
+    ...lookupQueryOptions,
+  })
+}
+
+export function useLineTypes() {
+  return useQuery({
+    queryKey: lookupKeys.lineTypes(),
+    queryFn: lookupsApi.getLineTypes,
+    ...lookupQueryOptions,
+  })
+}
+
+export function useProductInstanceByRef(pitRef: string, productId?: number) {
+  return useQuery({
+    queryKey: lookupKeys.productInstanceByRef(pitRef, productId),
+    queryFn: () => lookupsApi.getProductInstanceByRef(pitRef, productId),
+    enabled: pitRef.trim().length > 0,
+    ...lookupQueryOptions,
+  })
+}
+
+export function useCommunesByPostcode(postcode: string) {
+  return useQuery({
+    queryKey: lookupKeys.communesByPostcode(postcode),
+    queryFn: () => lookupsApi.getCommunesByPostcode(postcode),
+    enabled: postcode.trim().length >= 2,
     ...lookupQueryOptions,
   })
 }

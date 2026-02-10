@@ -12,6 +12,7 @@ import { useSocieties } from '@/hooks/useLookups'
 import {
   uploadImportFile,
   getImportFields,
+  previewImport,
   executeImport,
   downloadTemplate,
 } from '@/api/import'
@@ -21,6 +22,7 @@ import type {
   ImportFieldDefinition,
   ColumnMapping,
   FileUploadResponse,
+  ImportPreviewResponse,
   ImportResultResponse,
 } from '@/types/import'
 
@@ -48,6 +50,7 @@ function ImportPage() {
   const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([])
 
   // Result state
+  const [previewResult, setPreviewResult] = useState<ImportPreviewResponse | null>(null)
   const [importResult, setImportResult] = useState<ImportResultResponse | null>(null)
 
   // Upload mutation
@@ -73,6 +76,27 @@ function ImportPage() {
     },
     onError: () => {
       showError(t('import.uploadError'), t('import.uploadErrorDescription'))
+    },
+  })
+
+  const previewMutation = useMutation({
+    mutationFn: () => {
+      if (!uploadedFile || !entityType) {
+        throw new Error('Missing required data')
+      }
+      return previewImport(
+        uploadedFile.file_id,
+        entityType as ImportEntityType,
+        columnMappings,
+        20
+      )
+    },
+    onSuccess: (data) => {
+      setPreviewResult(data)
+      setStep('preview')
+    },
+    onError: () => {
+      showError(t('import.importError'), t('import.importErrorDescription'))
     },
   })
 
@@ -174,6 +198,7 @@ function ImportPage() {
     setUploadedFile(null)
     setAvailableFields([])
     setColumnMappings([])
+    setPreviewResult(null)
     setImportResult(null)
   }
 
@@ -203,20 +228,20 @@ function ImportPage() {
       {/* Progress Steps */}
       <div className="flex items-center justify-center mb-8">
         <div className="flex items-center space-x-4">
-          {['select', 'upload', 'mapping', 'result'].map((s, i) => (
+          {['select', 'upload', 'mapping', 'preview', 'result'].map((s, i) => (
             <div key={s} className="flex items-center">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   step === s
                     ? 'bg-primary text-primary-foreground'
-                    : ['select', 'upload', 'mapping', 'result'].indexOf(step) > i
+                    : ['select', 'upload', 'mapping', 'preview', 'result'].indexOf(step) > i
                       ? 'bg-green-500 text-white'
                       : 'bg-muted text-muted-foreground'
                 }`}
               >
                 {i + 1}
               </div>
-              {i < 3 && <div className="w-12 h-0.5 bg-border mx-2" />}
+              {i < 4 && <div className="w-12 h-0.5 bg-border mx-2" />}
             </div>
           ))}
         </div>
@@ -409,14 +434,14 @@ function ImportPage() {
                     {t('common.back')}
                   </button>
                   <button
-                    onClick={() => importMutation.mutate()}
-                    disabled={importMutation.isPending || columnMappings.length === 0}
+                    onClick={() => previewMutation.mutate()}
+                    disabled={previewMutation.isPending || columnMappings.length === 0}
                     className="btn-primary"
                   >
-                    {importMutation.isPending ? (
+                    {previewMutation.isPending ? (
                       <LoadingSpinner size="sm" />
                     ) : (
-                      t('import.startImport')
+                      t('common.next')
                     )}
                   </button>
                 </div>
@@ -426,7 +451,112 @@ function ImportPage() {
         </div>
       )}
 
-      {/* Step 4: Results */}
+      {/* Step 4: Preview & Validation */}
+      {step === 'preview' && previewResult && (
+        <div className="max-w-4xl mx-auto space-y-6">
+          <Card>
+            <CardHeader
+              title="Preview & Validation"
+              action={(
+                <span className="text-sm text-muted-foreground">
+                  {previewResult.total_rows} rows
+                </span>
+              )}
+            />
+            <CardContent>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Previewed</p>
+                    <p className="text-2xl font-semibold">{previewResult.preview_data.length}</p>
+                  </div>
+                  <div className="p-4 bg-amber-50 rounded-lg text-center">
+                    <p className="text-xs text-amber-700 uppercase tracking-wide">Validation Errors</p>
+                    <p className="text-2xl font-semibold text-amber-700">{previewResult.validation_errors.length}</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg text-center">
+                    <p className="text-xs text-green-700 uppercase tracking-wide">Ready Rows</p>
+                    <p className="text-2xl font-semibold text-green-700">
+                      {Math.max(previewResult.preview_data.length - previewResult.validation_errors.length, 0)}
+                    </p>
+                  </div>
+                </div>
+
+                {previewResult.preview_data.length > 0 && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 border-b bg-muted/40">
+                      <h4 className="text-sm font-medium">Sample Mapped Rows</h4>
+                    </div>
+                    <div className="overflow-auto max-h-72">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted sticky top-0">
+                          <tr>
+                            <th className="text-left py-2 px-4">#</th>
+                            {Object.keys(previewResult.preview_data[0] || {}).map((column) => (
+                              <th key={column} className="text-left py-2 px-4 whitespace-nowrap">{column}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewResult.preview_data.map((row, index) => (
+                            <tr key={index} className="border-t">
+                              <td className="py-2 px-4 text-muted-foreground">{index + 1}</td>
+                              {Object.keys(previewResult.preview_data[0] || {}).map((column) => (
+                                <td key={column} className="py-2 px-4 whitespace-nowrap">{String((row as any)?.[column] ?? '')}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {previewResult.validation_errors.length > 0 && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="px-4 py-2 border-b bg-amber-50">
+                      <h4 className="text-sm font-medium text-amber-800">Validation Errors</h4>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted sticky top-0">
+                          <tr>
+                            <th className="text-left py-2 px-4">Row</th>
+                            <th className="text-left py-2 px-4">Details</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {previewResult.validation_errors.map((err, i) => (
+                            <tr key={i} className="border-t">
+                              <td className="py-2 px-4 font-mono">{err.row_number}</td>
+                              <td className="py-2 px-4 text-amber-700">{err.errors.join(', ')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between pt-2">
+                  <button onClick={() => setStep('mapping')} className="btn-secondary">
+                    {t('common.back')}
+                  </button>
+                  <button
+                    onClick={() => importMutation.mutate()}
+                    disabled={importMutation.isPending}
+                    className="btn-primary"
+                  >
+                    {importMutation.isPending ? <LoadingSpinner size="sm" /> : t('import.startImport')}
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Step 5: Results */}
       {step === 'result' && importResult && (
         <div className="max-w-3xl mx-auto space-y-6">
           <Card>

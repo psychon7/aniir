@@ -75,9 +75,39 @@ class QuoteDiscountUpdateRequest(BaseModel):
     discount_amount: Optional[Decimal] = Field(default=None, ge=0, alias="discountAmount")
 
 
+class QuoteStatusChangeRequest(BaseModel):
+    """Bulk quote status change payload (supports snake_case and camelCase)."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    quote_ids: List[int] = Field(default_factory=list, alias="quoteIds")
+    status_id: int = Field(..., ge=1, alias="statusId")
+
+
+class QuoteLineReorderRequest(BaseModel):
+    """Reorder quote lines by providing line IDs in the desired order."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    line_ids: List[int] = Field(default_factory=list, alias="lineIds")
+
+
+class QuoteLineMergeRequest(BaseModel):
+    """Merge multiple quote lines into one line."""
+    model_config = ConfigDict(populate_by_name=True)
+
+    line_ids: List[int] = Field(default_factory=list, alias="lineIds")
+    keep_line_id: Optional[int] = Field(default=None, alias="keepLineId")
+
+
 # ==========================================================================
 # Sync Database Helper
 # ==========================================================================
+
+
+def _decimal_or_zero(value: Any) -> Decimal:
+    """Convert DB numeric values safely to Decimal."""
+    if value is None:
+        return Decimal("0")
+    return Decimal(str(value))
 
 
 def _sync_list_quotes(
@@ -363,7 +393,6 @@ def _sync_get_quote_detail(db: Session, quote_id: int):
             CostPlanLine.cln_id,
             CostPlanLine.cln_prd_name,
             CostPlanLine.cln_description,
-            CostPlanLine.cln_ref,
             CostPlanLine.cln_quantity,
             CostPlanLine.cln_unit_price,
             CostPlanLine.cln_total_price,
@@ -373,6 +402,7 @@ def _sync_get_quote_detail(db: Session, quote_id: int):
             CostPlanLine.cln_image_url,
         )
         .where(CostPlanLine.cpl_id == quote_id)
+        .order_by(func.coalesce(CostPlanLine.cln_level1, 999999), CostPlanLine.cln_id)
     )
     lines_result = db.execute(lines_query)
     line_rows = lines_result.all()
@@ -389,7 +419,7 @@ def _sync_get_quote_detail(db: Session, quote_id: int):
             "id": l.cln_id,
             "productName": l.cln_prd_name or "",
             "description": l.cln_description or "",
-            "productReference": l.cln_ref or "",
+            "productReference": "",  # cln_ref column not in database (no migration)
             "quantity": float(l.cln_quantity or 0),
             "unitPrice": float(l.cln_unit_price or 0),
             "lineTotal": float(l.cln_price_with_discount_ht or l.cln_total_price or 0),
@@ -597,6 +627,165 @@ def _sync_update_quote_discount(
     return _sync_get_quote_detail(db, quote_id)
 
 
+def _sync_change_quote_status(
+    db: Session,
+    quote_ids: List[int],
+    status_id: int,
+):
+    """Sync helper to apply a status to multiple quotes."""
+    unique_ids = sorted({int(qid) for qid in quote_ids if int(qid) > 0})
+    if not unique_ids:
+        return {"updatedCount": 0, "notFoundIds": [], "statusId": status_id}
+
+    existing_ids = set(
+        db.execute(
+            select(CostPlan.cpl_id).where(CostPlan.cpl_id.in_(unique_ids))
+        ).scalars().all()
+    )
+
+    now = datetime.utcnow()
+    for quote_id in existing_ids:
+        quote = db.get(CostPlan, quote_id)
+        if not quote:
+            continue
+        quote.cst_id = status_id
+        quote.cpl_d_update = now
+
+    db.commit()
+
+    not_found_ids = [qid for qid in unique_ids if qid not in existing_ids]
+    return {
+        "updatedCount": len(existing_ids),
+        "notFoundIds": not_found_ids,
+        "statusId": status_id,
+    }
+
+
+def _sync_reorder_quote_lines(
+    db: Session,
+    quote_id: int,
+    requested_line_ids: List[int],
+):
+    """Sync helper to reorder quote lines."""
+    lines = db.execute(
+        select(CostPlanLine).where(CostPlanLine.cpl_id == quote_id)
+    ).scalars().all()
+    if not lines:
+        return None
+
+    unique_requested: List[int] = []
+    for raw_id in requested_line_ids:
+        line_id = int(raw_id)
+        if line_id > 0 and line_id not in unique_requested:
+            unique_requested.append(line_id)
+
+    lines_by_id = {line.cln_id: line for line in lines}
+    invalid_ids = [line_id for line_id in unique_requested if line_id not in lines_by_id]
+    if invalid_ids:
+        raise ValueError(f"Line IDs do not belong to quote {quote_id}: {invalid_ids}")
+
+    current_order = sorted(
+        lines,
+        key=lambda line: (
+            int(line.cln_level1) if line.cln_level1 is not None else 999999,
+            int(line.cln_id),
+        ),
+    )
+    final_order = unique_requested + [
+        line.cln_id for line in current_order if line.cln_id not in unique_requested
+    ]
+
+    for index, line_id in enumerate(final_order, start=1):
+        lines_by_id[line_id].cln_level1 = index
+
+    db.commit()
+    return final_order
+
+
+def _sync_merge_quote_lines(
+    db: Session,
+    quote_id: int,
+    line_ids: List[int],
+    keep_line_id: Optional[int],
+):
+    """Sync helper to merge selected quote lines."""
+    unique_ids: List[int] = []
+    for raw_id in line_ids:
+        line_id = int(raw_id)
+        if line_id > 0 and line_id not in unique_ids:
+            unique_ids.append(line_id)
+
+    if len(unique_ids) < 2:
+        raise ValueError("At least 2 line IDs are required to merge")
+
+    selected_lines = db.execute(
+        select(CostPlanLine).where(
+            and_(
+                CostPlanLine.cpl_id == quote_id,
+                CostPlanLine.cln_id.in_(unique_ids),
+            )
+        )
+    ).scalars().all()
+
+    if len(selected_lines) != len(unique_ids):
+        found_ids = {line.cln_id for line in selected_lines}
+        missing = [line_id for line_id in unique_ids if line_id not in found_ids]
+        raise ValueError(f"Line IDs do not belong to quote {quote_id}: {missing}")
+
+    selected_by_id = {line.cln_id: line for line in selected_lines}
+    primary_id = int(keep_line_id) if keep_line_id is not None else unique_ids[0]
+    if primary_id not in selected_by_id:
+        raise ValueError("keepLineId must be one of lineIds")
+
+    primary_line = selected_by_id[primary_id]
+    merged_lines = [selected_by_id[line_id] for line_id in unique_ids]
+    lines_to_delete = [line for line in merged_lines if line.cln_id != primary_id]
+
+    total_quantity = sum(_decimal_or_zero(line.cln_quantity) for line in merged_lines)
+    total_price = sum(
+        _decimal_or_zero(line.cln_total_price)
+        if line.cln_total_price is not None
+        else (_decimal_or_zero(line.cln_unit_price) * _decimal_or_zero(line.cln_quantity))
+        for line in merged_lines
+    )
+    total_discount = sum(_decimal_or_zero(line.cln_discount_amount) for line in merged_lines)
+    total_price_after_discount = sum(
+        _decimal_or_zero(line.cln_price_with_discount_ht)
+        if line.cln_price_with_discount_ht is not None
+        else (_decimal_or_zero(line.cln_total_price) - _decimal_or_zero(line.cln_discount_amount))
+        for line in merged_lines
+    )
+    total_crude = sum(_decimal_or_zero(line.cln_total_crude_price) for line in merged_lines)
+
+    if total_price_after_discount == Decimal("0") and total_price > Decimal("0"):
+        total_price_after_discount = total_price - total_discount
+
+    primary_line.cln_quantity = total_quantity
+    primary_line.cln_total_price = total_price
+    primary_line.cln_discount_amount = total_discount
+    primary_line.cln_price_with_discount_ht = total_price_after_discount
+
+    if total_quantity > Decimal("0"):
+        primary_line.cln_unit_price = total_price / total_quantity
+
+    if total_crude > Decimal("0"):
+        primary_line.cln_total_crude_price = total_crude
+        primary_line.cln_margin = total_price_after_discount - total_crude
+
+    if not primary_line.cln_description:
+        primary_line.cln_description = "Merged line"
+
+    for line in lines_to_delete:
+        db.delete(line)
+
+    db.commit()
+    return {
+        "primaryLineId": primary_id,
+        "mergedLineIds": unique_ids,
+        "removedLineIds": [line.cln_id for line in lines_to_delete],
+    }
+
+
 @router.get(
     "/by-project/{project_id}",
     summary="Get quotes by project",
@@ -672,6 +861,24 @@ async def update_quote_discount(
     if updated is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Quote {quote_id} not found")
     return updated
+
+
+@router.post(
+    "/change-status",
+    summary="Bulk change quote status",
+    description="Apply a new status to multiple quotes at once.",
+)
+async def change_quote_status(
+    request: QuoteStatusChangeRequest,
+    db: Session = Depends(get_db),
+):
+    result = await asyncio.to_thread(
+        _sync_change_quote_status,
+        db,
+        request.quote_ids,
+        request.status_id,
+    )
+    return {"success": True, **result}
 
 
 @router.get(
@@ -840,6 +1047,60 @@ async def delete_quote_line(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except QuoteServiceError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post(
+    "/{quote_id}/lines/reorder",
+    summary="Reorder quote lines",
+    description="Reorder lines of a quote using the provided line IDs order.",
+)
+async def reorder_quote_lines(
+    quote_id: int = Path(..., gt=0, description="Quote ID"),
+    request: QuoteLineReorderRequest = ...,
+    db: Session = Depends(get_db),
+):
+    try:
+        ordered_ids = await asyncio.to_thread(
+            _sync_reorder_quote_lines,
+            db,
+            quote_id,
+            request.line_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    if ordered_ids is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Quote {quote_id} not found")
+
+    return {
+        "success": True,
+        "quoteId": quote_id,
+        "orderedLineIds": ordered_ids,
+    }
+
+
+@router.post(
+    "/{quote_id}/lines/merge",
+    summary="Merge quote lines",
+    description="Merge multiple quote lines into one line.",
+)
+async def merge_quote_lines(
+    quote_id: int = Path(..., gt=0, description="Quote ID"),
+    request: QuoteLineMergeRequest = ...,
+    db: Session = Depends(get_db),
+):
+    try:
+        result = await asyncio.to_thread(
+            _sync_merge_quote_lines,
+            db,
+            quote_id,
+            request.line_ids,
+            request.keep_line_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    return {"success": True, "quoteId": quote_id, **result}
 
 
 # =====================

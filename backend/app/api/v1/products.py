@@ -6,12 +6,17 @@ Provides REST API endpoints for:
 - Product instance management
 - Product search and lookup
 """
+import io
+from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.product import Product
+from app.services.pdf_service import TemplatePDFService
 from app.services.product_service import (
     ProductService,
     ProductServiceError,
@@ -33,6 +38,21 @@ from app.schemas.product import (
 )
 
 router = APIRouter(prefix="/products", tags=["Products"])
+
+
+class ProductExpressLine(BaseModel):
+    reference: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=200)
+    unit_price: Optional[float] = Field(default=None, ge=0)
+    purchase_price: Optional[float] = Field(default=None, ge=0)
+    description: Optional[str] = Field(default=None, max_length=4000)
+
+
+class ProductExpressBulkRequest(BaseModel):
+    soc_id: int = Field(..., gt=0)
+    pty_id: int = Field(..., gt=0)
+    skip_existing: bool = Field(default=True)
+    lines: List[ProductExpressLine] = Field(default_factory=list, min_length=1, max_length=500)
 
 
 # ==========================================================================
@@ -262,6 +282,100 @@ async def get_product(
         return await service.get_product_detail(product_id)
     except ProductServiceError as e:
         raise handle_product_error(e)
+
+
+@router.post(
+    "/bulk-express",
+    summary="Create products in express bulk mode",
+    description="Create many products in one request using minimal fields (reference/name/price).",
+)
+async def create_products_bulk_express(
+    data: ProductExpressBulkRequest,
+    service: ProductService = Depends(get_product_service),
+):
+    created = []
+    skipped = []
+    errors = []
+
+    for index, line in enumerate(data.lines, start=1):
+        try:
+            product = await service.create_product(
+                ProductCreate(
+                    prd_ref=line.reference.strip(),
+                    prd_name=line.name.strip(),
+                    pty_id=data.pty_id,
+                    soc_id=data.soc_id,
+                    prd_price=line.unit_price,
+                    prd_purchase_price=line.purchase_price,
+                    prd_description=line.description,
+                )
+            )
+            created.append({
+                "id": product.prd_id if hasattr(product, "prd_id") else getattr(product, "id", None),
+                "reference": line.reference.strip(),
+                "name": line.name.strip(),
+            })
+        except ProductDuplicateReferenceError:
+            if data.skip_existing:
+                skipped.append({"line": index, "reference": line.reference})
+            else:
+                errors.append({"line": index, "reference": line.reference, "error": "Duplicate reference"})
+        except ProductServiceError as e:
+            errors.append({"line": index, "reference": line.reference, "error": str(e)})
+        except Exception as e:
+            errors.append({"line": index, "reference": line.reference, "error": f"Unexpected error: {str(e)}"})
+
+    return {
+        "success": len(errors) == 0,
+        "createdCount": len(created),
+        "skippedCount": len(skipped),
+        "errorCount": len(errors),
+        "created": created,
+        "skipped": skipped,
+        "errors": errors,
+    }
+
+
+@router.get(
+    "/{product_id}/technical-sheet-pdf",
+    summary="Generate technical sheet PDF",
+    description="Generate a technical sheet PDF for a product (images/specifications/dimensions)."
+)
+async def get_product_technical_sheet_pdf(
+    product_id: int = Path(..., gt=0, description="Product ID"),
+    service: ProductService = Depends(get_product_service),
+):
+    """Generate product technical sheet PDF."""
+    try:
+        product = await service.get_product_detail(product_id)
+    except ProductServiceError as e:
+        raise handle_product_error(e)
+
+    try:
+        template_pdf = TemplatePDFService()
+        context = {
+            "generated_at": datetime.utcnow().isoformat(),
+            "product": product.model_dump() if hasattr(product, "model_dump") else product,
+        }
+        pdf_content = template_pdf.generate_pdf(
+            template_name="products/technical-sheet.html",
+            context=context,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate technical sheet: {str(e)}",
+        )
+
+    filename_ref = getattr(product, "reference", None) or getattr(product, "prd_ref", None) or str(product_id)
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="technical-sheet-{filename_ref}.pdf"',
+            "Content-Length": str(len(pdf_content)),
+        },
+    )
 
 
 @router.get(

@@ -4,7 +4,6 @@ import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
 import { StatusBadge } from '@/components/ui/Badge'
-import { useDownloadDeliveryPdf } from '@/hooks/useDeliveries'
 import { useCreateInvoiceFromDelivery } from '@/hooks/useInvoices'
 import { useToast } from '@/components/ui/feedback/Toast'
 import apiClient from '@/api/client'
@@ -16,7 +15,6 @@ export const Route = createFileRoute('/_authenticated/deliveries/$deliveryId')({
 function DeliveryDetailPage() {
   const { deliveryId } = Route.useParams()
   const navigate = useNavigate()
-  const downloadPdf = useDownloadDeliveryPdf()
   const createInvoice = useCreateInvoiceFromDelivery()
   const { success, error: showError } = useToast()
 
@@ -52,6 +50,19 @@ function DeliveryDetailPage() {
     )
   }
 
+  const openPdfUtility = (mode: 'pdf-viewer' | 'pdf-download') => {
+    const safeReference = delivery.reference || deliveryId
+    navigate({
+      to: '/accounting/export' as any,
+      search: {
+        mode,
+        source: `/deliveries/${deliveryId}/pdf`,
+        title: `Delivery ${safeReference}`,
+        filename: `delivery-${safeReference}.pdf`,
+      } as any,
+    })
+  }
+
   const actions = (
     <div className="flex gap-2">
       <button onClick={() => navigate({ to: '/deliveries' as any })} className="btn-secondary">
@@ -59,10 +70,15 @@ function DeliveryDetailPage() {
       </button>
       <button
         className="btn-secondary"
-        disabled={downloadPdf.isPending}
-        onClick={() => downloadPdf.mutate(parseInt(deliveryId, 10))}
+        onClick={() => openPdfUtility('pdf-viewer')}
       >
-        {downloadPdf.isPending ? 'Generating...' : 'Download PDF'}
+        Preview PDF
+      </button>
+      <button
+        className="btn-secondary"
+        onClick={() => openPdfUtility('pdf-download')}
+      >
+        Download PDF
       </button>
       <button
         className="btn-secondary"

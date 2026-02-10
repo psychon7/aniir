@@ -188,7 +188,7 @@ class SupplierInvoiceService:
         if invoice.vat_id:
             vat = self.db.get(VatRate, invoice.vat_id)
             if vat:
-                vat_rate = vat.vat_rate or self.DEFAULT_VAT_RATE
+                vat_rate = vat.vat_vat_rate or self.DEFAULT_VAT_RATE
 
         # Calculate total TTC (including VAT)
         vat_amount = total_ht * vat_rate / Decimal("100")
@@ -346,7 +346,7 @@ class SupplierInvoiceService:
         if invoice.vat_id:
             vat = self.db.get(VatRate, invoice.vat_id)
             if vat:
-                response_data["vatRate"] = vat.vat_rate
+                response_data["vatRate"] = float(vat.vat_vat_rate)
 
         # Creator
         if invoice.usr_creator_id:

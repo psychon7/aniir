@@ -46,6 +46,13 @@ export interface EnterpriseSettings {
   ribKey2: string | null
   ribDomiciliationAgency2: string | null
   ribAbbreviation2: string | null
+  quoteHeaderText: string | null
+  quoteFooterText: string | null
+  deliveryConditionsText: string | null
+  invoicePenaltyText: string | null
+  invoiceEarlyPaymentDiscountText: string | null
+  invoiceEmailBody: string | null
+  pricingCoefficientSodCin: number | null
   fullAddress: string | null
 }
 
@@ -89,6 +96,13 @@ export interface EnterpriseSettingsUpdateDto {
   soc_rib_key_2?: string
   soc_rib_domiciliation_agency_2?: string
   soc_rib_abbre_2?: string
+  soc_quote_header_text?: string
+  soc_quote_footer_text?: string
+  soc_delivery_conditions_text?: string
+  soc_invoice_penalty_text?: string
+  soc_invoice_early_payment_discount_text?: string
+  soc_invoice_email_body?: string
+  soc_pricing_coefficient_sod_cin?: number
   soc_email_auto?: boolean
   soc_mask_commission?: boolean
 }

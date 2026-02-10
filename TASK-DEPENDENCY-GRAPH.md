@@ -12,22 +12,22 @@ This document is based on a comprehensive side-by-side comparison of:
 
 | Status       | Count |
 | ------------ | ----- |
-| Completed    | 17    |
-| In Progress  | 1     |
-| Pending      | 31    |
-| Backlog      | 4     |
+| Completed    | 47    |
+| In Progress  | 0     |
+| Pending      | 4     |
+| Backlog      | 2     |
 | **Total**    | **53**|
 
 ## Progress Overview
 
 ```
-Overall   [==========--------------------]  34% (18/53)
+Overall   [===========================---]  89% (47/53)
 
 P0 Blockers           [=======-----------]  78% (7/9)
 P1 Core Parity        [==================]  100% (10/10)
-P2 Secondary Parity   [=================-]  94% (17/18, 1 in progress)
-P3 Integrations       [------------------]  0% (0/8)
-P4 Polish & Beyond    [------------------]  0% (0/8)
+P2 Secondary Parity   [==================]  100% (18/18)
+P3 Integrations       [=========---------]  50% (4/8)
+P4 Polish & Beyond    [==================]  100% (8/8)
 ```
 
 ## Completion by Priority
@@ -36,9 +36,9 @@ P4 Polish & Beyond    [------------------]  0% (0/8)
 | --------------------------- | ----- | ---- | ----------- | ------- | ------- | ---------- |
 | P0: Blockers                | 9     | 7    | 0           | 2       | 0       | **78%**    |
 | P1: Core Parity             | 10    | 10   | 0           | 0       | 0       | **100%**   |
-| P2: Secondary Parity        | 18    | 17   | 1           | 0       | 0       | **94%**    |
-| P3: Integrations/Automation | 8     | 0    | 0           | 5       | 3       | **0%**     |
-| P4: Polish & Beyond         | 8     | 0    | 0           | 7       | 1       | **0%**     |
+| P2: Secondary Parity        | 18    | 18   | 0           | 0       | 0       | **100%**   |
+| P3: Integrations/Automation | 8     | 4    | 0           | 2       | 2       | **50%**    |
+| P4: Polish & Beyond         | 8     | 8    | 0           | 0       | 0       | **100%**   |
 
 ## Dependency Graph
 
@@ -75,7 +75,7 @@ flowchart TD
     p2_03["P2-03 Category + Images"]:::done
     p2_04["P2-04 Multi-Business Theme"]:::done
     p2_05["P2-05 Accounting UI"]:::done
-    p2_06["P2-06 PDF Viewer Pages"]:::inprogress
+    p2_06["P2-06 PDF Viewer Pages"]:::done
     p2_07["P2-07 Dashboard Widgets"]:::done
     p2_08["P2-08 Reverse Doc Clone"]:::done
     p2_09["P2-09 Discount Modals"]:::done
@@ -95,21 +95,21 @@ flowchart TD
     p3_02["P3-02 X3 Export"]:::pending
     p3_03["P3-03 SuperPDP"]:::backlog
     p3_04["P3-04 AI Catalog Import"]:::backlog
-    p3_05["P3-05 Technical Sheet PDF"]:::pending
-    p3_06["P3-06 Landed Cost Alloc"]:::pending
-    p3_07["P3-07 Data Import Wizard"]:::pending
-    p3_08["P3-08 Product Express Bulk"]:::backlog
+    p3_05["P3-05 Technical Sheet PDF"]:::done
+    p3_06["P3-06 Landed Cost Alloc"]:::done
+    p3_07["P3-07 Data Import Wizard"]:::done
+    p3_08["P3-08 Product Express Bulk"]:::done
   end
 
   subgraph "P4 -- Polish & Beyond"
-    p4_01["P4-01 Currency Exchange Mgmt"]:::pending
-    p4_02["P4-02 Document Templates"]:::pending
-    p4_03["P4-03 Bulk Status Change"]:::pending
-    p4_04["P4-04 Line Merge/Reorder"]:::pending
-    p4_05["P4-05 Inspection Forms"]:::pending
-    p4_06["P4-06 Backorder Tracking"]:::backlog
-    p4_07["P4-07 Lookup Endpoints Gap"]:::pending
-    p4_08["P4-08 Pricing Coefficient"]:::pending
+    p4_01["P4-01 Currency Exchange Mgmt"]:::done
+    p4_02["P4-02 Document Templates"]:::done
+    p4_03["P4-03 Bulk Status Change"]:::done
+    p4_04["P4-04 Line Merge/Reorder"]:::done
+    p4_05["P4-05 Inspection Forms"]:::done
+    p4_06["P4-06 Backorder Tracking"]:::done
+    p4_07["P4-07 Lookup Endpoints Gap"]:::done
+    p4_08["P4-08 Pricing Coefficient"]:::done
   end
 
   %% Dependency arrows
@@ -188,10 +188,9 @@ flowchart TD
   - Legacy: `ClientInvoiceStatment.aspx` with client search, commercial filter, date range, generate PDF with/without invoice, generate BL PDF, download CSV. Result grid: Company, Invoice#, Invoice Date, Due Date, Amount HT, Amount TTC, Amount Paid, Amount To Pay, Commercial.
   - Implemented: Statement + aging UI is active with filters, KPI summary cards, transaction grid, and exports.
 
-- [ ] **P2-06** Add PDF viewer/download pages (PageDownLoad/PageForPDF equivalent). *(In Progress)*
+- [x] **P2-06** Add PDF viewer/download pages (PageDownLoad/PageForPDF equivalent).
   - Legacy: `PageDownLoad.aspx` + `PageForPDF.aspx` for file downloads and PDF preview.
-  - Implemented: Utility PDF mode scaffolded in `/_authenticated/accounting/export` using `PdfUtilityPage` with whitelist source validation, blob fetch, iframe preview, and download mode.
-  - Remaining: Wire quote/order/invoice/delivery detail actions to open utility viewer/download routes and complete E2E validation.
+  - Implemented: Utility PDF mode in `/_authenticated/accounting/export` with whitelist source validation, blob fetch, iframe preview/download, and detail-page wiring for quote/order/invoice/delivery (+ product technical sheet and invoice inspection form sources).
 
 - [x] **P2-07** Dashboard widgets -- full parity with legacy 8-widget dashboard.
   - Legacy widgets (from live UI exploration):
@@ -283,57 +282,50 @@ flowchart TD
   - Current: `X3ExportService` exists. Frontend has X3 mappings page. Needs router mounting + testing.
 - [ ] **P3-03** SuperPDP e-invoicing integration. *(Backlog)*
 - [ ] **P3-04** AI catalog import + translation pipeline. *(Backlog)*
-- [ ] **P3-05** Technical sheet PDF generation (product images/specs).
+- [x] **P3-05** Technical sheet PDF generation (product images/specs).
   - Legacy: "Export Fiche Tech" button on product search page. Generates product spec PDF with dimensions, images, accessories.
-  - Current: No technical sheet generation. Need WeasyPrint/HTML template + endpoint.
-- [ ] **P3-06** Landed cost allocation workflow. *(Depends on: P0-08)*
-  - Current: Backend tables + models + 17 endpoints exist. Frontend has supply lots pages with cost breakdown UI. Needs end-to-end testing.
-- [ ] **P3-07** Data import wizard UI for bulk operations.
+  - Implemented: `GET /products/{product_id}/technical-sheet-pdf` endpoint + product detail UI action routed through PDF utility viewer/download.
+- [x] **P3-06** Landed cost allocation workflow. *(Depends on: P0-08)*
+  - Implemented end-to-end parity fixes: backend allocation persistence now writes `sli_allocated_*`, `sli_total_allocated_cost`, `sli_landed_cost_per_unit`, `sli_total_landed_cost`, and lot-level totals; frontend landed-cost API mapping normalized to active backend contract; supply-lot list/detail now provide working create/edit + item/cost CRUD flows with calculate/breakdown refresh.
+- [x] **P3-07** Data import wizard UI for bulk operations.
   - Legacy: `ImportData.aspx` with bulk import sections for suppliers+products, clients, project-specific deliveries. Multiline text input areas with "Traiter" (Treat/Import) buttons.
-  - Current: `ImportService` exists in backend with CSV parsing. Frontend has import wizard route with template download, column mapping, import mode selection. Needs testing and validation.
-- [ ] **P3-08** Product express/bulk creation. *(Backlog)*
+  - Implemented validation-first wizard completion: added explicit preview/validation step between column mapping and execute import, with row sample rendering, validation error grid, and controlled progression to final import execution.
+- [x] **P3-08** Product express/bulk creation.
   - Legacy: `ProductExpress.aspx` / `ProductExpressJS.js` -- rapid product entry form for creating multiple products quickly with minimal fields.
-  - Current: Standard product create form only. No express/bulk mode.
+  - Implemented: `POST /products/bulk-express` backend endpoint + `/products/new` dual-mode UI (Single + Express Bulk multiline parsing).
 
 ### P4 -- Polish & Beyond (New from Legacy Comparison)
 
-- [ ] **P4-01** Currency exchange rate management in settings.
+- [x] **P4-01** Currency exchange rate management in settings.
   - Legacy: Enterprise Settings includes currency exchange rates: EUR/USD, CNY/USD, GBP/USD, HKD/USD, RUB/USD, MAD/USD. Used for automatic conversion on documents.
-  - Current: `CurrencyService` exists. Settings page may not expose exchange rate editing. *(Depends on: P1-10)*
+  - Implemented: Enterprise settings now includes exchange-rate create/list/delete UI backed by `/currencies/exchange-rates`. *(Depends on: P1-10)*
 
-- [ ] **P4-02** Document header/footer templates configuration.
+- [x] **P4-02** Document header/footer templates configuration.
   - Legacy: Enterprise Settings has configurable text fields for: quote header/footer, delivery conditions, invoice penalties text, early payment discount text, invoice email body content.
-  - Current: Settings page has 4 card sections but may lack document template fields. *(Depends on: P1-10)*
+  - Implemented: Enterprise settings model/schema/API/UI now include all template text fields. *(Depends on: P1-10)*
 
-- [ ] **P4-03** Bulk status change on documents.
+- [x] **P4-03** Bulk status change on documents.
   - Legacy: `ChangeCostPlanStatus(List<string> cplIds, int cstId)` -- select multiple quotes and change status in bulk from the list view. Dashboard "Modifier le statut" button.
-  - Current: No bulk status change. Individual status updates only.
+  - Implemented: Bulk quote status endpoint + quotes list UI batch action; orders list bulk status flow wired with existing order status endpoint.
 
-- [ ] **P4-04** Line merge/reorder on documents.
+- [x] **P4-04** Line merge/reorder on documents.
   - Legacy: Invoice/Order forms have "Merge selected lines" button. Order lines have draggable order field.
-  - Current: Line items exist but no merge or reorder capability.
+  - Implemented: Merge + reorder endpoints for quote/order/invoice lines and UI actions on all three detail pages (select/merge + up/down reorder).
 
-- [ ] **P4-05** Inspection forms linked to invoices.
+- [x] **P4-05** Inspection forms linked to invoices.
   - Legacy: "Download Inspection Forms" button on invoice view (conditional -- only shown when inspection data exists).
-  - Current: No inspection form concept. Need to assess if this is used in current operations.
+  - Implemented: `GET /invoices/{invoice_id}/inspection-form-pdf` endpoint + conditional invoice detail UI action routed via PDF utility page.
 
-- [ ] **P4-06** Backorder/Reliquat tracking widget. *(Backlog)*
-  - Legacy: Dashboard "Fonction Reliquat" widget tracks partially fulfilled orders. Shows items remaining to be delivered.
-  - Current: No backorder tracking. Requires comparing order quantities vs delivered quantities.
+- [x] **P4-06** Backorder/Reliquat tracking widget.
+  - Implemented line-level reliquat flow: backend endpoint `GET /accounting/dashboard/backorders` computes ordered vs delivered vs remaining quantities, order detail now returns real `deliveredQuantity` per line, and dashboard now includes a dedicated "Reliquat Backorders" widget with direct links to impacted orders.
 
-- [ ] **P4-07** Lookup endpoints gap fill.
+- [x] **P4-07** Lookup endpoints gap fill.
   - **Verified by ASMX agent**: Core lookups (currencies, VAT, payment terms/modes, societies, languages, countries, warehouses, carriers) all exist.
-  - **Missing lookups**:
-    1. `GetSubCommercial()` -- Commercial hierarchy (sub-commercial under main commercial)
-    2. `GetPitByRef(pitRef, prdId)` -- Product instance/variant by reference
-    3. `GetLineType()` -- Document line types (product, service, comment, subtotal, etc.)
-    4. `GetAllCommuneNameByPostcode(postcode)` -- French postal code → city autocomplete
-  - Need: 4 new lookup endpoints + frontend integration.
+  - Implemented: Added `sub-commercials`, `line-types`, `product-instances/by-ref`, and `communes/by-postcode` endpoints + frontend API/hooks integration.
 
-- [ ] **P4-08** Pricing coefficient configuration (CoefSodCin). *(Depends on: P1-10)*
+- [x] **P4-08** Pricing coefficient configuration (CoefSodCin). *(Depends on: P1-10)*
   - Legacy: `CoefSodCin = 1.2` hardcoded coefficient for Supplier Order → Client Invoice markup calculation.
-  - Current: No pricing coefficient in settings or service logic.
-  - Need: Add coefficient field to enterprise settings, use in invoice price calculation from supplier order prices.
+  - Implemented: Added society coefficient field/migration + enterprise settings UI + invoice generation logic usage when sale price is derived from purchase price.
 
 ---
 
@@ -370,10 +362,9 @@ flowchart TD
 | Search Logistics | `/_authenticated/logistics/` | Done |
 | Enterprise Settings | `/_authenticated/settings/enterprise/` | Done |
 
-### Screens Partially Implemented (8/44)
+### Screens Partially Implemented (7/44)
 | Legacy Screen | Current Route | Gap |
 |---|---|---|
-| Invoice Statement | `/_authenticated/accounting/statements/` | UI needs completion |
 | Supplier Order Status | `/_authenticated/supplier-orders/$id` | Tab exists, actions incomplete |
 | Supplier Order Payment | `/_authenticated/supplier-orders/$id` | Tab exists, cross-alloc missing |
 | Vouchers | `/_authenticated/warehouse/movements/` | Different model, needs mapping |
@@ -382,18 +373,14 @@ flowchart TD
 | Users | `/_authenticated/users/` | CRUD exists, permissions incomplete |
 | Client Application | N/A | Website requests -- may not be needed |
 
-### Screens Not Implemented (9/44)
+### Screens Not Implemented (5/44)
 | Legacy Screen | Priority | Notes |
 |---|---|---|
-| ClientPrice.aspx | P2-11 | Client-specific pricing management |
-| ImportData.aspx | P3-07 | Bulk data import wizard |
-| ProductExpress.aspx | P3-08 | Quick bulk product creation |
-| Category.aspx + SearchCategory.aspx | P2-03 | Category CRUD with hierarchy |
 | SupplierPrice.aspx | P2-11 | Supplier pricing (similar to client) |
 | PinSodDetails.aspx | P2-08 | PI ↔ Supplier Order detail linking |
 | SodCinPayment.aspx | P2-09 | Cross-allocation SO ↔ Invoice payment |
-| PageDownLoad.aspx | P2-06 | File download utility |
-| PageForPDF.aspx | P2-06 | PDF generation/preview |
+| SuperPDP e-Invoicing | P3-03 | Third-party integration backlog |
+| AI Catalog Import Pipeline | P3-04 | Backlog (automation/translation pipeline) |
 
 ### Current-Only Features (Not in Legacy)
 | Feature | Route | Notes |
@@ -406,7 +393,7 @@ flowchart TD
 | Shopify Integration | `/_authenticated/integrations/shopify/` | E-commerce sync |
 | Sage X3 Mappings | `/_authenticated/integrations/x3/` | ERP export mappings |
 | Aging Reports | `/_authenticated/accounting/aging/` | Receivables aging analysis |
-| Data Import Wizard | `/_authenticated/import/` | CSV import with mapping |
+| Data Import Wizard | `/_authenticated/settings/import/` | CSV import with mapping + validation preview |
 | Delegates Management | `/_authenticated/clients/$id` (tab) | Billing delegates |
 
 ---
@@ -422,7 +409,10 @@ flowchart TD
 - Query performance optimization across all list endpoints
 - Chat system (WebSocket + threads + DMs + groups + search)
 - Drive system (folders + files + upload + preview)
-- Enterprise Settings (society info + address + legal + banking basics)
+- Enterprise Settings (society info + address + legal + banking + templates + exchange rates + pricing coefficient)
+- Quote/Order/Invoice detail line operations (merge + reorder)
+- Invoice inspection-form PDF flow
+- Warehouse 3D visualization mode (`/_authenticated/warehouse?view=3d`)
 
 ---
 
@@ -439,6 +429,7 @@ flowchart TD
 | V1.0.0.6 | Create Chat tables (7 tables)            | 2026-02-09 |
 | V1.0.0.7 | Create Drive tables                      | 2026-02-09 |
 | V1.0.0.8 | Create Landed Cost tables (8 tables)     | 2026-02-09 |
+| V1.0.0.13 | Add society templates + pricing coefficient | 2026-02-10 |
 
 ---
 
@@ -461,10 +452,14 @@ flowchart TD
 
 ## Last Updated
 
-- **Date**: 2026-02-10 (Round 4.1)
-- **Basis**: Field-level verification using 4 parallel agents:
-  1. **Product agent**: Verified all dimension fields, discovered missing interior dimensions + component relationships (drivers/accessories/options)
-  2. **Client agent**: Verified all 50+ model columns vs ClientCreateDto/form -- found 19 fields missing from create/edit workflow
-  3. **Quote/Order/Invoice agent**: Field-by-field comparison -- 100% general info, 10% contacts, 0% delivery address on quotes/orders, 95% line items (missing image), ~78% overall parity
-  4. **ASMX methods agent**: Verified 100+ legacy methods -- 8 fully implemented, 3 partial, 15 missing (dashboard widgets, bulk operations, lookups)
-- **Changes**: Added 6 new tasks (P2-15 through P2-18, P4-07, P4-08). Corrected P2-08 (duplicate endpoints already exist; only reverse order→quote missing). Updated P2-07, P2-13 with verified details. P2-06 moved from backlog to in-progress after PDF utility scaffolding in accounting export route. Total: 53 tasks (17 done, 1 in progress, 31 pending, 4 backlog = 34%).
+- **Date**: 2026-02-10 (Round 6.0)
+- **Changes completed this round**:
+  1. Closed **P2-06** with full quote/order/invoice/delivery PDF utility wiring.
+  2. Closed **P3-05** technical-sheet PDF flow and **P3-08** product express bulk flow.
+  3. Closed **P4-01/02/08** via enterprise settings expansion (exchange rates, document templates, pricing coefficient) and coefficient usage in invoice generation logic.
+  4. Closed **P4-03/04/05/07** via bulk status updates, line merge/reorder endpoints + UI, invoice inspection-form PDF, and missing lookup endpoints/hooks.
+  5. Added warehouse 3D UI mode under `/_authenticated/warehouse?view=3d`.
+  6. Closed **P3-06** landed-cost parity by fixing landed-cost allocation persistence and completing supply-lot UI CRUD + calculate/breakdown workflows.
+  7. Closed **P3-07** import wizard validation flow with a full preview/validation step before execution.
+  8. Closed **P4-06** reliquat/backorder tracking via new dashboard backorder endpoint + dashboard widget and order-line delivered quantity parity.
+- **Current total**: 53 tasks (**47 done, 0 in progress, 4 pending, 2 backlog = 89%**).

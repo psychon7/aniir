@@ -141,7 +141,7 @@ export const ordersApi = {
       return response.data
     }
 
-    const response = await apiClient.patch<Order>(`/orders/${id}/status`, { statusId })
+    const response = await apiClient.patch<Order>(`/orders/${id}/status`, { status_id: statusId })
     return response.data
   },
 

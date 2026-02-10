@@ -54,7 +54,10 @@
       "Bash(npm run lint:*)",
       "Bash(npm run generate-routes:*)",
       "Bash(npm run:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git -C /Users/mohankumarv/Desktop/Projects/Clients/AXTECH/ERP2025 status -u)",
+      "Bash(git -C /Users/mohankumarv/Desktop/Projects/Clients/AXTECH/ERP2025 diff backend/app/api/v1/suppliers.py backend/app/models/client_delegate.py backend/app/schemas/client_delegate.py backend/app/services/client_delegate_service.py)",
+      "Bash(git -C /Users/mohankumarv/Desktop/Projects/Clients/AXTECH/ERP2025 log --oneline -5)"
     ]
   }
 }

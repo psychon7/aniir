@@ -189,7 +189,8 @@ export interface SupplyLotDetail extends SupplyLot {
 
 export interface SupplyLotCreateDto {
   lot_reference: string;
-  lot_supplier_id: number;
+  lot_name?: string;
+  lot_supplier_id?: number;
   lot_status?: LotStatus;
   lot_eta?: string;
   lot_arrival_date?: string;
@@ -197,6 +198,7 @@ export interface SupplyLotCreateDto {
 
 export interface SupplyLotUpdateDto {
   lot_reference?: string;
+  lot_name?: string;
   lot_supplier_id?: number;
   lot_status?: LotStatus;
   lot_eta?: string;
@@ -223,6 +225,8 @@ export interface SupplyLotItemCreateDto {
 }
 
 export interface SupplyLotItemUpdateDto {
+  sli_prd_id?: number;
+  sli_pit_id?: number | null;
   sli_quantity?: number;
   sli_unit_price?: number;
   sli_weight_kg?: number;

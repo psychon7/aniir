@@ -7,7 +7,9 @@ import { DataTable, Column } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/Badge'
 import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
-import { useOrders, useDeleteOrder } from '@/hooks/useOrders'
+import { FormSelect } from '@/components/ui/form/FormSelect'
+import { useOrderStatuses } from '@/hooks/useLookups'
+import { useOrders, useDeleteOrder, useUpdateOrderStatus } from '@/hooks/useOrders'
 import type { OrderListItem, OrderSearchParams } from '@/types/order'
 
 export const Route = createFileRoute('/_authenticated/orders/')({
@@ -25,10 +27,14 @@ function OrdersPage() {
   })
 
   const [deletingOrder, setDeletingOrder] = useState<OrderListItem | null>(null)
+  const [selectedOrders, setSelectedOrders] = useState<OrderListItem[]>([])
+  const [bulkStatusId, setBulkStatusId] = useState('')
 
   // Data fetching with hooks
   const { data: ordersData, isLoading } = useOrders(searchParams)
   const deleteMutation = useDeleteOrder()
+  const updateStatusMutation = useUpdateOrderStatus()
+  const { data: orderStatuses = [] } = useOrderStatuses()
 
   const handleSearch = (search: string) => {
     setSearchParams((prev) => ({ ...prev, search, page: 1 }))
@@ -47,7 +53,7 @@ function OrdersPage() {
   }
 
   const handleRowClick = (order: OrderListItem) => {
-    navigate({ to: '/orders/$orderId' as any, params: { orderId: String(order.id) } })
+    navigate({ to: '/orders/$orderId' as any, params: { orderId: String(order.id) } } as any)
   }
 
   const handleConfirmDelete = async () => {
@@ -60,6 +66,56 @@ function OrdersPage() {
       showError(t('common.error'), t('orders.deleteError'))
     }
   }
+
+  const handleBulkStatusApply = async () => {
+    if (!selectedOrders.length || !bulkStatusId) return
+    const results = await Promise.allSettled(
+      selectedOrders.map((order) =>
+        updateStatusMutation.mutateAsync({ id: order.id, statusId: Number(bulkStatusId) })
+      )
+    )
+    const updatedCount = results.filter((result) => result.status === 'fulfilled').length
+    const failedCount = results.length - updatedCount
+    if (updatedCount > 0) {
+      success(
+        t('common.success'),
+        `${updatedCount} order(s) updated${failedCount ? `, ${failedCount} failed` : ''}.`
+      )
+    }
+    if (failedCount > 0) {
+      showError(t('common.error'), `${failedCount} order(s) could not be updated.`)
+    }
+    setSelectedOrders([])
+    setBulkStatusId('')
+  }
+
+  const bulkStatusOptions = [
+    { value: '', label: 'Set status...' },
+    ...orderStatuses
+      .map((status: any) => ({
+        value: String(status.key ?? status.id ?? ''),
+        label: String(status.value ?? status.name ?? ''),
+      }))
+      .filter((option) => option.value && option.label),
+  ]
+
+  const filters = (
+    <div className="flex items-center gap-2">
+      <FormSelect
+        value={bulkStatusId}
+        onChange={(e) => setBulkStatusId(e.target.value)}
+        options={bulkStatusOptions}
+        className="w-44"
+      />
+      <button
+        className="btn-secondary"
+        disabled={!selectedOrders.length || !bulkStatusId || updateStatusMutation.isPending}
+        onClick={handleBulkStatusApply}
+      >
+        {updateStatusMutation.isPending ? 'Applying...' : 'Apply to Selected'}
+      </button>
+    </div>
+  )
 
   const columns = useMemo<Column<OrderListItem>[]>(
     () => [
@@ -109,7 +165,7 @@ function OrdersPage() {
         header: t('orders.status'),
         accessorKey: 'statusName',
         sortable: true,
-        cell: (row) => <StatusBadge status={row.statusName} />,
+        cell: (row) => <StatusBadge status={row.statusName || 'Draft'} />,
       },
       {
         id: 'actions',
@@ -119,7 +175,7 @@ function OrdersPage() {
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                navigate({ to: '/orders/$orderId' as any, params: { orderId: String(row.id) } })
+                navigate({ to: '/orders/$orderId' as any, params: { orderId: String(row.id) } } as any)
               }}
               className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               title={t('common.view')}
@@ -187,6 +243,9 @@ function OrdersPage() {
         onSearchChange={handleSearch}
         searchPlaceholder={t('orders.searchPlaceholder')}
         onRowClick={handleRowClick}
+        selectedRows={selectedOrders}
+        onSelectionChange={setSelectedOrders}
+        filters={filters}
         emptyMessage={t('orders.noOrdersFound')}
         emptyDescription={t('orders.createFirst')}
       />

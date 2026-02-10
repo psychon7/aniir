@@ -205,12 +205,11 @@ class CostPlanLine(Base):
       vat_id: int NULL -> TR_VAT_Vat.vat_id
       ltp_id: int NOT NULL -> TR_LTP_Line_Type.ltp_id
       cln_prd_name: nvarchar(100) NULL
-      cln_ref: nvarchar(100) NULL
       cln_discount_percentage: decimal NULL
       cln_discount_amount: decimal NULL
       cln_price_with_discount_ht: decimal NULL
       cln_margin: decimal NULL
-      cln_image_url: nvarchar(2000) NULL
+      cln_image_url: nvarchar(2000) NULL (added by migration V1.0.0.9)
     """
     __tablename__ = "TM_CLN_CostPlan_Lines"
 
@@ -231,7 +230,8 @@ class CostPlanLine(Base):
     prd_id: Mapped[Optional[int]] = mapped_column("prd_id", Integer, ForeignKey("TM_PRD_Product.prd_id"), nullable=True)
     pit_id: Mapped[Optional[int]] = mapped_column("pit_id", Integer, ForeignKey("TM_PIT_Product_Instance.pit_id"), nullable=True)
     cln_prd_name: Mapped[Optional[str]] = mapped_column("cln_prd_name", String(100), nullable=True)
-    cln_ref: Mapped[Optional[str]] = mapped_column("cln_ref", String(100), nullable=True)
+    # NOTE: cln_ref column does not exist in database (no migration for it)
+    # cln_image_url is added by migration V1.0.0.9__p2_secondary_parity_schema.sql
     cln_image_url: Mapped[Optional[str]] = mapped_column("cln_image_url", String(2000), nullable=True)
 
     # Pricing

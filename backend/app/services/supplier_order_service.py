@@ -182,7 +182,7 @@ class SupplierOrderService:
         if order.vat_id:
             vat = self.db.get(VatRate, order.vat_id)
             if vat:
-                vat_rate = vat.vat_rate or self.DEFAULT_VAT_RATE
+                vat_rate = vat.vat_vat_rate or self.DEFAULT_VAT_RATE
 
         # Calculate total TTC (including VAT)
         vat_amount = total_ht * vat_rate / Decimal("100")
@@ -345,7 +345,7 @@ class SupplierOrderService:
         if order.vat_id:
             vat = self.db.get(VatRate, order.vat_id)
             if vat:
-                response_data["vatRate"] = vat.vat_rate
+                response_data["vatRate"] = float(vat.vat_vat_rate)
 
         # Creator
         if order.usr_creator_id:

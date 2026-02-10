@@ -10,9 +10,8 @@ from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
+from app.dependencies import get_async_db
 from app.services.warehouse_service import (
     WarehouseService,
     StockService,
@@ -55,22 +54,22 @@ router = APIRouter(prefix="/warehouse", tags=["Warehouse"])
 # Dependency Injection
 # ==========================================================================
 
-async def get_warehouse_service(db: AsyncSession = Depends(get_db)) -> WarehouseService:
+async def get_warehouse_service(db = Depends(get_async_db)) -> WarehouseService:
     """Get warehouse service instance."""
     return WarehouseService(db)
 
 
-async def get_stock_service(db: AsyncSession = Depends(get_db)) -> StockService:
+async def get_stock_service(db = Depends(get_async_db)) -> StockService:
     """Get stock service instance."""
     return StockService(db)
 
 
-async def get_movement_service(db: AsyncSession = Depends(get_db)) -> StockMovementService:
+async def get_movement_service(db = Depends(get_async_db)) -> StockMovementService:
     """Get stock movement service instance."""
     return StockMovementService(db)
 
 
-async def get_shelf_service(db: AsyncSession = Depends(get_db)) -> ShelfService:
+async def get_shelf_service(db = Depends(get_async_db)) -> ShelfService:
     """Get shelf service instance."""
     return ShelfService(db)
 

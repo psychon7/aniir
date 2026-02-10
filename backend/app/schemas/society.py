@@ -120,6 +120,17 @@ class SocietyUpdate(BaseModel):
     soc_rib_domiciliation_agency_2: Optional[str] = Field(None, max_length=200)
     soc_rib_abbre_2: Optional[str] = Field(None, max_length=50)
 
+    # Document templates
+    soc_quote_header_text: Optional[str] = Field(None, max_length=4000)
+    soc_quote_footer_text: Optional[str] = Field(None, max_length=4000)
+    soc_delivery_conditions_text: Optional[str] = Field(None, max_length=4000)
+    soc_invoice_penalty_text: Optional[str] = Field(None, max_length=4000)
+    soc_invoice_early_payment_discount_text: Optional[str] = Field(None, max_length=4000)
+    soc_invoice_email_body: Optional[str] = Field(None, max_length=4000)
+
+    # Pricing settings
+    soc_pricing_coefficient_sod_cin: Optional[float] = None
+
     # Settings
     soc_email_auto: Optional[bool] = None
     soc_mask_commission: Optional[bool] = None
@@ -183,6 +194,17 @@ class SocietyResponse(SocietyBase):
     soc_rib_key_2: Optional[str] = None
     soc_rib_domiciliation_agency_2: Optional[str] = None
     soc_rib_abbre_2: Optional[str] = None
+
+    # Document templates
+    soc_quote_header_text: Optional[str] = None
+    soc_quote_footer_text: Optional[str] = None
+    soc_delivery_conditions_text: Optional[str] = None
+    soc_invoice_penalty_text: Optional[str] = None
+    soc_invoice_early_payment_discount_text: Optional[str] = None
+    soc_invoice_email_body: Optional[str] = None
+
+    # Pricing settings
+    soc_pricing_coefficient_sod_cin: Optional[float] = None
 
     # Settings/Flags
     soc_email_auto: Optional[bool] = None
@@ -368,6 +390,21 @@ class SocietySettingsResponse(BaseModel):
     ribKey2: Optional[str] = Field(None, validation_alias="soc_rib_key_2", description="Secondary RIB key")
     ribDomiciliationAgency2: Optional[str] = Field(None, validation_alias="soc_rib_domiciliation_agency_2", description="Secondary domiciliation agency")
     ribAbbreviation2: Optional[str] = Field(None, validation_alias="soc_rib_abbre_2", description="Secondary bank abbreviation")
+
+    # Document templates
+    quoteHeaderText: Optional[str] = Field(None, validation_alias="soc_quote_header_text", description="Default quote header text")
+    quoteFooterText: Optional[str] = Field(None, validation_alias="soc_quote_footer_text", description="Default quote footer text")
+    deliveryConditionsText: Optional[str] = Field(None, validation_alias="soc_delivery_conditions_text", description="Default delivery conditions text")
+    invoicePenaltyText: Optional[str] = Field(None, validation_alias="soc_invoice_penalty_text", description="Invoice late-penalty text")
+    invoiceEarlyPaymentDiscountText: Optional[str] = Field(None, validation_alias="soc_invoice_early_payment_discount_text", description="Invoice early payment discount text")
+    invoiceEmailBody: Optional[str] = Field(None, validation_alias="soc_invoice_email_body", description="Default invoice email body")
+
+    # Pricing settings
+    pricingCoefficientSodCin: Optional[float] = Field(
+        None,
+        validation_alias="soc_pricing_coefficient_sod_cin",
+        description="Pricing coefficient used for Supplier Order -> Client Invoice conversion"
+    )
 
     @computed_field
     @property

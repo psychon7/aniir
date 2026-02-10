@@ -23,7 +23,7 @@ Actual DB schema:
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Integer, String, DateTime, Boolean, ForeignKey, Numeric
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.models.base import Base
@@ -99,6 +99,19 @@ class Society(Base):
     soc_rib_key_2: Mapped[Optional[str]] = mapped_column("soc_rib_key_2", String(50), nullable=True)
     soc_rib_domiciliation_agency_2: Mapped[Optional[str]] = mapped_column("soc_rib_domiciliation_agency_2", String(200), nullable=True)
     soc_rib_abbre_2: Mapped[Optional[str]] = mapped_column("soc_rib_abbre_2", String(50), nullable=True)
+
+    # Document template settings
+    soc_quote_header_text: Mapped[Optional[str]] = mapped_column("soc_quote_header_text", String(4000), nullable=True)
+    soc_quote_footer_text: Mapped[Optional[str]] = mapped_column("soc_quote_footer_text", String(4000), nullable=True)
+    soc_delivery_conditions_text: Mapped[Optional[str]] = mapped_column("soc_delivery_conditions_text", String(4000), nullable=True)
+    soc_invoice_penalty_text: Mapped[Optional[str]] = mapped_column("soc_invoice_penalty_text", String(4000), nullable=True)
+    soc_invoice_early_payment_discount_text: Mapped[Optional[str]] = mapped_column("soc_invoice_early_payment_discount_text", String(4000), nullable=True)
+    soc_invoice_email_body: Mapped[Optional[str]] = mapped_column("soc_invoice_email_body", String(4000), nullable=True)
+
+    # Pricing settings
+    soc_pricing_coefficient_sod_cin: Mapped[Optional[float]] = mapped_column(
+        "soc_pricing_coefficient_sod_cin", Numeric(18, 4), nullable=True
+    )
 
     # Flags
     soc_email_auto: Mapped[Optional[bool]] = mapped_column("soc_email_auto", Boolean, nullable=True)

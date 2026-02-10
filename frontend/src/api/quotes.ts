@@ -155,8 +155,14 @@ export const quotesApi = {
   /**
    * Change status of multiple quotes
    */
-  async changeStatus(request: QuoteStatusChangeRequest): Promise<void> {
-    await apiClient.post('/quotes/change-status', request)
+  async changeStatus(request: QuoteStatusChangeRequest): Promise<{
+    success: boolean
+    updatedCount: number
+    notFoundIds: number[]
+    statusId: number
+  }> {
+    const response = await apiClient.post('/quotes/change-status', request)
+    return response.data
   },
 
   /**

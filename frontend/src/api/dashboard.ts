@@ -20,9 +20,36 @@ export interface DashboardKpisResponse {
   quoteStatusBreakdown: QuoteStatusBreakdownItem[]
 }
 
+export interface DashboardBackorderLine {
+  orderId: number
+  orderReference: string
+  clientName: string
+  expectedDeliveryDate?: string | null
+  lineId: number
+  productReference: string
+  productName: string
+  description: string
+  orderedQuantity: number
+  deliveredQuantity: number
+  remainingQuantity: number
+}
+
+export interface DashboardBackordersResponse {
+  generatedAt: string
+  count: number
+  items: DashboardBackorderLine[]
+}
+
 export const dashboardApi = {
   async getKpis(): Promise<DashboardKpisResponse> {
     const response = await apiClient.get<DashboardKpisResponse>('/accounting/dashboard/kpis')
+    return response.data
+  },
+
+  async getBackorders(limit = 10): Promise<DashboardBackordersResponse> {
+    const response = await apiClient.get<DashboardBackordersResponse>('/accounting/dashboard/backorders', {
+      params: { limit },
+    })
     return response.data
   },
 }

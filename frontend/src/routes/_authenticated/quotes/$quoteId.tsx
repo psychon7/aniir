@@ -12,7 +12,7 @@ import { FormModal, FormModalFooter } from '@/components/ui/form/FormModal'
 import { useToast } from '@/components/ui/feedback/Toast'
 import { useOrdersByQuote } from '@/hooks/useOrders'
 import { useInvoicesByQuote } from '@/hooks/useInvoices'
-import { useConvertQuoteToOrder, useDownloadQuotePdf, useUpdateQuoteDiscount } from '@/hooks/useQuotes'
+import { useConvertQuoteToOrder, useUpdateQuoteDiscount } from '@/hooks/useQuotes'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/quotes/$quoteId')({
@@ -27,6 +27,8 @@ function QuoteDetailPage() {
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false)
   const [discountPercentage, setDiscountPercentage] = useState('')
   const [discountAmount, setDiscountAmount] = useState('')
+  const [selectedLineIds, setSelectedLineIds] = useState<number[]>([])
+  const [isLineActionPending, setIsLineActionPending] = useState(false)
 
   const { data: quote, isLoading } = useQuery({
     queryKey: ['quote', quoteId],
@@ -38,7 +40,6 @@ function QuoteDetailPage() {
   const { data: orders = [] } = useOrdersByQuote(Number(quoteId))
   const { data: invoices = [] } = useInvoicesByQuote(Number(quoteId))
   const convertMutation = useConvertQuoteToOrder()
-  const downloadPdf = useDownloadQuotePdf()
   const updateDiscountMutation = useUpdateQuoteDiscount()
 
   if (isLoading) {
@@ -68,6 +69,65 @@ function QuoteDetailPage() {
   const invoicingSnapshot = quote.invoicingContactSnapshot
   const deliverySnapshot = quote.deliveryContactSnapshot
 
+  const openPdfUtility = (mode: 'pdf-viewer' | 'pdf-download') => {
+    const safeReference = quote.reference || quoteId
+    navigate({
+      to: '/accounting/export' as any,
+      search: {
+        mode,
+        source: `/quotes/${quoteId}/pdf`,
+        title: `Quote ${safeReference}`,
+        filename: `quote-${safeReference}.pdf`,
+      } as any,
+    })
+  }
+
+  const moveLine = async (lineId: number, direction: 'up' | 'down') => {
+    const currentIds = (quote.lines || []).map((line: any) => Number(line.id)).filter(Boolean)
+    const fromIndex = currentIds.indexOf(lineId)
+    if (fromIndex < 0) return
+
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1
+    if (toIndex < 0 || toIndex >= currentIds.length) return
+
+    const reordered = [...currentIds]
+    ;[reordered[fromIndex], reordered[toIndex]] = [reordered[toIndex], reordered[fromIndex]]
+
+    try {
+      setIsLineActionPending(true)
+      await apiClient.post(`/quotes/${quoteId}/lines/reorder`, {
+        line_ids: reordered,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
+    } catch {
+      showError('Error', 'Unable to reorder line items.')
+    } finally {
+      setIsLineActionPending(false)
+    }
+  }
+
+  const mergeSelectedLines = async () => {
+    if (selectedLineIds.length < 2) {
+      showError('Error', 'Select at least 2 lines to merge.')
+      return
+    }
+
+    try {
+      setIsLineActionPending(true)
+      const response = await apiClient.post(`/quotes/${quoteId}/lines/merge`, {
+        line_ids: selectedLineIds,
+      })
+      const primaryLineId = response?.data?.primaryLineId
+      setSelectedLineIds(primaryLineId ? [primaryLineId] : [])
+      await queryClient.invalidateQueries({ queryKey: ['quote', quoteId] })
+      success('Success', 'Selected lines merged.')
+    } catch {
+      showError('Error', 'Unable to merge selected lines.')
+    } finally {
+      setIsLineActionPending(false)
+    }
+  }
+
   const actions = (
     <div className="flex gap-2">
       <button onClick={() => navigate({ to: '/quotes' as any })} className="btn-secondary">
@@ -90,10 +150,15 @@ function QuoteDetailPage() {
       />
       <button
         className="btn-secondary"
-        disabled={downloadPdf.isPending}
-        onClick={() => downloadPdf.mutate(parseInt(quoteId, 10))}
+        onClick={() => openPdfUtility('pdf-viewer')}
       >
-        {downloadPdf.isPending ? 'Generating...' : 'Download PDF'}
+        Preview PDF
+      </button>
+      <button
+        className="btn-secondary"
+        onClick={() => openPdfUtility('pdf-download')}
+      >
+        Download PDF
       </button>
       <button
         className="btn-primary"
@@ -162,19 +227,49 @@ function QuoteDetailPage() {
           <Card>
             <CardHeader title="Line Items" />
             <CardContent>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-muted-foreground">
+                  {selectedLineIds.length} selected
+                </p>
+                <button
+                  className="btn-secondary"
+                  onClick={mergeSelectedLines}
+                  disabled={isLineActionPending || selectedLineIds.length < 2}
+                >
+                  Merge Selected
+                </button>
+              </div>
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
+                    <th className="text-left py-2 text-sm text-muted-foreground w-10"></th>
                     <th className="text-left py-2 text-sm text-muted-foreground">Image</th>
                     <th className="text-left py-2 text-sm text-muted-foreground">Product</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">Qty</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">Unit Price</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">Total</th>
+                    <th className="text-right py-2 text-sm text-muted-foreground w-28">Order</th>
                   </tr>
                 </thead>
                 <tbody>
                   {quote.lines?.map((line: any, index: number) => (
-                    <tr key={index} className="border-b">
+                    <tr key={line.id ?? index} className="border-b">
+                      <td className="py-3 pr-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedLineIds.includes(Number(line.id))}
+                          onChange={(e) => {
+                            const numericId = Number(line.id)
+                            if (!numericId) return
+                            if (e.target.checked) {
+                              setSelectedLineIds((prev) => [...prev, numericId])
+                            } else {
+                              setSelectedLineIds((prev) => prev.filter((id) => id !== numericId))
+                            }
+                          }}
+                          disabled={isLineActionPending}
+                        />
+                      </td>
                       <td className="py-3 pr-2">
                         {line.imageUrl ? (
                           <img
@@ -199,10 +294,30 @@ function QuoteDetailPage() {
                       <td className="text-right py-3 font-medium">
                         {new Intl.NumberFormat('en-US', { style: 'currency', currency: quote.currency || 'USD' }).format(line.lineTotal)}
                       </td>
+                      <td className="text-right py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            className="btn-secondary px-2 py-1 text-xs"
+                            onClick={() => moveLine(Number(line.id), 'up')}
+                            disabled={isLineActionPending || index === 0}
+                          >
+                            Up
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary px-2 py-1 text-xs"
+                            onClick={() => moveLine(Number(line.id), 'down')}
+                            disabled={isLineActionPending || index === (quote.lines?.length || 0) - 1}
+                          >
+                            Down
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   )) || (
                     <tr>
-                      <td colSpan={5} className="text-center py-8 text-muted-foreground">
+                      <td colSpan={7} className="text-center py-8 text-muted-foreground">
                         No line items
                       </td>
                     </tr>

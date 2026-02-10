@@ -8,6 +8,9 @@ import { LoadingSkeletonCard } from '@/components/ui/feedback/LoadingSkeleton'
 import { EmptyStateError } from '@/components/ui/feedback/EmptyState'
 import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
+import { FormInput } from '@/components/ui/form/FormInput'
+import { FormSelect } from '@/components/ui/form/FormSelect'
+import { FormModal, FormModalFooter } from '@/components/ui/form/FormModal'
 import {
   LandedCostBreakdown,
   FreightCostsList,
@@ -16,11 +19,21 @@ import {
 import {
   useSupplyLot,
   useDeleteSupplyLot,
+  useUpdateSupplyLot,
+  useAddSupplyLotItem,
+  useUpdateSupplyLotItem,
+  useDeleteSupplyLotItem,
+  useAddFreightCost,
+  useUpdateFreightCost,
+  useDeleteFreightCost,
   useLandedCostBreakdown,
 } from '@/hooks/useLandedCost'
+import { useSuppliers } from '@/hooks/useSuppliers'
 import {
   LOT_STATUS_LABELS,
   LOT_STATUS_COLORS,
+  type SupplyLotItem,
+  type FreightCost,
   type LotStatus,
 } from '@/types/landed-cost'
 import { cn } from '@/lib/utils'
@@ -39,6 +52,28 @@ function SupplyLotDetailPage() {
 
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [isEditLotOpen, setIsEditLotOpen] = useState(false)
+  const [lotReferenceInput, setLotReferenceInput] = useState('')
+  const [lotNameInput, setLotNameInput] = useState('')
+  const [lotSupplierInput, setLotSupplierInput] = useState('')
+
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false)
+  const [editingItem, setEditingItem] = useState<SupplyLotItem | null>(null)
+  const [itemProductId, setItemProductId] = useState('')
+  const [itemDescription, setItemDescription] = useState('')
+  const [itemSku, setItemSku] = useState('')
+  const [itemQuantity, setItemQuantity] = useState('')
+  const [itemUnitPrice, setItemUnitPrice] = useState('')
+  const [itemWeight, setItemWeight] = useState('')
+  const [itemVolume, setItemVolume] = useState('')
+
+  const [isCostModalOpen, setIsCostModalOpen] = useState(false)
+  const [editingCost, setEditingCost] = useState<FreightCost | null>(null)
+  const [costType, setCostType] = useState('FREIGHT')
+  const [costDescription, setCostDescription] = useState('')
+  const [costAmount, setCostAmount] = useState('')
+  const [costVendor, setCostVendor] = useState('')
+  const [costInvoiceRef, setCostInvoiceRef] = useState('')
 
   const lotIdNum = Number(lotId)
 
@@ -50,13 +85,22 @@ function SupplyLotDetailPage() {
 
   // Delete mutation
   const deleteMutation = useDeleteSupplyLot()
+  const updateLotMutation = useUpdateSupplyLot()
+  const addItemMutation = useAddSupplyLotItem()
+  const updateItemMutation = useUpdateSupplyLotItem()
+  const deleteItemMutation = useDeleteSupplyLotItem()
+  const addCostMutation = useAddFreightCost()
+  const updateCostMutation = useUpdateFreightCost()
+  const deleteCostMutation = useDeleteFreightCost()
+  const { data: suppliersData } = useSuppliers({ page: 1, pageSize: 100 })
+  const suppliers = suppliersData?.data || []
 
   const handleDelete = async () => {
     try {
       await deleteMutation.mutateAsync(lotIdNum)
       success('Supply Lot deleted', 'The supply lot has been deleted successfully.')
       navigate({ to: '/supply-lots' })
-    } catch (err) {
+    } catch {
       showError('Error', 'An error occurred while deleting the supply lot.')
     }
   }
@@ -64,6 +108,198 @@ function SupplyLotDetailPage() {
   const handleCalculateSuccess = () => {
     refetch()
     refetchBreakdown()
+  }
+
+  const openEditLotModal = () => {
+    setLotReferenceInput(supplyLot?.lot_reference || '')
+    setLotNameInput(supplyLot?.lot_name || '')
+    setLotSupplierInput(supplyLot?.lot_supplier_id ? String(supplyLot.lot_supplier_id) : '')
+    setIsEditLotOpen(true)
+  }
+
+  const saveLotDetails = async () => {
+    if (!lotReferenceInput.trim()) {
+      showError('Validation', 'Reference is required.')
+      return
+    }
+
+    try {
+      await updateLotMutation.mutateAsync({
+        lotId: lotIdNum,
+        data: {
+          lot_reference: lotReferenceInput.trim(),
+          lot_name: lotNameInput.trim() || undefined,
+          lot_supplier_id: lotSupplierInput ? Number(lotSupplierInput) : undefined,
+        },
+      })
+      success('Saved', 'Supply lot details updated.')
+      setIsEditLotOpen(false)
+      refetch()
+    } catch {
+      showError('Error', 'Unable to update supply lot.')
+    }
+  }
+
+  const openNewItemModal = () => {
+    setEditingItem(null)
+    setItemProductId('')
+    setItemDescription('')
+    setItemSku('')
+    setItemQuantity('')
+    setItemUnitPrice('')
+    setItemWeight('')
+    setItemVolume('')
+    setIsItemModalOpen(true)
+  }
+
+  const openEditItemModal = (item: SupplyLotItem) => {
+    setEditingItem(item)
+    setItemProductId(item.sli_prd_id ? String(item.sli_prd_id) : '')
+    setItemDescription(item.sli_description || '')
+    setItemSku(item.sli_sku || '')
+    setItemQuantity(String(item.sli_quantity || ''))
+    setItemUnitPrice(String(item.sli_unit_price || ''))
+    setItemWeight(item.sli_weight_kg != null ? String(item.sli_weight_kg) : '')
+    setItemVolume(item.sli_volume_cbm != null ? String(item.sli_volume_cbm) : '')
+    setIsItemModalOpen(true)
+  }
+
+  const saveItem = async () => {
+    const parsedQuantity = Number(itemQuantity)
+    const parsedPrice = Number(itemUnitPrice)
+
+    if (!itemProductId || !Number(itemProductId)) {
+      showError('Validation', 'Product ID is required.')
+      return
+    }
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      showError('Validation', 'Quantity must be greater than zero.')
+      return
+    }
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      showError('Validation', 'Unit price must be zero or greater.')
+      return
+    }
+
+    try {
+      const payload = {
+        sli_prd_id: Number(itemProductId),
+        sli_quantity: parsedQuantity,
+        sli_unit_price: parsedPrice,
+        sli_weight_kg: itemWeight !== '' ? Number(itemWeight) : undefined,
+        sli_volume_cbm: itemVolume !== '' ? Number(itemVolume) : undefined,
+        sli_sku: itemSku || undefined,
+        sli_description: itemDescription || undefined,
+      }
+
+      if (editingItem) {
+        await updateItemMutation.mutateAsync({
+          lotId: lotIdNum,
+          itemId: editingItem.sli_id,
+          data: payload,
+        })
+        success('Saved', 'Lot item updated.')
+      } else {
+        await addItemMutation.mutateAsync({
+          lotId: lotIdNum,
+          data: payload,
+        })
+        success('Added', 'Lot item added.')
+      }
+
+      setIsItemModalOpen(false)
+      refetch()
+      refetchBreakdown()
+    } catch {
+      showError('Error', 'Unable to save lot item.')
+    }
+  }
+
+  const removeItem = async (itemId: number) => {
+    if (!window.confirm('Delete this lot item?')) return
+    try {
+      await deleteItemMutation.mutateAsync({ lotId: lotIdNum, itemId })
+      success('Deleted', 'Lot item removed.')
+      refetch()
+      refetchBreakdown()
+    } catch {
+      showError('Error', 'Unable to delete lot item.')
+    }
+  }
+
+  const openNewCostModal = () => {
+    setEditingCost(null)
+    setCostType('FREIGHT')
+    setCostDescription('')
+    setCostAmount('')
+    setCostVendor('')
+    setCostInvoiceRef('')
+    setIsCostModalOpen(true)
+  }
+
+  const openEditCostModal = (cost: FreightCost) => {
+    setEditingCost(cost)
+    setCostType(cost.frc_type)
+    setCostDescription(cost.frc_description || '')
+    setCostAmount(String(cost.frc_amount || ''))
+    setCostVendor(cost.frc_vendor_name || '')
+    setCostInvoiceRef(cost.frc_invoice_ref || '')
+    setIsCostModalOpen(true)
+  }
+
+  const saveCost = async () => {
+    const parsedAmount = Number(costAmount)
+    if (!costType) {
+      showError('Validation', 'Cost type is required.')
+      return
+    }
+    if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+      showError('Validation', 'Amount must be zero or greater.')
+      return
+    }
+
+    try {
+      const payload = {
+        frc_type: costType as any,
+        frc_description: costDescription || 'Cost entry',
+        frc_amount: parsedAmount,
+        frc_vendor_name: costVendor || undefined,
+        frc_invoice_ref: costInvoiceRef || undefined,
+      }
+
+      if (editingCost) {
+        await updateCostMutation.mutateAsync({
+          lotId: lotIdNum,
+          costId: editingCost.frc_id,
+          data: payload,
+        })
+        success('Saved', 'Cost entry updated.')
+      } else {
+        await addCostMutation.mutateAsync({
+          lotId: lotIdNum,
+          data: payload as any,
+        })
+        success('Added', 'Cost entry added.')
+      }
+
+      setIsCostModalOpen(false)
+      refetch()
+      refetchBreakdown()
+    } catch {
+      showError('Error', 'Unable to save cost entry.')
+    }
+  }
+
+  const removeCost = async (costId: number) => {
+    if (!window.confirm('Delete this cost entry?')) return
+    try {
+      await deleteCostMutation.mutateAsync({ lotId: lotIdNum, costId })
+      success('Deleted', 'Cost entry removed.')
+      refetch()
+      refetchBreakdown()
+    } catch {
+      showError('Error', 'Unable to delete cost entry.')
+    }
   }
 
   // Format currency helper
@@ -149,7 +385,7 @@ function SupplyLotDetailPage() {
         actions={
           <>
             <button
-              onClick={() => navigate({ to: '/supply-lots/$lotId/edit', params: { lotId } })}
+              onClick={openEditLotModal}
               className="btn-secondary"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -382,14 +618,18 @@ function SupplyLotDetailPage() {
         <SupplyLotItems
           items={supplyLot.items}
           showLandedCosts={supplyLot.lot_allocation_completed}
-          readonly
+          onAddItem={openNewItemModal}
+          onEditItem={openEditItemModal}
+          onDeleteItem={removeItem}
         />
       )}
 
       {activeTab === 'costs' && (
         <FreightCostsList
           freightCosts={supplyLot.freight_costs}
-          readonly
+          onAddCost={openNewCostModal}
+          onEditCost={openEditCostModal}
+          onDeleteCost={removeCost}
         />
       )}
 
@@ -401,6 +641,165 @@ function SupplyLotDetailPage() {
           onCalculateSuccess={handleCalculateSuccess}
         />
       )}
+
+      <FormModal
+        isOpen={isEditLotOpen}
+        onClose={() => setIsEditLotOpen(false)}
+        title="Edit Supply Lot"
+        description="Update header information for this supply lot."
+        footer={(
+          <FormModalFooter
+            onCancel={() => setIsEditLotOpen(false)}
+            onSubmit={saveLotDetails}
+            submitText="Save"
+            isSubmitting={updateLotMutation.isPending}
+          />
+        )}
+      >
+        <div className="grid grid-cols-1 gap-4">
+          <FormInput
+            label="Reference"
+            value={lotReferenceInput}
+            onChange={(event) => setLotReferenceInput(event.target.value)}
+            required
+          />
+          <FormInput
+            label="Name"
+            value={lotNameInput}
+            onChange={(event) => setLotNameInput(event.target.value)}
+            placeholder="Optional lot name"
+          />
+          <FormSelect
+            label="Supplier"
+            value={lotSupplierInput}
+            onChange={(event) => setLotSupplierInput(event.target.value)}
+            options={[
+              { value: '', label: 'No supplier' },
+              ...suppliers.map((supplier: any) => ({
+                value: String(supplier.id),
+                label: `${supplier.reference || `SUP-${supplier.id}`} - ${supplier.companyName || supplier.name || 'Supplier'}`,
+              })),
+            ]}
+          />
+        </div>
+      </FormModal>
+
+      <FormModal
+        isOpen={isItemModalOpen}
+        onClose={() => setIsItemModalOpen(false)}
+        title={editingItem ? 'Edit Lot Item' : 'Add Lot Item'}
+        description="Add or edit a product line inside this supply lot."
+        footer={(
+          <FormModalFooter
+            onCancel={() => setIsItemModalOpen(false)}
+            onSubmit={saveItem}
+            submitText={editingItem ? 'Save' : 'Add Item'}
+            isSubmitting={addItemMutation.isPending || updateItemMutation.isPending}
+          />
+        )}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormInput
+            type="number"
+            label="Product ID"
+            value={itemProductId}
+            onChange={(event) => setItemProductId(event.target.value)}
+            required
+          />
+          <FormInput
+            label="SKU"
+            value={itemSku}
+            onChange={(event) => setItemSku(event.target.value)}
+          />
+          <FormInput
+            label="Description"
+            value={itemDescription}
+            onChange={(event) => setItemDescription(event.target.value)}
+            className="md:col-span-2"
+          />
+          <FormInput
+            type="number"
+            label="Quantity"
+            value={itemQuantity}
+            onChange={(event) => setItemQuantity(event.target.value)}
+            required
+          />
+          <FormInput
+            type="number"
+            label="Unit Price"
+            value={itemUnitPrice}
+            onChange={(event) => setItemUnitPrice(event.target.value)}
+            required
+          />
+          <FormInput
+            type="number"
+            label="Weight (kg)"
+            value={itemWeight}
+            onChange={(event) => setItemWeight(event.target.value)}
+          />
+          <FormInput
+            type="number"
+            label="Volume (CBM)"
+            value={itemVolume}
+            onChange={(event) => setItemVolume(event.target.value)}
+          />
+        </div>
+      </FormModal>
+
+      <FormModal
+        isOpen={isCostModalOpen}
+        onClose={() => setIsCostModalOpen(false)}
+        title={editingCost ? 'Edit Cost Entry' : 'Add Cost Entry'}
+        description="Add freight/customs/insurance/local/other costs for allocation."
+        footer={(
+          <FormModalFooter
+            onCancel={() => setIsCostModalOpen(false)}
+            onSubmit={saveCost}
+            submitText={editingCost ? 'Save' : 'Add Cost'}
+            isSubmitting={addCostMutation.isPending || updateCostMutation.isPending}
+          />
+        )}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormSelect
+            label="Type"
+            value={costType}
+            onChange={(event) => setCostType(event.target.value)}
+            options={[
+              { value: 'FREIGHT', label: 'Freight' },
+              { value: 'CUSTOMS', label: 'Customs' },
+              { value: 'INSURANCE', label: 'Insurance' },
+              { value: 'LOCAL', label: 'Local' },
+              { value: 'HANDLING', label: 'Handling' },
+              { value: 'OTHER', label: 'Other' },
+            ]}
+            required
+          />
+          <FormInput
+            type="number"
+            label="Amount"
+            value={costAmount}
+            onChange={(event) => setCostAmount(event.target.value)}
+            required
+          />
+          <FormInput
+            label="Description"
+            value={costDescription}
+            onChange={(event) => setCostDescription(event.target.value)}
+            className="md:col-span-2"
+          />
+          <FormInput
+            label="Vendor"
+            value={costVendor}
+            onChange={(event) => setCostVendor(event.target.value)}
+          />
+          <FormInput
+            label="Invoice Ref"
+            value={costInvoiceRef}
+            onChange={(event) => setCostInvoiceRef(event.target.value)}
+          />
+        </div>
+      </FormModal>
 
       {/* Delete Confirmation */}
       <DeleteConfirmDialog

@@ -12,7 +12,7 @@ import { FormInput } from '@/components/ui/form/FormInput'
 import { FormModal, FormModalFooter } from '@/components/ui/form/FormModal'
 import { useDeliveriesByOrder } from '@/hooks/useDeliveries'
 import { useCreateInvoiceFromOrder } from '@/hooks/useInvoices'
-import { useConvertOrderToQuote, useExportOrderPDF, useUpdateOrderDiscount } from '@/hooks/useOrders'
+import { useConvertOrderToQuote, useUpdateOrderDiscount } from '@/hooks/useOrders'
 import { useToast } from '@/components/ui/feedback/Toast'
 import apiClient from '@/api/client'
 
@@ -29,6 +29,8 @@ function OrderDetailPage() {
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false)
   const [discountPercentage, setDiscountPercentage] = useState('')
   const [discountAmount, setDiscountAmount] = useState('')
+  const [selectedLineIds, setSelectedLineIds] = useState<number[]>([])
+  const [isLineActionPending, setIsLineActionPending] = useState(false)
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', orderId],
@@ -42,7 +44,6 @@ function OrderDetailPage() {
   const createInvoiceMutation = useCreateInvoiceFromOrder()
   const convertToQuoteMutation = useConvertOrderToQuote()
   const updateDiscountMutation = useUpdateOrderDiscount()
-  const downloadPdf = useExportOrderPDF()
 
   if (isLoading) {
     return (
@@ -71,6 +72,65 @@ function OrderDetailPage() {
   const invoicingSnapshot = order.invoicingContactSnapshot
   const deliverySnapshot = order.deliveryContactSnapshot
 
+  const openPdfUtility = (mode: 'pdf-viewer' | 'pdf-download') => {
+    const safeReference = order.reference || orderId
+    navigate({
+      to: '/accounting/export' as any,
+      search: {
+        mode,
+        source: `/orders/${orderId}/pdf`,
+        title: `Order ${safeReference}`,
+        filename: `order-${safeReference}.pdf`,
+      } as any,
+    })
+  }
+
+  const moveLine = async (lineId: number, direction: 'up' | 'down') => {
+    const currentIds = (order.lines || []).map((line: any) => Number(line.id)).filter(Boolean)
+    const fromIndex = currentIds.indexOf(lineId)
+    if (fromIndex < 0) return
+
+    const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1
+    if (toIndex < 0 || toIndex >= currentIds.length) return
+
+    const reordered = [...currentIds]
+    ;[reordered[fromIndex], reordered[toIndex]] = [reordered[toIndex], reordered[fromIndex]]
+
+    try {
+      setIsLineActionPending(true)
+      await apiClient.post(`/orders/${orderId}/lines/reorder`, {
+        line_ids: reordered,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['order', orderId] })
+    } catch {
+      showError(t('common.error'), 'Unable to reorder line items.')
+    } finally {
+      setIsLineActionPending(false)
+    }
+  }
+
+  const mergeSelectedLines = async () => {
+    if (selectedLineIds.length < 2) {
+      showError(t('common.error'), 'Select at least 2 lines to merge.')
+      return
+    }
+
+    try {
+      setIsLineActionPending(true)
+      const response = await apiClient.post(`/orders/${orderId}/lines/merge`, {
+        line_ids: selectedLineIds,
+      })
+      const primaryLineId = response?.data?.primaryLineId
+      setSelectedLineIds(primaryLineId ? [primaryLineId] : [])
+      await queryClient.invalidateQueries({ queryKey: ['order', orderId] })
+      success(t('common.success'), 'Selected lines merged.')
+    } catch {
+      showError(t('common.error'), 'Unable to merge selected lines.')
+    } finally {
+      setIsLineActionPending(false)
+    }
+  }
+
   const actions = (
     <div className="flex gap-2">
       <button onClick={() => navigate({ to: '/orders' as any })} className="btn-secondary">
@@ -93,10 +153,15 @@ function OrderDetailPage() {
       />
       <button
         className="btn-secondary"
-        disabled={downloadPdf.isPending}
-        onClick={() => downloadPdf.mutate(parseInt(orderId, 10))}
+        onClick={() => openPdfUtility('pdf-viewer')}
       >
-        {downloadPdf.isPending ? 'Generating...' : 'Download PDF'}
+        Preview PDF
+      </button>
+      <button
+        className="btn-secondary"
+        onClick={() => openPdfUtility('pdf-download')}
+      >
+        Download PDF
       </button>
       <button
         className="btn-secondary"
@@ -193,20 +258,50 @@ function OrderDetailPage() {
           <Card>
             <CardHeader title={t('orders.lineItems')} />
             <CardContent>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-muted-foreground">
+                  {selectedLineIds.length} selected
+                </p>
+                <button
+                  className="btn-secondary"
+                  onClick={mergeSelectedLines}
+                  disabled={isLineActionPending || selectedLineIds.length < 2}
+                >
+                  Merge Selected
+                </button>
+              </div>
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
+                    <th className="text-left py-2 text-sm text-muted-foreground w-10"></th>
                     <th className="text-left py-2 text-sm text-muted-foreground">Image</th>
                     <th className="text-left py-2 text-sm text-muted-foreground">{t('orders.product')}</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">{t('orders.quantity')}</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">{t('orders.delivered')}</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">{t('orders.unitPrice')}</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">{t('orders.total')}</th>
+                    <th className="text-right py-2 text-sm text-muted-foreground w-28">Order</th>
                   </tr>
                 </thead>
                 <tbody>
                   {order.lines?.map((line: any, index: number) => (
-                    <tr key={index} className="border-b">
+                    <tr key={line.id ?? index} className="border-b">
+                      <td className="py-3 pr-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedLineIds.includes(Number(line.id))}
+                          onChange={(e) => {
+                            const numericId = Number(line.id)
+                            if (!numericId) return
+                            if (e.target.checked) {
+                              setSelectedLineIds((prev) => [...prev, numericId])
+                            } else {
+                              setSelectedLineIds((prev) => prev.filter((id) => id !== numericId))
+                            }
+                          }}
+                          disabled={isLineActionPending}
+                        />
+                      </td>
                       <td className="py-3 pr-2">
                         {line.imageUrl ? (
                           <img
@@ -236,10 +331,30 @@ function OrderDetailPage() {
                       <td className="text-right py-3 font-medium">
                         {new Intl.NumberFormat('en-US', { style: 'currency', currency: order.currency || 'USD' }).format(line.lineTotal)}
                       </td>
+                      <td className="text-right py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            className="btn-secondary px-2 py-1 text-xs"
+                            onClick={() => moveLine(Number(line.id), 'up')}
+                            disabled={isLineActionPending || index === 0}
+                          >
+                            Up
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-secondary px-2 py-1 text-xs"
+                            onClick={() => moveLine(Number(line.id), 'down')}
+                            disabled={isLineActionPending || index === (order.lines?.length || 0) - 1}
+                          >
+                            Down
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   )) || (
                     <tr>
-                      <td colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <td colSpan={8} className="text-center py-8 text-muted-foreground">
                         {t('orders.noLineItems')}
                       </td>
                     </tr>

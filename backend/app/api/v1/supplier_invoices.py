@@ -184,7 +184,7 @@ def _sync_get_supplier_invoice_detail(db: Session, invoice_id: int):
     if row.vat_id:
         vat = db.get(VatRate, row.vat_id)
         if vat:
-            vat_rate = float(vat.vat_rate) if vat.vat_rate else None
+            vat_rate = float(vat.vat_vat_rate) if vat.vat_vat_rate else None
 
     society_name = None
     if row.soc_id:
@@ -267,7 +267,11 @@ def _sync_get_supplier_invoice_detail(db: Session, invoice_id: int):
         "currencyCode": row.cur_designation or "EUR",
         "currencySymbol": row.cur_designation or "EUR",
         "vatRate": vat_rate,
+        "societyId": row.soc_id,
         "societyName": society_name or "",
+        "currencyId": row.cur_id,
+        "vatId": row.vat_id,
+        "creatorId": row.usr_creator_id,
         "creatorName": creator_name or "",
         "supplierOrderCode": supplier_order_code or "",
         "internalComment": row.sin_inter_comment or "",

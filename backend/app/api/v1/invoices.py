@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import Optional, List, Any
 from pathlib import Path as FilePath
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, and_, desc, asc
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -29,6 +29,7 @@ from app.models.client import Client
 from app.models.currency import Currency
 from app.models.order import ClientOrder, ClientOrderLine
 from app.models.delivery_form import DeliveryForm, DeliveryFormLine
+from app.models.society import Society
 from app.services.invoice_service import (
     InvoiceService,
     get_invoice_service,
@@ -111,9 +112,43 @@ class DeliveryInvoiceBulkResponse(BaseModel):
     skipped: List[dict] = Field(default_factory=list)
 
 
+class InvoiceLineReorderRequest(BaseModel):
+    """Reorder invoice lines by providing line IDs in the desired order."""
+    model_config = {"populate_by_name": True}
+
+    line_ids: List[int] = Field(default_factory=list, alias="lineIds")
+
+
+class InvoiceLineMergeRequest(BaseModel):
+    """Merge multiple invoice lines into one line."""
+    model_config = {"populate_by_name": True}
+
+    line_ids: List[int] = Field(default_factory=list, alias="lineIds")
+    keep_line_id: Optional[int] = Field(default=None, alias="keepLineId")
+
+
 # ==========================================================================
 # Sync Database Helper
 # ==========================================================================
+
+
+def _decimal_or_zero(value: Any) -> Decimal:
+    """Convert DB numeric values safely to Decimal."""
+    if value is None:
+        return Decimal("0")
+    return Decimal(str(value))
+
+
+def _sync_get_society_pricing_coefficient(db: Session, soc_id: Optional[int]) -> Decimal:
+    """Read configurable SO->Invoice pricing coefficient from society settings."""
+    if not soc_id:
+        return Decimal("1")
+
+    coefficient = db.execute(
+        select(Society.soc_pricing_coefficient_sod_cin).where(Society.soc_id == soc_id)
+    ).scalar()
+    value = _decimal_or_zero(coefficient)
+    return value if value > 0 else Decimal("1")
 
 
 def _sync_list_invoices(
@@ -342,6 +377,7 @@ def _sync_get_invoices_by_project(db: Session, project_id: int):
             ClientInvoice.cin_rest_to_pay,
             Client.cli_company_name,
             Currency.cur_designation,
+            ClientInvoice.cin_d_creation,
         )
         .order_by(desc(ClientInvoice.cin_d_creation))
     ).all()
@@ -408,6 +444,7 @@ def _sync_get_invoices_by_quote(db: Session, quote_id: int):
             ClientInvoice.cin_rest_to_pay,
             Client.cli_company_name,
             Currency.cur_designation,
+            ClientInvoice.cin_d_creation,
         )
         .order_by(desc(ClientInvoice.cin_d_creation))
     ).all()
@@ -562,17 +599,28 @@ def _sync_create_invoice_from_delivery(db: Session, delivery_id: int):
         select(DeliveryFormLine).where(DeliveryFormLine.dfo_id == delivery_id)
     ).scalars().all()
 
+    pricing_coefficient = _sync_get_society_pricing_coefficient(db, invoice.soc_id)
     total_ht = Decimal("0")
     for d_line in delivery_lines:
         order_line = None
         if d_line.col_id:
             order_line = db.get(ClientOrderLine, d_line.col_id)
 
-        quantity = Decimal(str(d_line.dfl_quantity or (order_line.col_quantity if order_line else 0) or 0))
-        unit_price = Decimal(str(order_line.col_unit_price if order_line and order_line.col_unit_price is not None else 0))
+        quantity = _decimal_or_zero(d_line.dfl_quantity or (order_line.col_quantity if order_line else 0))
+        purchase_price = _decimal_or_zero(order_line.col_purchase_price if order_line else 0)
+        unit_price = _decimal_or_zero(
+            order_line.col_unit_price if order_line and order_line.col_unit_price is not None else 0
+        )
+        if order_line and purchase_price > 0 and (unit_price <= 0 or unit_price == purchase_price):
+            unit_price = (purchase_price * pricing_coefficient).quantize(Decimal("0.0001"))
+
         line_total = quantity * unit_price
-        discount_pct = Decimal(str(order_line.col_discount_percentage if order_line and order_line.col_discount_percentage is not None else 0))
-        discount_amt = Decimal(str(order_line.col_discount_amount if order_line and order_line.col_discount_amount is not None else 0))
+        discount_pct = _decimal_or_zero(
+            order_line.col_discount_percentage if order_line and order_line.col_discount_percentage is not None else 0
+        )
+        discount_amt = _decimal_or_zero(
+            order_line.col_discount_amount if order_line and order_line.col_discount_amount is not None else 0
+        )
         if discount_amt == 0 and discount_pct > 0 and line_total > 0:
             discount_amt = (line_total * discount_pct) / Decimal("100")
         discounted_total = line_total - discount_amt
@@ -589,7 +637,7 @@ def _sync_create_invoice_from_delivery(db: Session, delivery_id: int):
             cii_total_price=line_total,
             vat_id=((order_line.vat_id if order_line else None) or (order.vat_id if order else None)),
             dfl_id=d_line.dfl_id,
-            cii_purchase_price=(order_line.col_purchase_price if order_line else None),
+            cii_purchase_price=(purchase_price if purchase_price > 0 else None),
             cii_total_crude_price=(order_line.col_total_crude_price if order_line else None),
             cii_prd_name=(order_line.col_prd_name if order_line else None),
             cii_discount_percentage=discount_pct,
@@ -613,6 +661,126 @@ def _sync_create_invoice_from_delivery(db: Session, delivery_id: int):
         "invoice_reference": invoice.cin_code,
         "already_exists": False,
     }
+
+
+def _sync_create_invoice_from_order(
+    db: Session,
+    order_id: int,
+    request: Optional[CreateInvoiceFromOrderRequest],
+):
+    """Sync helper to create an invoice from an order."""
+    order = db.get(ClientOrder, order_id)
+    if not order:
+        return None
+
+    order_lines = db.execute(
+        select(ClientOrderLine)
+        .where(ClientOrderLine.cod_id == order_id)
+        .order_by(func.coalesce(ClientOrderLine.col_level1, 999999), ClientOrderLine.col_id)
+    ).scalars().all()
+
+    if not order_lines:
+        raise ValueError("Cannot create invoice from an order with no lines")
+
+    client = db.get(Client, order.cli_id) if order.cli_id else None
+
+    invoice_date = (request.invoice_date if request and request.invoice_date else datetime.utcnow())
+    due_date = (request.due_date if request and request.due_date else invoice_date + timedelta(days=30))
+
+    invoice = ClientInvoice(
+        cin_code=_generate_invoice_code(db),
+        cin_name=(order.cod_name or f"Invoice from order {order.cod_code}")[:1000],
+        cli_id=order.cli_id,
+        cod_id=order.cod_id,
+        cin_d_creation=datetime.utcnow(),
+        cin_d_update=datetime.utcnow(),
+        cin_d_invoice=invoice_date,
+        usr_creator_id=order.usr_creator_id or 1,
+        cin_header_text=order.cod_header_text,
+        cin_footer_text=order.cod_footer_text,
+        cur_id=((client.cur_id if client else None) or 1),
+        cin_account=False,
+        cin_d_term=due_date,
+        pco_id=order.pco_id or ((client.pco_id if client else None) or 1),
+        pmo_id=order.pmo_id or ((client.pmo_id if client else None) or 1),
+        cco_id_invoicing=order.cco_id_invoicing,
+        cin_isinvoice=True,
+        vat_id=order.vat_id or ((client.vat_id if client else None) or 1),
+        prj_id=order.prj_id,
+        soc_id=order.soc_id or ((client.soc_id if client else None) or 1),
+        cin_invoiced=False,
+        cin_is_full_paid=False,
+        cin_discount_percentage=(order.cod_discount_percentage or Decimal("0")),
+        cin_discount_amount=(order.cod_discount_amount or Decimal("0")),
+        cin_rest_to_pay=Decimal("0"),
+        cin_client_comment=(request.notes if request and request.notes else None),
+        cin_inv_cco_firstname=order.cod_inv_cco_firstname,
+        cin_inv_cco_lastname=order.cod_inv_cco_lastname,
+        cin_inv_cco_address1=order.cod_inv_cco_address1,
+        cin_inv_cco_address2=order.cod_inv_cco_address2,
+        cin_inv_cco_postcode=order.cod_inv_cco_postcode,
+        cin_inv_cco_city=order.cod_inv_cco_city,
+        cin_inv_cco_country=order.cod_inv_cco_country,
+        cin_inv_cco_tel1=order.cod_inv_cco_tel1,
+        cin_inv_cco_fax=order.cod_inv_cco_fax,
+        cin_inv_cco_cellphone=order.cod_inv_cco_cellphone,
+        cin_inv_cco_email=order.cod_inv_cco_email,
+        usr_com_1=order.usr_com_1,
+        usr_com_2=order.usr_com_2,
+        usr_com_3=order.usr_com_3,
+    )
+    db.add(invoice)
+    db.flush()
+
+    pricing_coefficient = _sync_get_society_pricing_coefficient(db, invoice.soc_id)
+    total_ht = Decimal("0")
+
+    for order_line in order_lines:
+        quantity = _decimal_or_zero(order_line.col_quantity)
+        purchase_price = _decimal_or_zero(order_line.col_purchase_price)
+        unit_price = _decimal_or_zero(order_line.col_unit_price)
+        if purchase_price > 0 and (unit_price <= 0 or unit_price == purchase_price):
+            unit_price = (purchase_price * pricing_coefficient).quantize(Decimal("0.0001"))
+
+        line_total = quantity * unit_price
+        discount_pct = _decimal_or_zero(order_line.col_discount_percentage)
+        discount_amt = _decimal_or_zero(order_line.col_discount_amount)
+        if discount_amt == 0 and discount_pct > 0 and line_total > 0:
+            discount_amt = (line_total * discount_pct) / Decimal("100")
+
+        discounted_total = line_total - discount_amt
+
+        invoice_line = ClientInvoiceLine(
+            cin_id=invoice.cin_id,
+            cii_level1=order_line.col_level1,
+            cii_level2=order_line.col_level2,
+            cii_description=order_line.col_description,
+            prd_id=order_line.prd_id,
+            cii_ref=order_line.col_ref,
+            cii_unit_price=unit_price,
+            cii_quantity=quantity,
+            cii_total_price=line_total,
+            vat_id=(order_line.vat_id or order.vat_id),
+            cii_purchase_price=(purchase_price if purchase_price > 0 else None),
+            cii_total_crude_price=order_line.col_total_crude_price,
+            cii_prd_name=order_line.col_prd_name,
+            cii_discount_percentage=discount_pct,
+            cii_discount_amount=discount_amt,
+            cii_price_with_discount_ht=discounted_total,
+            cii_margin=order_line.col_margin,
+            pit_id=order_line.pit_id,
+            ltp_id=(order_line.ltp_id or 1),
+            cii_prd_des=order_line.col_prd_des,
+            cii_image_url=order_line.col_image_url,
+            col_id=order_line.col_id,
+        )
+        db.add(invoice_line)
+        total_ht += discounted_total
+
+    invoice.cin_rest_to_pay = total_ht
+    db.commit()
+    db.refresh(invoice)
+    return invoice
 
 
 def _sync_create_invoices_from_deliveries(
@@ -781,32 +949,28 @@ async def create_invoice_from_order(
     # current_user_id: int = Depends(get_current_user_id)  # TODO: Add auth
 ):
     """Create an invoice from an existing order."""
-    service = get_invoice_service(db)
-
     # Use default request if none provided
     if request is None:
-        request = CreateInvoiceFromOrderRequest()
+        request = CreateInvoiceFromOrderRequest(order_id=order_id)
 
     try:
-        invoice, order_reference = await service.create_invoice_from_order(
-            order_id=order_id,
-            request=request,
-            created_by=None  # TODO: current_user_id
+        invoice = await asyncio.to_thread(
+            _sync_create_invoice_from_order,
+            db,
+            order_id,
+            request,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
-        return CreateInvoiceFromOrderResponse(
-            success=True,
-            invoice_id=invoice.inv_id,
-            invoice_reference=invoice.inv_reference,
-            order_id=order_id,
-            order_reference=order_reference,
-            created_at=invoice.inv_created_at,
-            lines_converted=len(invoice.lines) if invoice.lines else 0,
-            total_amount=invoice.inv_total_amount,
-            message=f"Invoice {invoice.inv_reference} created successfully from order {order_id}"
-        )
-    except InvoiceServiceError as e:
-        raise handle_invoice_error(e)
+    if not invoice:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Order {order_id} not found")
+
+    return CreateInvoiceFromOrderResponse(
+        success=True,
+        message=f"Invoice {invoice.cin_code} created successfully from order {order_id}",
+        invoice=invoice,
+    )
 
 
 @router.get(
@@ -920,6 +1084,7 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
     lines_query = (
         select(
             ClientInvoiceLine.cii_id,
+            ClientInvoiceLine.cii_level1,
             ClientInvoiceLine.cii_prd_name,
             ClientInvoiceLine.cii_description,
             ClientInvoiceLine.cii_ref,
@@ -932,6 +1097,7 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
             ClientInvoiceLine.cii_image_url,
         )
         .where(ClientInvoiceLine.cin_id == invoice_id)
+        .order_by(func.coalesce(ClientInvoiceLine.cii_level1, 999999), ClientInvoiceLine.cii_id)
     )
     lines_result = db.execute(lines_query)
     line_rows = lines_result.all()
@@ -1009,6 +1175,152 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
         "invoicingContactId": row.cco_id_invoicing,
         "invoicingContactSnapshot": invoicing_snapshot,
         "lines": lines,
+    }
+
+
+def _sync_reorder_invoice_lines(
+    db: Session,
+    invoice_id: int,
+    requested_line_ids: List[int],
+):
+    """Sync helper to reorder invoice lines."""
+    lines = db.execute(
+        select(ClientInvoiceLine).where(ClientInvoiceLine.cin_id == invoice_id)
+    ).scalars().all()
+    if not lines:
+        return None
+
+    unique_requested: List[int] = []
+    for raw_id in requested_line_ids:
+        line_id = int(raw_id)
+        if line_id > 0 and line_id not in unique_requested:
+            unique_requested.append(line_id)
+
+    lines_by_id = {line.cii_id: line for line in lines}
+    invalid_ids = [line_id for line_id in unique_requested if line_id not in lines_by_id]
+    if invalid_ids:
+        raise ValueError(f"Line IDs do not belong to invoice {invoice_id}: {invalid_ids}")
+
+    current_order = sorted(
+        lines,
+        key=lambda line: (
+            int(line.cii_level1) if line.cii_level1 is not None else 999999,
+            int(line.cii_id),
+        ),
+    )
+    final_order = unique_requested + [
+        line.cii_id for line in current_order if line.cii_id not in unique_requested
+    ]
+
+    for index, line_id in enumerate(final_order, start=1):
+        lines_by_id[line_id].cii_level1 = index
+
+    db.commit()
+    return final_order
+
+
+def _sync_merge_invoice_lines(
+    db: Session,
+    invoice_id: int,
+    line_ids: List[int],
+    keep_line_id: Optional[int],
+):
+    """Sync helper to merge selected invoice lines."""
+    unique_ids: List[int] = []
+    for raw_id in line_ids:
+        line_id = int(raw_id)
+        if line_id > 0 and line_id not in unique_ids:
+            unique_ids.append(line_id)
+
+    if len(unique_ids) < 2:
+        raise ValueError("At least 2 line IDs are required to merge")
+
+    selected_lines = db.execute(
+        select(ClientInvoiceLine).where(
+            and_(
+                ClientInvoiceLine.cin_id == invoice_id,
+                ClientInvoiceLine.cii_id.in_(unique_ids),
+            )
+        )
+    ).scalars().all()
+
+    if len(selected_lines) != len(unique_ids):
+        found_ids = {line.cii_id for line in selected_lines}
+        missing = [line_id for line_id in unique_ids if line_id not in found_ids]
+        raise ValueError(f"Line IDs do not belong to invoice {invoice_id}: {missing}")
+
+    selected_by_id = {line.cii_id: line for line in selected_lines}
+    primary_id = int(keep_line_id) if keep_line_id is not None else unique_ids[0]
+    if primary_id not in selected_by_id:
+        raise ValueError("keepLineId must be one of lineIds")
+
+    primary_line = selected_by_id[primary_id]
+    merged_lines = [selected_by_id[line_id] for line_id in unique_ids]
+    lines_to_delete = [line for line in merged_lines if line.cii_id != primary_id]
+
+    total_quantity = sum(_decimal_or_zero(line.cii_quantity) for line in merged_lines)
+    total_price = sum(
+        _decimal_or_zero(line.cii_total_price)
+        if line.cii_total_price is not None
+        else (_decimal_or_zero(line.cii_unit_price) * _decimal_or_zero(line.cii_quantity))
+        for line in merged_lines
+    )
+    total_discount = sum(_decimal_or_zero(line.cii_discount_amount) for line in merged_lines)
+    total_price_after_discount = sum(
+        _decimal_or_zero(line.cii_price_with_discount_ht)
+        if line.cii_price_with_discount_ht is not None
+        else (_decimal_or_zero(line.cii_total_price) - _decimal_or_zero(line.cii_discount_amount))
+        for line in merged_lines
+    )
+    total_crude = sum(_decimal_or_zero(line.cii_total_crude_price) for line in merged_lines)
+
+    if total_price_after_discount == Decimal("0") and total_price > Decimal("0"):
+        total_price_after_discount = total_price - total_discount
+
+    primary_line.cii_quantity = total_quantity
+    primary_line.cii_total_price = total_price
+    primary_line.cii_discount_amount = total_discount
+    primary_line.cii_price_with_discount_ht = total_price_after_discount
+    if total_quantity > Decimal("0"):
+        primary_line.cii_unit_price = total_price / total_quantity
+
+    if total_crude > Decimal("0"):
+        primary_line.cii_total_crude_price = total_crude
+        primary_line.cii_margin = total_price_after_discount - total_crude
+
+    if not primary_line.cii_description:
+        primary_line.cii_description = "Merged line"
+
+    for line in lines_to_delete:
+        db.delete(line)
+
+    db.commit()
+    return {
+        "primaryLineId": primary_id,
+        "mergedLineIds": unique_ids,
+        "removedLineIds": [line.cii_id for line in lines_to_delete],
+    }
+
+
+def _sync_get_invoice_inspection_payload(db: Session, invoice_id: int):
+    """Build inspection form payload for an invoice."""
+    invoice_data = _sync_get_invoice_detail(db, invoice_id)
+    if not invoice_data:
+        return None
+
+    lines = invoice_data.get("lines") or []
+    inspection_lines = [
+        line for line in lines
+        if (line.get("productName") or line.get("description") or line.get("productReference"))
+    ]
+
+    return {
+        "available": bool(inspection_lines),
+        "lineCount": len(inspection_lines),
+        "reference": invoice_data.get("reference"),
+        "clientName": invoice_data.get("clientName"),
+        "invoiceDate": invoice_data.get("invoiceDate"),
+        "lines": inspection_lines,
     }
 
 
@@ -1234,6 +1546,105 @@ async def delete_invoice_line(
         await service.delete_invoice_line(line_id)
     except InvoiceServiceError as e:
         raise handle_invoice_error(e)
+
+
+@router.post(
+    "/{invoice_id}/lines/reorder",
+    summary="Reorder invoice lines",
+    description="Reorder lines of an invoice using the provided line IDs order.",
+)
+async def reorder_invoice_lines(
+    invoice_id: int = Path(..., gt=0, description="Invoice ID"),
+    request: InvoiceLineReorderRequest = ...,
+    db: Session = Depends(get_db),
+):
+    try:
+        ordered_ids = await asyncio.to_thread(
+            _sync_reorder_invoice_lines,
+            db,
+            invoice_id,
+            request.line_ids,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    if ordered_ids is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Invoice {invoice_id} not found")
+
+    return {
+        "success": True,
+        "invoiceId": invoice_id,
+        "orderedLineIds": ordered_ids,
+    }
+
+
+@router.post(
+    "/{invoice_id}/lines/merge",
+    summary="Merge invoice lines",
+    description="Merge multiple invoice lines into one line.",
+)
+async def merge_invoice_lines(
+    invoice_id: int = Path(..., gt=0, description="Invoice ID"),
+    request: InvoiceLineMergeRequest = ...,
+    db: Session = Depends(get_db),
+):
+    try:
+        result = await asyncio.to_thread(
+            _sync_merge_invoice_lines,
+            db,
+            invoice_id,
+            request.line_ids,
+            request.keep_line_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    return {"success": True, "invoiceId": invoice_id, **result}
+
+
+@router.get(
+    "/{invoice_id}/inspection-form-pdf",
+    summary="Download invoice inspection form PDF",
+    description="Generate and download inspection form PDF for an invoice.",
+    responses={
+        200: {"content": {"application/pdf": {}}, "description": "PDF file"},
+        404: {"description": "Invoice or inspection data not found"},
+    },
+)
+async def download_invoice_inspection_form_pdf(
+    invoice_id: int = Path(..., gt=0, description="Invoice ID"),
+    db: Session = Depends(get_db),
+):
+    """Generate and return inspection form PDF for this invoice."""
+    import io
+    from app.services.pdf_service import TemplatePDFService
+
+    payload = await asyncio.to_thread(_sync_get_invoice_inspection_payload, db, invoice_id)
+    if not payload:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Invoice {invoice_id} not found")
+    if not payload.get("available"):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No inspection data available for invoice {invoice_id}",
+        )
+
+    reference = payload.get("reference") or f"invoice-{invoice_id}"
+    filename = f"{reference}-inspection-form.pdf"
+
+    template_pdf = TemplatePDFService()
+    pdf_content = template_pdf.generate_pdf(
+        template_name="invoices/inspection-form.html",
+        context=payload,
+    )
+
+    return StreamingResponse(
+        io.BytesIO(pdf_content),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_content)),
+        },
+    )
 
 
 # ==========================================================================
