@@ -15,8 +15,10 @@ import { ContactsTab } from '@/components/features/clients/ContactsTab'
 import { PricingTab } from '@/components/features/clients/PricingTab'
 import { ActivityTimeline } from '@/components/features/clients/ActivityTimeline'
 import { BankDetailsSection } from '@/components/features/clients/BankDetailsSection'
+import { DelegatesTab } from '@/components/features/clients/DelegatesTab'
 import { useClient, useUpdateClient, useDeleteClient, useClientContacts } from '@/hooks/useClients'
 import { useClientPrices } from '@/hooks/usePricing'
+import { useClientDelegates } from '@/hooks/useDelegates'
 import type { ClientCreateDto } from '@/types/client'
 
 export const Route = createFileRoute('/_authenticated/clients/$clientId')({
@@ -36,6 +38,7 @@ function ClientDetailPage() {
   const { data: client, isLoading, error } = useClient(id)
   const { data: contacts = [] } = useClientContacts(id)
   const { data: pricesData } = useClientPrices(id, { page: 1, pageSize: 1, activeOnly: true })
+  const { data: delegatesData } = useClientDelegates(id)
 
   const updateMutation = useUpdateClient()
   const deleteMutation = useDeleteClient()
@@ -82,6 +85,7 @@ function ClientDetailPage() {
 
   const contactCount = contacts.length
   const priceCount = pricesData?.totalCount || 0
+  const delegateCount = delegatesData?.data?.length || 0
 
   return (
     <PageContainer>
@@ -132,6 +136,7 @@ function ClientDetailPage() {
           <Tab value="overview">{t('clients.overview', 'Overview')}</Tab>
           <Tab value="contacts">{t('clients.contacts')} ({contactCount})</Tab>
           <Tab value="pricing">{t('pricing.productPrices')} ({priceCount})</Tab>
+          <Tab value="delegates">{t('delegates.delegates', 'Delegates')} ({delegateCount})</Tab>
           <Tab value="activity">{t('clients.activity', 'Activity')}</Tab>
           <Tab value="banking">{t('clients.bankDetails', 'Banking')}</Tab>
         </TabList>
@@ -146,6 +151,10 @@ function ClientDetailPage() {
 
         <TabPanel value="pricing">
           <PricingTab clientId={id} />
+        </TabPanel>
+
+        <TabPanel value="delegates">
+          <DelegatesTab clientId={id} />
         </TabPanel>
 
         <TabPanel value="activity">

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 
 interface FormModalProps {
@@ -66,7 +67,7 @@ export function FormModal({
     full: 'max-w-[calc(100vw-2rem)]',
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-[10vh] bg-background/80 backdrop-blur-sm animate-fade-in overflow-y-auto"
       onClick={handleBackdropClick}
@@ -115,7 +116,8 @@ export function FormModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
