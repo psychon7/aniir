@@ -5,9 +5,8 @@ Maps to TR_CDL_Client_Delegate table.
 A delegate is another entity (usually a parent company or billing agent)
 that receives invoices on behalf of a client.
 """
-from datetime import datetime
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Integer, String, ForeignKey, DateTime, Boolean, Text
+from sqlalchemy import Integer, String, ForeignKey
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.models.base import Base
 
@@ -45,18 +44,9 @@ class ClientDelegate(Base):
     # VAT information
     cdl_vat_number: Mapped[Optional[str]] = mapped_column("cdl_vat_number", String(50), nullable=True)
 
-    # Status
-    cdl_is_active: Mapped[bool] = mapped_column("cdl_is_active", Boolean, default=True, nullable=False)
-    cdl_is_primary: Mapped[bool] = mapped_column("cdl_is_primary", Boolean, default=False, nullable=False)
-
-    # Notes
-    cdl_notes: Mapped[Optional[str]] = mapped_column("cdl_notes", Text, nullable=True)
-
-    # Audit fields
-    cdl_d_creation: Mapped[Optional[datetime]] = mapped_column("cdl_d_creation", DateTime, nullable=True)
-    cdl_d_update: Mapped[Optional[datetime]] = mapped_column("cdl_d_update", DateTime, nullable=True)
-    cdl_created_by: Mapped[Optional[int]] = mapped_column("cdl_created_by", Integer, nullable=True)
-    cdl_updated_by: Mapped[Optional[int]] = mapped_column("cdl_updated_by", Integer, nullable=True)
+    # NOTE: cdl_is_active, cdl_is_primary, cdl_notes, cdl_d_creation, cdl_d_update,
+    # cdl_created_by, cdl_updated_by columns do NOT exist in the legacy database table.
+    # They were defined in the model but the table was never migrated to add them.
 
     # Relationships
     client: Mapped["Client"] = relationship(
@@ -89,10 +79,3 @@ class ClientDelegate(Base):
     def company_name(self) -> Optional[str]:
         return self.cdl_company_name
 
-    @property
-    def is_active(self) -> bool:
-        return self.cdl_is_active
-
-    @property
-    def is_primary(self) -> bool:
-        return self.cdl_is_primary

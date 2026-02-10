@@ -6,7 +6,6 @@ typically parent companies, billing agents, or group headquarters.
 """
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
-from datetime import datetime
 
 
 class ClientDelegateBase(BaseModel):
@@ -22,8 +21,6 @@ class ClientDelegateBase(BaseModel):
     cdl_city: Optional[str] = Field(None, max_length=200, description="City")
     cdl_country: Optional[str] = Field(None, max_length=200, description="Country")
     cdl_vat_number: Optional[str] = Field(None, max_length=50, description="VAT number")
-    cdl_is_primary: bool = Field(False, description="Is this the primary delegate")
-    cdl_notes: Optional[str] = Field(None, description="Notes about this delegate")
 
 
 class ClientDelegateCreate(ClientDelegateBase):
@@ -44,9 +41,6 @@ class ClientDelegateUpdate(BaseModel):
     cdl_city: Optional[str] = Field(None, max_length=200)
     cdl_country: Optional[str] = Field(None, max_length=200)
     cdl_vat_number: Optional[str] = Field(None, max_length=50)
-    cdl_is_active: Optional[bool] = None
-    cdl_is_primary: Optional[bool] = None
-    cdl_notes: Optional[str] = None
 
 
 class ClientDelegateResponse(BaseModel):
@@ -66,11 +60,6 @@ class ClientDelegateResponse(BaseModel):
     city: Optional[str] = Field(None, validation_alias="cdl_city")
     country: Optional[str] = Field(None, validation_alias="cdl_country")
     vatNumber: Optional[str] = Field(None, validation_alias="cdl_vat_number")
-    isActive: bool = Field(..., validation_alias="cdl_is_active")
-    isPrimary: bool = Field(..., validation_alias="cdl_is_primary")
-    notes: Optional[str] = Field(None, validation_alias="cdl_notes")
-    createdAt: Optional[datetime] = Field(None, validation_alias="cdl_d_creation")
-    updatedAt: Optional[datetime] = Field(None, validation_alias="cdl_d_update")
 
     # Resolved lookup name (if delegate is an existing client)
     delegateClientName: Optional[str] = Field(None, description="Name of delegate client if linked")

@@ -5,7 +5,6 @@ Handles CRUD operations for client delegates - entities that receive
 invoices on behalf of clients.
 """
 import asyncio
-from datetime import datetime
 from typing import Optional, List, Tuple
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -57,9 +56,6 @@ class ClientDelegateService:
         """Synchronously list delegates for a client."""
         query = select(ClientDelegate).where(ClientDelegate.cdl_cli_id == client_id)
 
-        if active_only:
-            query = query.where(ClientDelegate.cdl_is_active == True)
-
         # Get total count
         count_query = select(func.count()).select_from(
             query.subquery()
@@ -67,10 +63,7 @@ class ClientDelegateService:
         total = self.db.execute(count_query).scalar() or 0
 
         # Apply pagination
-        query = query.order_by(
-            ClientDelegate.cdl_is_primary.desc(),
-            ClientDelegate.cdl_d_creation.desc()
-        )
+        query = query.order_by(ClientDelegate.cdl_id.desc())
         query = query.offset((page - 1) * page_size).limit(page_size)
 
         result = self.db.execute(query)
@@ -95,10 +88,6 @@ class ClientDelegateService:
 
     def _sync_create_delegate(self, client_id: int, data: ClientDelegateCreate) -> ClientDelegate:
         """Synchronously create a new delegate."""
-        # If setting as primary, unset other primary delegates
-        if data.cdl_is_primary:
-            self._sync_unset_primary_delegates(client_id)
-
         delegate = ClientDelegate(
             cdl_cli_id=client_id,
             cdl_delegate_cli_id=data.cdl_delegate_cli_id,
@@ -112,11 +101,6 @@ class ClientDelegateService:
             cdl_city=data.cdl_city,
             cdl_country=data.cdl_country,
             cdl_vat_number=data.cdl_vat_number,
-            cdl_is_active=True,
-            cdl_is_primary=data.cdl_is_primary,
-            cdl_notes=data.cdl_notes,
-            cdl_d_creation=datetime.utcnow(),
-            cdl_d_update=datetime.utcnow(),
         )
 
         self.db.add(delegate)
@@ -131,17 +115,11 @@ class ClientDelegateService:
         if not delegate:
             raise ClientDelegateNotFoundError(delegate_id)
 
-        # If setting as primary, unset other primary delegates
-        if data.cdl_is_primary and not delegate.cdl_is_primary:
-            self._sync_unset_primary_delegates(delegate.cdl_cli_id)
-
         # Update fields
         update_data = data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             if hasattr(delegate, field):
                 setattr(delegate, field, value)
-
-        delegate.cdl_d_update = datetime.utcnow()
 
         self.db.commit()
         self.db.refresh(delegate)
@@ -158,24 +136,11 @@ class ClientDelegateService:
         self.db.commit()
         return True
 
-    def _sync_unset_primary_delegates(self, client_id: int) -> None:
-        """Unset primary flag for all delegates of a client."""
-        query = select(ClientDelegate).where(
-            ClientDelegate.cdl_cli_id == client_id,
-            ClientDelegate.cdl_is_primary == True
-        )
-        result = self.db.execute(query)
-        for delegate in result.scalars().all():
-            delegate.cdl_is_primary = False
-        self.db.commit()
-
     def _sync_get_primary_delegate(self, client_id: int) -> Optional[ClientDelegate]:
-        """Get the primary delegate for a client."""
+        """Get the first delegate for a client (primary concept not available in legacy table)."""
         query = select(ClientDelegate).where(
             ClientDelegate.cdl_cli_id == client_id,
-            ClientDelegate.cdl_is_primary == True,
-            ClientDelegate.cdl_is_active == True
-        )
+        ).limit(1)
         result = self.db.execute(query)
         return result.scalar_one_or_none()
 

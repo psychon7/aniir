@@ -496,22 +496,14 @@ async def create_supplier_contact(
 )
 async def list_supplier_contacts(
     supplier_id: int = Path(..., gt=0, description="Supplier ID"),
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum records to return"),
     service: SupplierService = Depends(get_supplier_service)
 ):
     """List all contacts for a supplier."""
     try:
-        contacts, total = await service.list_contacts(
-            supplier_id=supplier_id,
-            skip=skip,
-            limit=limit
-        )
+        contacts = await service.list_contacts(supplier_id=supplier_id)
         return SupplierContactListPaginatedResponse(
-            items=[SupplierContactListResponse.model_validate(c) for c in contacts],
-            total=total,
-            skip=skip,
-            limit=limit
+            data=[SupplierContactListResponse.model_validate(c) for c in contacts],
+            totalCount=len(contacts)
         )
     except SupplierServiceError as e:
         raise handle_supplier_error(e)
