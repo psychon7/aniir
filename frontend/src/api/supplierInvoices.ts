@@ -30,22 +30,22 @@ export const supplierInvoicesApi = {
     const queryParams: Record<string, unknown> = {}
 
     if (params.search) queryParams.search = params.search
-    if (params.supplierId) queryParams.supplier_id = params.supplierId
-    if (params.societyId) queryParams.society_id = params.societyId
-    if (params.currencyId) queryParams.currency_id = params.currencyId
-    if (params.supplierOrderId) queryParams.supplier_order_id = params.supplierOrderId
-    if (params.isPaid !== undefined) queryParams.is_paid = params.isPaid
-    if (params.productionStarted !== undefined) queryParams.production_started = params.productionStarted
-    if (params.productionComplete !== undefined) queryParams.production_complete = params.productionComplete
-    if (params.dateFrom) queryParams.date_from = params.dateFrom
-    if (params.dateTo) queryParams.date_to = params.dateTo
-    if (params.minAmount !== undefined) queryParams.min_amount = params.minAmount
-    if (params.maxAmount !== undefined) queryParams.max_amount = params.maxAmount
-    if (params.creatorId) queryParams.creator_id = params.creatorId
+    if (params.supplierId) queryParams.supplierId = params.supplierId
+    if (params.societyId) queryParams.societyId = params.societyId
+    if (params.currencyId) queryParams.currencyId = params.currencyId
+    if (params.supplierOrderId) queryParams.supplierOrderId = params.supplierOrderId
+    if (params.isPaid !== undefined) queryParams.isPaid = params.isPaid
+    if (params.productionStarted !== undefined) queryParams.productionStarted = params.productionStarted
+    if (params.productionComplete !== undefined) queryParams.productionComplete = params.productionComplete
+    if (params.dateFrom) queryParams.dateFrom = params.dateFrom
+    if (params.dateTo) queryParams.dateTo = params.dateTo
+    if (params.minAmount !== undefined) queryParams.minAmount = params.minAmount
+    if (params.maxAmount !== undefined) queryParams.maxAmount = params.maxAmount
+    if (params.creatorId) queryParams.creatorId = params.creatorId
     if (params.page) queryParams.page = params.page
-    if (params.pageSize) queryParams.page_size = params.pageSize
-    if (params.sortBy) queryParams.sort_by = params.sortBy
-    if (params.sortOrder) queryParams.sort_order = params.sortOrder
+    if (params.pageSize) queryParams.pageSize = params.pageSize
+    if (params.sortBy) queryParams.sortBy = params.sortBy
+    if (params.sortOrder) queryParams.sortOrder = params.sortOrder
 
     const response = await apiClient.get('/supplier-invoices', { params: queryParams })
     const data = response.data

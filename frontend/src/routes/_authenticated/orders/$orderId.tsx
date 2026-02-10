@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
+import { PageActionBar, ActionButtons, ActionDivider, PdfActionsDropdown } from '@/components/ui/layout/PageActionBar'
 import { StatusBadge } from '@/components/ui/Badge'
 import { DocumentAttachments } from '@/components/attachments'
 import { AttachFileButton } from '@/components/attachments'
@@ -132,46 +133,32 @@ function OrderDetailPage() {
   }
 
   const actions = (
-    <div className="flex gap-2">
-      <button onClick={() => navigate({ to: '/orders' as any })} className="btn-secondary">
-        Back
-      </button>
-      <button
-        className="btn-secondary"
+    <PageActionBar>
+      <ActionButtons.Back onClick={() => navigate({ to: '/orders' as any })} />
+      <ActionDivider />
+      <ActionButtons.Discount
         onClick={() => {
           setDiscountPercentage(order.discountPercentage != null ? String(order.discountPercentage) : '')
           setDiscountAmount(order.discountAmount != null ? String(order.discountAmount) : '')
           setIsDiscountModalOpen(true)
         }}
-      >
-        Discount
-      </button>
+      />
       <AttachFileButton
         entityType="ORDER"
         entityId={parseInt(orderId, 10)}
         variant="outline"
       />
-      <button
-        className="btn-secondary"
-        onClick={() => openPdfUtility('pdf-viewer')}
-      >
-        Preview PDF
-      </button>
-      <button
-        className="btn-secondary"
-        onClick={() => openPdfUtility('pdf-download')}
-      >
-        Download PDF
-      </button>
-      <button
-        className="btn-secondary"
+      <PdfActionsDropdown
+        onPreview={() => openPdfUtility('pdf-viewer')}
+        onDownload={() => openPdfUtility('pdf-download')}
+      />
+      <ActionDivider />
+      <ActionButtons.CreateDelivery
         onClick={() => navigate({ to: '/deliveries/new' as any, search: { orderId: Number(orderId) } } as any)}
-      >
-        Create Delivery
-      </button>
-      <button
-        className="btn-secondary"
+      />
+      <ActionButtons.ConvertToQuote
         disabled={convertToQuoteMutation.isPending}
+        isPending={convertToQuoteMutation.isPending}
         onClick={async () => {
           try {
             const result = await convertToQuoteMutation.mutateAsync(Number(orderId))
@@ -181,11 +168,8 @@ function OrderDetailPage() {
             showError(t('common.error'), 'Unable to convert this order to a quote.')
           }
         }}
-      >
-        {convertToQuoteMutation.isPending ? 'Converting...' : 'Convert to Quote'}
-      </button>
-      <button
-        className="btn-primary"
+      />
+      <ActionButtons.CreateInvoice
         onClick={async () => {
           try {
             const invoice = await createInvoiceMutation.mutateAsync({ orderId: Number(orderId) })
@@ -197,10 +181,8 @@ function OrderDetailPage() {
             showError(t('common.error'), t('common.errorOccurred'))
           }
         }}
-      >
-        Create Invoice
-      </button>
-    </div>
+      />
+    </PageActionBar>
   )
 
   return (

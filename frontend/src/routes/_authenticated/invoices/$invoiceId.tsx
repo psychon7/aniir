@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
+import { PageActionBar, ActionButtons, ActionDivider, PdfActionsDropdown, ClipboardCheck } from '@/components/ui/layout/PageActionBar'
 import { StatusBadge } from '@/components/ui/Badge'
 import { DocumentAttachments } from '@/components/attachments'
 import { AttachFileButton } from '@/components/attachments'
@@ -144,65 +145,48 @@ function InvoiceDetailPage() {
   const balance = invoice.totalAmount - (invoice.paidAmount || 0)
   const isOverdue = invoice.dueDate && new Date(invoice.dueDate) < new Date() && balance > 0
 
+  const pdfExtraItems = invoice.lines?.length > 0
+    ? [{ icon: ClipboardCheck, label: 'Inspection Form PDF', onClick: openInspectionPdf }]
+    : []
+
   const actions = (
-    <div className="flex gap-2">
-      <button onClick={() => navigate({ to: '/invoices' as any })} className="btn-secondary">
-        Back
-      </button>
-      <button
-        className="btn-secondary"
+    <PageActionBar>
+      <ActionButtons.Back onClick={() => navigate({ to: '/invoices' as any })} />
+      <ActionDivider />
+      <ActionButtons.Discount
         onClick={() => {
           setDiscountPercentage(invoice.discountPercentage != null ? String(invoice.discountPercentage) : '')
           setDiscountAmount(invoice.discountAmount != null ? String(invoice.discountAmount) : '')
           setIsDiscountModalOpen(true)
         }}
-      >
-        Discount
-      </button>
+      />
       <AttachFileButton
         entityType="INVOICE"
         entityId={parseInt(invoiceId, 10)}
         variant="outline"
       />
-      <button
-        className="btn-secondary"
-        onClick={() => openPdfUtility('pdf-viewer')}
-      >
-        Preview PDF
-      </button>
-      <button
-        className="btn-secondary"
-        onClick={() => openPdfUtility('pdf-download')}
-      >
-        Download PDF
-      </button>
-      {invoice.lines?.length > 0 && (
-        <button className="btn-secondary" onClick={openInspectionPdf}>
-          Inspection Form PDF
-        </button>
-      )}
-      <button
-        className="btn-secondary"
+      <PdfActionsDropdown
+        onPreview={() => openPdfUtility('pdf-viewer')}
+        onDownload={() => openPdfUtility('pdf-download')}
+        extraItems={pdfExtraItems}
+      />
+      <ActionDivider />
+      <ActionButtons.SendByEmail
         onClick={() => {
           setRecipientEmail(invoice?.invoicingContactSnapshot?.email || '')
           setSendMessage('')
           setIsSendModalOpen(true)
         }}
-      >
-        Send by Email
-      </button>
-      <button
-        className="btn-primary"
+      />
+      <ActionButtons.RecordPayment
         onClick={() => {
           const remaining = balance > 0 ? balance : 0
           setPaymentAmount(remaining ? String(remaining.toFixed(2)) : '')
           setPaymentReference('')
           setIsPaymentModalOpen(true)
         }}
-      >
-        Record Payment
-      </button>
-    </div>
+      />
+    </PageActionBar>
   )
 
   return (

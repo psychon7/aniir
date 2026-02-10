@@ -34,8 +34,8 @@ export const supplierOrdersApi = {
    * Get a single supplier order by ID (includes order lines)
    */
   async getById(id: number): Promise<SupplierOrder> {
-    const response = await apiClient.get<ApiResponse<SupplierOrder>>(`/supplier-orders/${id}`)
-    return response.data.data
+    const response = await apiClient.get(`/supplier-orders/${id}`)
+    return response.data.data || response.data
   },
 
   /**

@@ -397,3 +397,279 @@ class InvoicePDFGenerator:
         if isinstance(date_value, datetime):
             return date_value.strftime("%d/%m/%Y")
         return str(date_value)
+
+
+class QuotePDFGenerator(InvoicePDFGenerator):
+    """Generate PDF quotes with professional formatting"""
+    
+    def _build_header(self, data: Dict[str, Any]) -> List:
+        """Build quote header with title"""
+        elements = []
+        
+        title = Paragraph("DEVIS", self.styles['InvoiceTitle'])
+        reference = Paragraph(
+            f"<font size='14' color='#666666'>N° {data.get('reference', 'N/A')}</font>",
+            self.styles['Normal']
+        )
+        
+        header_data = [[title, reference]]
+        header_table = Table(header_data, colWidths=[100 * mm, 70 * mm])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        elements.append(header_table)
+        return elements
+    
+    def _build_invoice_info(self, data: Dict[str, Any]) -> List:
+        """Build quote metadata section"""
+        elements = []
+        
+        info_data = [
+            ['Date du devis:', self._format_date(data.get('quote_date') or data.get('invoice_date'))],
+            ['Valide jusqu\'au:', self._format_date(data.get('valid_until'))],
+        ]
+        
+        if data.get('order_reference'):
+            info_data.insert(0, ['Référence:', data.get('order_reference')])
+        
+        info_table = Table(info_data, colWidths=[50 * mm, 50 * mm])
+        info_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        elements.append(info_table)
+        return elements
+    
+    def _build_footer(self, data: Dict[str, Any]) -> List:
+        """Build footer with quote-specific mentions"""
+        elements = []
+        
+        elements.append(Spacer(1, 15 * mm))
+        
+        footer_text = """
+        <font size='7' color='#999999'>
+        Ce devis est valable pour la durée indiquée ci-dessus. Passé ce délai, les prix peuvent être révisés.
+        </font>
+        """
+        
+        elements.append(Paragraph(footer_text, self.styles['Normal']))
+        return elements
+
+
+class OrderPDFGenerator(InvoicePDFGenerator):
+    """Generate PDF orders with professional formatting"""
+    
+    def _build_header(self, data: Dict[str, Any]) -> List:
+        """Build order header with title"""
+        elements = []
+        
+        title = Paragraph("BON DE COMMANDE", self.styles['InvoiceTitle'])
+        reference = Paragraph(
+            f"<font size='14' color='#666666'>N° {data.get('reference', 'N/A')}</font>",
+            self.styles['Normal']
+        )
+        
+        header_data = [[title, reference]]
+        header_table = Table(header_data, colWidths=[100 * mm, 70 * mm])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        elements.append(header_table)
+        return elements
+    
+    def _build_invoice_info(self, data: Dict[str, Any]) -> List:
+        """Build order metadata section"""
+        elements = []
+        
+        info_data = [
+            ['Date de commande:', self._format_date(data.get('order_date') or data.get('invoice_date'))],
+            ['Date de livraison souhaitée:', self._format_date(data.get('required_date') or data.get('due_date'))],
+        ]
+        
+        if data.get('quote_reference'):
+            info_data.insert(0, ['Référence devis:', data.get('quote_reference')])
+        
+        info_table = Table(info_data, colWidths=[55 * mm, 50 * mm])
+        info_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        elements.append(info_table)
+        return elements
+    
+    def _build_footer(self, data: Dict[str, Any]) -> List:
+        """Build footer with order-specific mentions"""
+        elements = []
+        
+        elements.append(Spacer(1, 15 * mm))
+        
+        footer_text = """
+        <font size='7' color='#999999'>
+        Conditions générales de vente applicables. Merci pour votre commande.
+        </font>
+        """
+        
+        elements.append(Paragraph(footer_text, self.styles['Normal']))
+        return elements
+
+
+class DeliveryPDFGenerator(InvoicePDFGenerator):
+    """Generate PDF delivery notes with professional formatting"""
+    
+    def _build_header(self, data: Dict[str, Any]) -> List:
+        """Build delivery note header"""
+        elements = []
+        
+        title = Paragraph("BON DE LIVRAISON", self.styles['InvoiceTitle'])
+        reference = Paragraph(
+            f"<font size='14' color='#666666'>N° {data.get('reference', 'N/A')}</font>",
+            self.styles['Normal']
+        )
+        
+        header_data = [[title, reference]]
+        header_table = Table(header_data, colWidths=[100 * mm, 70 * mm])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        elements.append(header_table)
+        return elements
+    
+    def _build_invoice_info(self, data: Dict[str, Any]) -> List:
+        """Build delivery metadata section"""
+        elements = []
+        
+        info_data = [
+            ['Date de livraison:', self._format_date(data.get('delivery_date') or data.get('invoice_date'))],
+        ]
+        
+        if data.get('order_reference'):
+            info_data.insert(0, ['Réf. commande:', data.get('order_reference')])
+        
+        info_table = Table(info_data, colWidths=[50 * mm, 50 * mm])
+        info_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#666666')),
+            ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        elements.append(info_table)
+        return elements
+    
+    def _build_line_items(self, data: Dict[str, Any]) -> List:
+        """Build delivery line items table (simpler, without prices)"""
+        elements = []
+        
+        elements.append(Paragraph("ARTICLES LIVRÉS", self.styles['SectionHeader']))
+        
+        # Table header - delivery notes don't show prices
+        header = ['Description', 'Qté', 'Unité']
+        
+        # Table data
+        table_data = [header]
+        
+        lines = data.get('lines', [])
+        for line in lines:
+            row = [
+                Paragraph(line.get('description', ''), self.styles['Normal']),
+                str(line.get('quantity', 0)),
+                line.get('unit', 'PCS'),
+            ]
+            table_data.append(row)
+        
+        # Column widths
+        col_widths = [120 * mm, 25 * mm, 25 * mm]
+        
+        items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        items_table.setStyle(TableStyle([
+            # Header styling
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e3a5f')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            
+            # Body styling
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            
+            # Grid
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+            ('LINEBELOW', (0, 0), (-1, 0), 1, colors.HexColor('#1e3a5f')),
+            
+            # Alternating row colors
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f9fa')]),
+        ]))
+        
+        elements.append(items_table)
+        return elements
+    
+    def _build_totals(self, data: Dict[str, Any]) -> List:
+        """No totals for delivery notes, but add signature area"""
+        elements = []
+        
+        elements.append(Spacer(1, 20 * mm))
+        
+        # Signature area
+        sig_data = [
+            ['Signature du destinataire:', ''],
+            ['', ''],
+            ['Date de réception:', '____/____/________'],
+        ]
+        
+        sig_table = Table(sig_data, colWidths=[60 * mm, 80 * mm])
+        sig_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+        ]))
+        
+        elements.append(sig_table)
+        return elements
+    
+    def _build_payment_info(self, data: Dict[str, Any]) -> List:
+        """No payment info for delivery notes"""
+        return []
+    
+    def _build_footer(self, data: Dict[str, Any]) -> List:
+        """Build footer for delivery note"""
+        elements = []
+        
+        elements.append(Spacer(1, 10 * mm))
+        
+        footer_text = """
+        <font size='7' color='#999999'>
+        Veuillez vérifier la conformité des marchandises à réception. Toute réclamation doit être 
+        formulée dans les 48 heures suivant la livraison.
+        </font>
+        """
+        
+        elements.append(Paragraph(footer_text, self.styles['Normal']))
+        return elements

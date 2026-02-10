@@ -260,16 +260,159 @@ def get_pdf_service(db: Session = Depends(get_db)) -> PDFService:
 # =============================================================================
 
 class TemplatePDFService:
-    """Legacy template-based PDF service for generating PDFs from HTML templates."""
+    """Template-based PDF service for generating PDFs using ReportLab."""
 
     def generate_pdf(self, template_name: str, context: dict, css_files: list = None) -> bytes:
         """
-        Generate a PDF from an HTML template.
-
-        This is a placeholder. In production, use weasyprint or reportlab.
+        Generate a PDF from a template name and context.
+        
+        Routes to appropriate PDF generator based on template name.
         """
-        # Placeholder implementation
-        return b"%PDF-1.4 placeholder pdf content"
+        from app.services.pdf_generator import (
+            InvoicePDFGenerator,
+            QuotePDFGenerator,
+            OrderPDFGenerator,
+            DeliveryPDFGenerator,
+        )
+        
+        # Determine generator based on template name
+        if 'invoice' in template_name.lower():
+            generator = InvoicePDFGenerator()
+        elif 'quote' in template_name.lower() or 'devis' in template_name.lower():
+            generator = QuotePDFGenerator()
+        elif 'order' in template_name.lower() or 'commande' in template_name.lower():
+            generator = OrderPDFGenerator()
+        elif 'delivery' in template_name.lower() or 'livraison' in template_name.lower():
+            generator = DeliveryPDFGenerator()
+        else:
+            # Default to invoice generator
+            generator = InvoicePDFGenerator()
+        
+        # Transform context to generator format if needed
+        pdf_data = self._transform_context(context, template_name)
+        
+        return generator.generate(pdf_data)
+    
+    def _transform_context(self, context: dict, template_name: str) -> dict:
+        """Transform web context to PDF generator format."""
+        result = dict(context)  # Start with a copy
+        
+        # If we have top-level API response format (camelCase), transform it
+        if 'reference' in context:
+            # Handle camelCase to snake_case transformation for dates
+            if 'orderDate' in context:
+                result['order_date'] = context['orderDate']
+            if 'quoteDate' in context:
+                result['quote_date'] = context['quoteDate']
+            if 'invoiceDate' in context:
+                result['invoice_date'] = context['invoiceDate']
+            if 'deliveryDate' in context:
+                result['delivery_date'] = context['deliveryDate']
+            if 'requiredDate' in context:
+                result['required_date'] = context['requiredDate']
+            if 'dueDate' in context:
+                result['due_date'] = context['dueDate']
+            if 'validUntil' in context:
+                result['valid_until'] = context['validUntil']
+            if 'quoteReference' in context:
+                result['quote_reference'] = context['quoteReference']
+            if 'orderReference' in context:
+                result['order_reference'] = context['orderReference']
+            
+            # Build client from snapshot or clientName
+            if 'invoicingContactSnapshot' in context and context['invoicingContactSnapshot']:
+                snap = context['invoicingContactSnapshot']
+                result['client'] = {
+                    'name': context.get('clientName', ''),
+                    'address': f"{snap.get('address1', '')} {snap.get('address2', '')}".strip(),
+                    'postal_code': snap.get('postcode', ''),
+                    'city': snap.get('city', ''),
+                    'country': snap.get('country', ''),
+                    'vat_number': snap.get('vatNumber', ''),
+                    'email': snap.get('email', ''),
+                    'phone': snap.get('phone', ''),
+                }
+            elif 'clientName' in context:
+                result['client'] = {'name': context['clientName']}
+            
+            # Transform lines from camelCase
+            if 'lines' in context:
+                transformed_lines = []
+                for line in context['lines']:
+                    transformed_lines.append({
+                        'description': line.get('description') or line.get('productName', ''),
+                        'quantity': line.get('quantity', 0),
+                        'unit': line.get('unit', 'PCS'),
+                        'unit_price': line.get('unitPrice', 0),
+                        'vat_rate': line.get('vatRate', 20),
+                        'total_ht': line.get('lineTotal', 0),
+                        'discount_percent': line.get('discountPercentage', 0),
+                    })
+                result['lines'] = transformed_lines
+            
+            # Transform totals
+            if 'subtotal' in context:
+                result['total_ht'] = context.get('subtotal', 0)
+            if 'taxAmount' in context:
+                result['total_vat'] = context.get('taxAmount', 0)
+            if 'totalAmount' in context:
+                result['total_ttc'] = context.get('totalAmount', 0)
+            
+            return result
+        
+        # Otherwise, try to extract from nested structures (old format)
+        # Handle invoice context
+        if 'invoice' in context:
+            inv = context['invoice']
+            result['reference'] = inv.get('reference', '')
+            result['invoice_date'] = inv.get('date')
+            result['due_date'] = inv.get('due_date')
+            result['payment_terms'] = inv.get('payment_terms', 'Net 30 jours')
+            result['order_reference'] = inv.get('order_reference', '')
+        
+        # Handle quote context
+        if 'quote' in context:
+            q = context['quote']
+            result['reference'] = q.get('reference', '')
+            result['quote_date'] = q.get('date')
+            result['valid_until'] = q.get('valid_until')
+        
+        # Handle order context
+        if 'order' in context:
+            o = context['order']
+            result['reference'] = o.get('reference', '')
+            result['order_date'] = o.get('date')
+            result['required_date'] = o.get('required_date')
+            result['quote_reference'] = o.get('quote_reference', '')
+        
+        # Handle delivery context
+        if 'delivery' in context:
+            d = context['delivery']
+            result['reference'] = d.get('reference', '')
+            result['delivery_date'] = d.get('date')
+            result['order_reference'] = d.get('order_reference', '')
+        
+        # Handle company/society
+        if 'company' in context:
+            result['society'] = context['company']
+        elif 'society' in context:
+            result['society'] = context['society']
+        
+        # Handle client
+        if 'client' in context:
+            result['client'] = context['client']
+        
+        # Handle lines
+        if 'lines' in context and 'lines' not in result:
+            result['lines'] = context['lines']
+        
+        # Handle totals
+        if 'totals' in context:
+            result['total_ht'] = context['totals'].get('total_ht', 0)
+            result['total_vat'] = context['totals'].get('total_vat', 0)
+            result['total_ttc'] = context['totals'].get('total_ttc', 0)
+        
+        return result
 
 
 # Global instance for legacy code

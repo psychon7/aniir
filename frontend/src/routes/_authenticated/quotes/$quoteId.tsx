@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
+import { PageActionBar, ActionButtons, ActionDivider, PdfActionsDropdown } from '@/components/ui/layout/PageActionBar'
 import { StatusBadge } from '@/components/ui/Badge'
 import { DocumentAttachments } from '@/components/attachments'
 import { AttachFileButton } from '@/components/attachments'
@@ -266,40 +267,29 @@ function QuoteDetailPage() {
   const computedTotal = computedSubtotal - (quote.discountAmount || 0)
 
   const actions = (
-    <div className="flex gap-2">
-      <button onClick={() => navigate({ to: '/quotes' as any })} className="btn-secondary">
-        Back
-      </button>
-      <button
-        className="btn-secondary"
+    <PageActionBar>
+      <ActionButtons.Back onClick={() => navigate({ to: '/quotes' as any })} />
+      <ActionDivider />
+      <ActionButtons.Discount
         onClick={() => {
           setDiscountPercentage(quote.discountPercentage != null ? String(quote.discountPercentage) : '')
           setDiscountAmount(quote.discountAmount != null ? String(quote.discountAmount) : '')
           setIsDiscountModalOpen(true)
         }}
-      >
-        Discount
-      </button>
+      />
       <AttachFileButton
         entityType="QUOTE"
         entityId={parseInt(quoteId, 10)}
         variant="outline"
       />
-      <button
-        className="btn-secondary"
-        onClick={() => openPdfUtility('pdf-viewer')}
-      >
-        Preview PDF
-      </button>
-      <button
-        className="btn-secondary"
-        onClick={() => openPdfUtility('pdf-download')}
-      >
-        Download PDF
-      </button>
-      <button
-        className="btn-primary"
+      <PdfActionsDropdown
+        onPreview={() => openPdfUtility('pdf-viewer')}
+        onDownload={() => openPdfUtility('pdf-download')}
+      />
+      <ActionDivider />
+      <ActionButtons.ConvertToOrder
         disabled={convertMutation.isPending}
+        isPending={convertMutation.isPending}
         onClick={async () => {
           try {
             const result = await convertMutation.mutateAsync({ id: Number(quoteId) })
@@ -309,10 +299,8 @@ function QuoteDetailPage() {
             showError('Error', error instanceof Error ? error.message : 'Failed to convert quote')
           }
         }}
-      >
-        {convertMutation.isPending ? 'Converting...' : 'Convert to Order'}
-      </button>
-    </div>
+      />
+    </PageActionBar>
   )
 
   return (

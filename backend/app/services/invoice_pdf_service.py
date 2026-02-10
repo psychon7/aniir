@@ -161,17 +161,47 @@ class InvoicePDFService:
         Raises:
             ValueError: If invoice not found
         """
+        from app.services.pdf_generator import InvoicePDFGenerator
+        
         invoice = self._get_invoice_with_relations(invoice_id)
         if not invoice:
             raise ValueError(f"Invoice with ID {invoice_id} not found")
         
         context = self._build_context(invoice)
         
-        pdf_content = pdf_service.generate_pdf(
-            template_name=self.TEMPLATE_NAME,
-            context=context,
-            css_files=self.CSS_FILES
-        )
+        # Convert context to format expected by InvoicePDFGenerator
+        invoice_data = {
+            'reference': context['invoice']['reference'],
+            'invoice_date': context['invoice']['date'],
+            'due_date': context['invoice']['due_date'],
+            'payment_terms': context['invoice'].get('payment_terms', 'Net 30 jours'),
+            'order_reference': context['invoice'].get('order_reference', ''),
+            'society': {
+                'name': context['company']['name'],
+                'address': context['company']['address'],
+                'postal_code': context['company']['postal_code'],
+                'city': context['company']['city'],
+                'country': context['company']['country'],
+                'vat_number': context['company']['vat_number'],
+                'siret': context['company']['siret'],
+            },
+            'client': {
+                'name': context['client']['name'],
+                'address': context['client']['address'],
+                'postal_code': context['client']['postal_code'],
+                'city': context['client']['city'],
+                'country': context['client']['country'],
+                'vat_number': context['client']['vat_number'],
+            },
+            'lines': context['lines'],
+            'total_ht': context['totals']['total_ht'],
+            'total_vat': context['totals']['total_vat'],
+            'total_ttc': context['totals']['total_ttc'],
+        }
+        
+        # Use real PDF generator
+        generator = InvoicePDFGenerator()
+        pdf_content = generator.generate(invoice_data)
         
         logger.info(f"Generated PDF for invoice {invoice.inv_reference}")
         return pdf_content
