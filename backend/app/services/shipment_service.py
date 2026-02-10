@@ -739,7 +739,7 @@ class ShipmentService:
     async def get_carriers(self, active_only: bool = True) -> List[CarrierListItemResponse]:
         query = select(Supplier)
         if active_only:
-            query = query.where(Supplier.sup_isactive.is_(True))
+            query = query.where(Supplier.sup_isactive == True)
         query = query.order_by(Supplier.sup_company_name.asc())
         result = await self.db.execute(query)
         suppliers = list(result.scalars().all())

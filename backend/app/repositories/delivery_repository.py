@@ -197,8 +197,8 @@ class DeliveryRepository:
         """Get all delivery forms for an order."""
         result = await self.db.execute(
             select(DeliveryForm)
-            .where(DeliveryForm.del_ord_id == order_id)
-            .order_by(DeliveryForm.del_delivery_date.desc())
+            .where(DeliveryForm.cod_id == order_id)
+            .order_by(DeliveryForm.dfo_d_delivery.desc())
             .offset(skip)
             .limit(limit)
         )
@@ -213,8 +213,8 @@ class DeliveryRepository:
         """Get all delivery forms for a client."""
         result = await self.db.execute(
             select(DeliveryForm)
-            .where(DeliveryForm.del_cli_id == client_id)
-            .order_by(DeliveryForm.del_delivery_date.desc())
+            .where(DeliveryForm.cli_id == client_id)
+            .order_by(DeliveryForm.dfo_d_delivery.desc())
             .offset(skip)
             .limit(limit)
         )
@@ -227,15 +227,14 @@ class DeliveryRepository:
         status_id: Optional[int] = None
     ) -> int:
         """Count delivery forms with optional filters."""
-        query = select(func.count(DeliveryForm.del_id))
+        query = select(func.count(DeliveryForm.dfo_id))
         conditions = []
 
         if order_id:
-            conditions.append(DeliveryForm.del_ord_id == order_id)
+            conditions.append(DeliveryForm.cod_id == order_id)
         if client_id:
-            conditions.append(DeliveryForm.del_cli_id == client_id)
-        if status_id:
-            conditions.append(DeliveryForm.del_sta_id == status_id)
+            conditions.append(DeliveryForm.cli_id == client_id)
+        # Note: status_id filter not applicable - model doesn't have del_sta_id
 
         if conditions:
             query = query.where(and_(*conditions))
