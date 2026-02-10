@@ -479,36 +479,55 @@ class SupplierContactUpdate(BaseModel):
     )
 
 
-class SupplierContactResponse(SupplierContactBase):
-    """Schema for SupplierContact response."""
-    model_config = ConfigDict(from_attributes=True)
+class SupplierContactResponse(BaseModel):
+    """Schema for SupplierContact response - camelCase output for frontend."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    sco_id: int = Field(..., description="Contact ID")
-    sup_id: int = Field(..., description="Supplier ID")
+    id: int = Field(..., validation_alias="sco_id", description="Contact ID")
+    supplierId: int = Field(..., validation_alias="sup_id", description="Supplier ID")
+    civilityId: int = Field(..., validation_alias="civ_id", description="Civility ID")
+    firstName: str = Field(..., validation_alias="sco_firstname", description="First name")
+    lastName: str = Field(..., validation_alias="sco_lastname", description="Last name")
+    ref: Optional[str] = Field(None, validation_alias="sco_ref", description="Reference")
+    addressTitle: Optional[str] = Field(None, validation_alias="sco_adresse_title", description="Address title")
+    address: Optional[str] = Field(None, validation_alias="sco_address1", description="Address line 1")
+    address2: Optional[str] = Field(None, validation_alias="sco_address2", description="Address line 2")
+    postalCode: Optional[str] = Field(None, validation_alias="sco_postcode", description="Postal code")
+    city: Optional[str] = Field(None, validation_alias="sco_city", description="City")
+    country: Optional[str] = Field(None, validation_alias="sco_country", description="Country")
+    email: Optional[str] = Field(None, validation_alias="sco_email", description="Email address")
+    phone: Optional[str] = Field(None, validation_alias="sco_tel1", description="Phone number")
+    phone2: Optional[str] = Field(None, validation_alias="sco_tel2", description="Secondary phone")
+    fax: Optional[str] = Field(None, validation_alias="sco_fax", description="Fax number")
+    mobile: Optional[str] = Field(None, validation_alias="sco_cellphone", description="Mobile phone")
+    receiveNewsletter: bool = Field(False, validation_alias="sco_recieve_newsletter", description="Receives newsletter")
+    newsletterEmail: Optional[str] = Field(None, validation_alias="sco_newsletter_email", description="Newsletter email")
+    comment: Optional[str] = Field(None, validation_alias="sco_comment", description="Comment")
 
     @computed_field
     @property
-    def full_name(self) -> str:
+    def fullName(self) -> str:
         """Get contact's full name."""
-        return f"{self.sco_firstname} {self.sco_lastname}"
+        return f"{self.firstName} {self.lastName}"
 
 
 class SupplierContactListResponse(BaseModel):
-    """Schema for listing contacts (lightweight)."""
-    model_config = ConfigDict(from_attributes=True)
+    """Schema for listing contacts (lightweight) - camelCase output for frontend."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    sco_id: int = Field(..., description="Contact ID")
-    sup_id: int = Field(..., description="Supplier ID")
-    sco_firstname: str = Field(..., description="First name")
-    sco_lastname: str = Field(..., description="Last name")
-    sco_email: Optional[str] = Field(None, description="Email address")
-    sco_tel1: Optional[str] = Field(None, description="Phone number")
+    id: int = Field(..., validation_alias="sco_id", description="Contact ID")
+    supplierId: int = Field(..., validation_alias="sup_id", description="Supplier ID")
+    firstName: str = Field(..., validation_alias="sco_firstname", description="First name")
+    lastName: str = Field(..., validation_alias="sco_lastname", description="Last name")
+    email: Optional[str] = Field(None, validation_alias="sco_email", description="Email address")
+    phone: Optional[str] = Field(None, validation_alias="sco_tel1", description="Phone number")
+    addressTitle: Optional[str] = Field(None, validation_alias="sco_adresse_title", description="Address title")
 
     @computed_field
     @property
-    def full_name(self) -> str:
+    def fullName(self) -> str:
         """Get contact's full name."""
-        return f"{self.sco_firstname} {self.sco_lastname}"
+        return f"{self.firstName} {self.lastName}"
 
 
 # ==========================================================================

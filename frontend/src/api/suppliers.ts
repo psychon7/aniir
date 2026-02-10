@@ -30,8 +30,8 @@ export const suppliersApi = {
       return response.data
     }
 
-    const response = await apiClient.get<ApiResponse<Supplier>>(`/suppliers/${id}`)
-    return response.data.data
+    const response = await apiClient.get<Supplier>(`/suppliers/${id}`)
+    return response.data
   },
 
   /**
@@ -43,8 +43,8 @@ export const suppliersApi = {
       return response.data
     }
 
-    const response = await apiClient.post<ApiResponse<Supplier>>('/suppliers', data)
-    return response.data.data
+    const response = await apiClient.post<Supplier>('/suppliers', data)
+    return response.data
   },
 
   /**
@@ -56,8 +56,8 @@ export const suppliersApi = {
       return response.data
     }
 
-    const response = await apiClient.put<ApiResponse<Supplier>>(`/suppliers/${data.id}`, data)
-    return response.data.data
+    const response = await apiClient.put<Supplier>(`/suppliers/${data.id}`, data)
+    return response.data
   },
 
   /**
@@ -97,11 +97,11 @@ export const suppliersApi = {
       return response.data
     }
 
-    const response = await apiClient.post<ApiResponse<SupplierContact>>(
+    const response = await apiClient.post<SupplierContact>(
       `/suppliers/${supplierId}/contacts`,
       contact
     )
-    return response.data.data
+    return response.data
   },
 
   /**

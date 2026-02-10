@@ -475,7 +475,7 @@ async def create_supplier_contact(
     """Create a new contact for a supplier."""
     try:
         contact_data = SupplierContactCreate(
-            sco_sup_id=supplier_id,
+            sup_id=supplier_id,
             **data.model_dump()
         )
         contact = await service.create_contact(contact_data)
@@ -526,7 +526,7 @@ async def get_supplier_contact(
         await service.get_supplier(supplier_id)
         contact = await service.get_contact(contact_id)
         # Verify contact belongs to supplier
-        if contact.sco_sup_id != supplier_id:
+        if contact.sup_id != supplier_id:
             raise SupplierContactNotFoundError(contact_id)
         return contact
     except SupplierServiceError as e:
@@ -551,7 +551,7 @@ async def update_supplier_contact(
         await service.get_supplier(supplier_id)
         # Get contact and verify it belongs to supplier
         contact = await service.get_contact(contact_id)
-        if contact.sco_sup_id != supplier_id:
+        if contact.sup_id != supplier_id:
             raise SupplierContactNotFoundError(contact_id)
         # Update contact
         contact = await service.update_contact(contact_id, data)
@@ -577,7 +577,7 @@ async def delete_supplier_contact(
         await service.get_supplier(supplier_id)
         # Get contact and verify it belongs to supplier
         contact = await service.get_contact(contact_id)
-        if contact.sco_sup_id != supplier_id:
+        if contact.sup_id != supplier_id:
             raise SupplierContactNotFoundError(contact_id)
         # Delete contact
         await service.delete_contact(contact_id)
