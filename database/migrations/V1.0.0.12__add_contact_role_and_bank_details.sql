@@ -57,10 +57,5 @@ BEGIN
 END
 GO
 
--- Record migration
-IF NOT EXISTS (SELECT 1 FROM migration_history WHERE version = 'V1.0.0.12')
-BEGIN
-    INSERT INTO migration_history (version, description, applied_at)
-    VALUES ('V1.0.0.12', 'Add contact role and client bank details', GETDATE());
-END
-GO
+-- Note: Migration recording is handled automatically by the Python migration runner
+-- which inserts into [dbo].[_MigrationHistory] after successful execution

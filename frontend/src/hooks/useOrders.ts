@@ -21,6 +21,13 @@ export const orderKeys = {
   byQuote: (quoteId: number) => [...orderKeys.all, 'by-quote', quoteId] as const,
 }
 
+// Common options for entity list queries (moderate caching to reduce API calls)
+const listQueryOptions = {
+  staleTime: 2 * 60 * 1000, // Consider data fresh for 2 minutes
+  gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+  refetchOnWindowFocus: false, // Don't refetch when switching browser tabs
+}
+
 /**
  * Hook to fetch paginated list of orders
  */
@@ -28,7 +35,7 @@ export function useOrders(params: OrderSearchParams = {}) {
   return useQuery({
     queryKey: orderKeys.list(params),
     queryFn: () => ordersApi.getAll(params),
-    staleTime: 30 * 1000,
+    ...listQueryOptions,
   })
 }
 

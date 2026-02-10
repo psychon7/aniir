@@ -1,19 +1,29 @@
 version: '3.8'
 
 services:
+  # ============================================================================
+  # Redis - Cache & Session Store
+  # ============================================================================
   redis:
     image: redis:7-alpine
-    container_name: erp_redis
+    container_name: axtecherp-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --requirepass ${REDIS_PASSWORD:-2@24Courtry} --appendonly yes
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-2@24Courtry}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - erp-network
 
 volumes:
   redis_data:
+
+networks:
+  erp-network:
+    driver: bridge

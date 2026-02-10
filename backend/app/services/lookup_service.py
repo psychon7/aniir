@@ -8,12 +8,15 @@ from multiple reference tables into a consistent format for frontend use.
 NOTE: Uses synchronous database operations with asyncio.to_thread wrapper
 to maintain async interface while using pymssql (synchronous driver).
 
+PERFORMANCE: Lookup data is cached in Redis with 10-minute TTL since
+reference data rarely changes. Cache is invalidated on data changes.
 """
 import asyncio
 from typing import List, Optional, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from fastapi import Depends
+from loguru import logger
 
 from app.database import get_db
 from app.models.currency import Currency
@@ -27,6 +30,7 @@ from app.models.payment_term import PaymentTerm
 from app.models.warehouse import Warehouse
 from app.models.activity import Activity
 from app.models.user import Civility
+from app.services.cache_service import cache_service, CacheTTL, CacheKeys
 
 
 # ==========================================================================
@@ -113,7 +117,26 @@ class LookupService:
         Returns:
             List of Currency objects.
         """
-        return await asyncio.to_thread(self._sync_get_currencies, search, limit)
+        # Build cache key (only cache non-search queries for simplicity)
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:currencies:all:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(self._sync_get_currencies, search, limit)
+
+        # Cache if no search filter
+        if search is None:
+            # Convert SQLAlchemy objects to dicts for JSON serialization
+            cache_data = [
+                {"id": c.cur_id, "designation": c.cur_designation, "symbol": c.cur_symbol}
+                for c in result
+            ]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     # ==========================================================================
     # Status Lookups
@@ -170,9 +193,26 @@ class LookupService:
         Returns:
             List of Status objects.
         """
-        return await asyncio.to_thread(
+        # Cache non-search queries
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:statuses:{entity_type or 'all'}:{active_only}:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(
             self._sync_get_statuses, entity_type, active_only, search, limit
         )
+
+        if search is None:
+            cache_data = [
+                {"id": s.stt_id, "value": s.stt_value, "description": s.stt_description, "order": s.stt_order}
+                for s in result
+            ]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     # ==========================================================================
     # Category Lookups
@@ -229,9 +269,26 @@ class LookupService:
         Returns:
             List of Category objects.
         """
-        return await asyncio.to_thread(
+        # Cache non-search queries
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:categories:{parent_id}:{root_only}:{active_only}:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(
             self._sync_get_categories, parent_id, root_only, active_only, search, limit
         )
+
+        if search is None:
+            cache_data = [
+                {"id": c.cat_id, "name": c.cat_name, "parent_id": c.cat_parent_cat_id, "is_active": c.cat_is_actived}
+                for c in result
+            ]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     def _sync_get_category_tree(self, active_only: bool = True) -> List[Dict[str, Any]]:
         """Synchronous implementation of get_category_tree."""
@@ -278,7 +335,15 @@ class LookupService:
         Returns:
             List of category dicts with nested children.
         """
-        return await asyncio.to_thread(self._sync_get_category_tree, active_only)
+        cache_key = f"{CacheKeys.LOOKUP}:category_tree:{active_only}"
+        cached = await cache_service.get(cache_key)
+        if cached is not None:
+            logger.debug(f"Cache HIT: {cache_key}")
+            return cached
+
+        result = await asyncio.to_thread(self._sync_get_category_tree, active_only)
+        await cache_service.set(cache_key, result, CacheTTL.LONG)
+        return result
 
     # ==========================================================================
     # Client Type Lookups
@@ -324,9 +389,22 @@ class LookupService:
         Returns:
             List of ClientType objects.
         """
-        return await asyncio.to_thread(
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:client_types:{active_only}:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(
             self._sync_get_client_types, active_only, search, limit
         )
+
+        if search is None:
+            cache_data = [{"id": ct.cty_id, "description": ct.cty_description} for ct in result]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     # ==========================================================================
     # Unit of Measure Lookups
@@ -374,9 +452,25 @@ class LookupService:
         Returns:
             List of UnitOfMeasure objects.
         """
-        return await asyncio.to_thread(
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:units_of_measure:{active_only}:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(
             self._sync_get_units_of_measure, active_only, search, limit
         )
+
+        if search is None:
+            cache_data = [
+                {"id": u.uom_id, "name": u.uom_name, "code": u.uom_code, "is_active": u.uom_is_active}
+                for u in result
+            ]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     # ==========================================================================
     # VAT Rate Lookups
@@ -415,7 +509,23 @@ class LookupService:
         Returns:
             List of VatRate objects.
         """
-        return await asyncio.to_thread(self._sync_get_vat_rates, search, limit)
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:vat_rates:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(self._sync_get_vat_rates, search, limit)
+
+        if search is None:
+            cache_data = [
+                {"id": v.vat_id, "designation": v.vat_designation, "rate": float(v.vat_vat_rate) if v.vat_vat_rate else 0}
+                for v in result
+            ]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     # ==========================================================================
     # Payment Mode Lookups
@@ -460,9 +570,22 @@ class LookupService:
         Returns:
             List of PaymentMode objects.
         """
-        return await asyncio.to_thread(
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:payment_modes:{active_only}:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(
             self._sync_get_payment_modes, active_only, search, limit
         )
+
+        if search is None:
+            cache_data = [{"id": p.pmo_id, "designation": p.pmo_designation, "is_active": p.pmo_isactive} for p in result]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     # ==========================================================================
     # Payment Term Lookups
@@ -508,9 +631,22 @@ class LookupService:
         Returns:
             List of PaymentTerm objects.
         """
-        return await asyncio.to_thread(
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:payment_terms:{active_only}:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(
             self._sync_get_payment_terms, active_only, search, limit
         )
+
+        if search is None:
+            cache_data = [{"id": p.pco_id, "designation": p.pco_designation, "is_active": p.pco_active} for p in result]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     # ==========================================================================
     # Warehouse Lookups
@@ -557,9 +693,22 @@ class LookupService:
         Returns:
             List of Warehouse objects.
         """
-        return await asyncio.to_thread(
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:warehouses:{active_only}:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(
             self._sync_get_warehouses, active_only, search, limit
         )
+
+        if search is None:
+            cache_data = [{"id": w.whs_id, "name": w.whs_name, "code": w.whs_code} for w in result]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     # ==========================================================================
     # Activity Lookups
@@ -604,9 +753,22 @@ class LookupService:
         Returns:
             List of Activity objects.
         """
-        return await asyncio.to_thread(
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:activities:{active_only}:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(
             self._sync_get_activities, active_only, search, limit
         )
+
+        if search is None:
+            cache_data = [{"id": a.act_id, "designation": a.act_designation, "is_active": a.act_isactive} for a in result]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     # ==========================================================================
     # Civility Lookups
@@ -653,9 +815,22 @@ class LookupService:
         Returns:
             List of Civility objects.
         """
-        return await asyncio.to_thread(
+        if search is None:
+            cache_key = f"{CacheKeys.LOOKUP}:civilities:{active_only}:{limit}"
+            cached = await cache_service.get(cache_key)
+            if cached is not None:
+                logger.debug(f"Cache HIT: {cache_key}")
+                return cached
+
+        result = await asyncio.to_thread(
             self._sync_get_civilities, active_only, search, limit
         )
+
+        if search is None:
+            cache_data = [{"id": c.civ_id, "designation": c.civ_designation, "is_active": c.civ_active} for c in result]
+            await cache_service.set(cache_key, cache_data, CacheTTL.LONG)
+
+        return result
 
     # ==========================================================================
     # Aggregated Lookups
@@ -669,7 +844,8 @@ class LookupService:
         Get all lookup data in a single call.
 
         This is useful for initial application loading to minimize
-        the number of API calls required.
+        the number of API calls required. Individual lookup calls are already
+        cached, so this aggregates cached responses.
 
         Args:
             active_only: If True, only return active items.
