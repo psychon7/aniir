@@ -21,6 +21,8 @@ import type {
 } from './types/warehouse3d'
 import type { RackProductInfo } from './hooks/useWarehouseObjects'
 
+import { ProductAssignModal } from './ProductAssignModal'
+
 // Icons from lucide-react
 import {
   Eye,
@@ -35,7 +37,9 @@ import {
   Layers,
   Plus,
   Minus,
-  Box
+  Box,
+  Package,
+  X as XIcon
 } from 'lucide-react'
 
 export interface Warehouse3DViewProps {
@@ -51,15 +55,15 @@ function generateDefaultLayout(
   numAisles: number = 3,
   racksPerAisle: number = 3,
   levelsPerRack: number = 4,
-  baysPerLevel: number = 3
+  baysPerLevel: number = 3,
+  rackWidth: number = 4,
+  rackDepth: number = 1.5,
+  aisleWidth: number = 3
 ): WarehouseLayout {
   const racks: RackConfig[] = []
   const aisles: AisleConfig[] = []
 
-  const rackWidth = 4
-  const rackDepth = 1.5
   const rackHeight = levelsPerRack * 1.2
-  const aisleWidth = 3
   const rackSpacing = 1
 
   for (let aisleIdx = 0; aisleIdx < numAisles; aisleIdx++) {
@@ -162,6 +166,13 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
     baysPerLevel: 3
   })
 
+  // Rack dimension defaults (used for manual placement and layout generator)
+  const [rackConfig, setRackConfig] = useState({
+    width: 4,
+    depth: 1.5,
+    aisleWidth: 3
+  })
+
   // Layout persistence
   const {
     layout: savedLayout,
@@ -197,7 +208,10 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
         layoutConfig.numAisles,
         layoutConfig.racksPerAisle,
         layoutConfig.levelsPerRack,
-        layoutConfig.baysPerLevel
+        layoutConfig.baysPerLevel,
+        rackConfig.width,
+        rackConfig.depth,
+        rackConfig.aisleWidth
       )
       canvasRef.current.loadLayout(defaultLayout)
     }
@@ -212,11 +226,14 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
         layoutConfig.numAisles,
         layoutConfig.racksPerAisle,
         layoutConfig.levelsPerRack,
-        layoutConfig.baysPerLevel
+        layoutConfig.baysPerLevel,
+        rackConfig.width,
+        rackConfig.depth,
+        rackConfig.aisleWidth
       )
       canvasRef.current.loadLayout(newLayout)
     }
-  }, [layoutConfig])
+  }, [layoutConfig, rackConfig])
 
   // Handlers
   const handleModeToggle = useCallback(() => {
@@ -262,6 +279,59 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
     setHoveredBinId(binId)
     canvasRef.current?.highlightPallet(binId)
   }, [])
+
+  // Product assignment modal state
+  const [assignModal, setAssignModal] = useState<{
+    isOpen: boolean
+    binId: string
+    rackId: string
+    level: number
+    bay: number
+    currentProduct: { ref: string; name: string } | null
+  }>({ isOpen: false, binId: '', rackId: '', level: 0, bay: 0, currentProduct: null })
+
+  const handleOpenAssignModal = useCallback(
+    (binId: string, rackId: string, level: number, bay: number, currentProduct?: { ref: string; name: string }) => {
+      setAssignModal({ isOpen: true, binId, rackId, level, bay, currentProduct: currentProduct || null })
+    },
+    []
+  )
+
+  const handleCloseAssignModal = useCallback(() => {
+    setAssignModal(prev => ({ ...prev, isOpen: false }))
+  }, [])
+
+  const handleAssignProduct = useCallback(
+    (productId: number, productRef: string, productName: string) => {
+      if (!canvasRef.current) return
+      const stock = {
+        stk_id: productId,
+        prd_id: productId,
+        product_ref: productRef,
+        product_name: productName,
+        stk_quantity_available: 0,
+        whs_id: warehouseId ?? 0,
+      } as StockListItem
+
+      canvasRef.current.assignStockToPallet(assignModal.rackId, assignModal.level, assignModal.bay, stock)
+      // Refresh the products panel by re-triggering selection
+      if (selectedObject) {
+        handleObjectSelect(selectedObject)
+      }
+      handleCloseAssignModal()
+    },
+    [assignModal, warehouseId, selectedObject, handleObjectSelect, handleCloseAssignModal]
+  )
+
+  const handleClearPallet = useCallback(
+    (rackId: string, level: number, bay: number) => {
+      canvasRef.current?.clearPallet(rackId, level, bay)
+      if (selectedObject) {
+        handleObjectSelect(selectedObject)
+      }
+    },
+    [selectedObject, handleObjectSelect]
+  )
 
   const handleLayoutChange = useCallback((_layout: WarehouseLayout) => {
     // Layout changed, could auto-save here
@@ -461,6 +531,51 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
               </div>
             </div>
 
+            {/* Rack Dimensions */}
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                Rack Dimensions
+              </h4>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs">
+                  <span className="w-16">Width (m):</span>
+                  <input
+                    type="number"
+                    value={rackConfig.width}
+                    onChange={(e) => setRackConfig(prev => ({ ...prev, width: Math.max(1, Math.min(10, Number(e.target.value))) }))}
+                    className="flex-1 px-2 py-1 rounded border bg-background text-xs"
+                    min={1}
+                    max={10}
+                    step={0.5}
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs">
+                  <span className="w-16">Depth (m):</span>
+                  <input
+                    type="number"
+                    value={rackConfig.depth}
+                    onChange={(e) => setRackConfig(prev => ({ ...prev, depth: Math.max(0.5, Math.min(5, Number(e.target.value))) }))}
+                    className="flex-1 px-2 py-1 rounded border bg-background text-xs"
+                    min={0.5}
+                    max={5}
+                    step={0.5}
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs">
+                  <span className="w-16">Aisle (m):</span>
+                  <input
+                    type="number"
+                    value={rackConfig.aisleWidth}
+                    onChange={(e) => setRackConfig(prev => ({ ...prev, aisleWidth: Math.max(2, Math.min(6, Number(e.target.value))) }))}
+                    className="flex-1 px-2 py-1 rounded border bg-background text-xs"
+                    min={2}
+                    max={6}
+                    step={0.5}
+                  />
+                </label>
+              </div>
+            </div>
+
             {/* Layout Generator */}
             <div>
               <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
@@ -595,6 +710,15 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
             config={config}
             mode={mode}
             placementTool={placementTool}
+            rackDefaults={{
+              dimensions: {
+                width: rackConfig.width,
+                depth: rackConfig.depth,
+                height: layoutConfig.levelsPerRack * 1.2
+              },
+              levels: layoutConfig.levelsPerRack,
+              bays: layoutConfig.baysPerLevel
+            }}
             onObjectSelect={handleObjectSelect}
             onLayoutChange={handleLayoutChange}
             onSceneReady={handleSceneReady}
@@ -664,17 +788,87 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
             {(selectedObject.type === 'rack' || selectedObject.type === 'shelf' || selectedObject.type === 'pallet') && rackProducts.length > 0 && (
               <div className="mt-4 pt-3 border-t">
                 <h5 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                  {selectedObject.type === 'rack' && `Products in Rack (${rackProducts.filter(p => p.productRef).length})`}
-                  {selectedObject.type === 'shelf' && `Products on Level ${selectedObject.shelfLevel} (${rackProducts.filter(p => p.productRef).length})`}
+                  {selectedObject.type === 'rack' && `Products in Rack (${rackProducts.filter(p => p.productRef).length}/${rackProducts.length})`}
+                  {selectedObject.type === 'shelf' && `Products on Level ${(selectedObject.shelfLevel ?? 0) + 1} (${rackProducts.filter(p => p.productRef).length}/${rackProducts.length})`}
                   {selectedObject.type === 'pallet' && 'Pallet Contents'}
                 </h5>
-                <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {rackProducts
-                    .filter(p => selectedObject.type === 'pallet' || p.productRef)
-                    .map((product) => (
+
+                {/* Single pallet view - detailed */}
+                {selectedObject.type === 'pallet' && rackProducts.length > 0 && (
+                  <div className="space-y-2">
+                    {rackProducts[0].productRef ? (
+                      <>
+                        <div className="p-2.5 rounded-lg bg-secondary/50 border">
+                          <div className="font-medium text-sm">{rackProducts[0].productRef}</div>
+                          <div className="text-muted-foreground text-[10px] mt-0.5">{rackProducts[0].productName}</div>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-[10px] text-muted-foreground">
+                              L{rackProducts[0].level + 1} B{rackProducts[0].bay + 1}
+                            </span>
+                            <span className={`text-xs font-semibold ${
+                              (rackProducts[0].quantity ?? 0) <= 0 ? 'text-red-500' :
+                              (rackProducts[0].quantity ?? 0) < 10 ? 'text-amber-500' : 'text-green-500'
+                            }`}>
+                              Qty: {rackProducts[0].quantity ?? 0}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => handleOpenAssignModal(
+                              selectedObject.binId!,
+                              selectedObject.rackId!,
+                              selectedObject.shelfLevel!,
+                              selectedObject.bay!,
+                              { ref: rackProducts[0].productRef!, name: rackProducts[0].productName || '' }
+                            )}
+                            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] rounded-md bg-secondary hover:bg-secondary/80"
+                          >
+                            <Package className="w-3 h-3" />
+                            Change
+                          </button>
+                          <button
+                            onClick={() => handleClearPallet(selectedObject.rackId!, selectedObject.shelfLevel!, selectedObject.bay!)}
+                            className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] rounded-md text-destructive border border-destructive/30 hover:bg-destructive/10"
+                          >
+                            <XIcon className="w-3 h-3" />
+                            Clear
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="p-3 rounded-lg bg-muted/30 border border-dashed text-center">
+                          <Package className="w-6 h-6 mx-auto mb-1.5 text-muted-foreground/40" />
+                          <div className="text-[10px] text-muted-foreground">Empty slot</div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            L{rackProducts[0].level + 1} B{rackProducts[0].bay + 1}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleOpenAssignModal(
+                            selectedObject.binId!,
+                            selectedObject.rackId!,
+                            selectedObject.shelfLevel!,
+                            selectedObject.bay!
+                          )}
+                          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Assign Product
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Rack / shelf view - list of all slots */}
+                {(selectedObject.type === 'rack' || selectedObject.type === 'shelf') && (
+                  <div className="space-y-1 max-h-64 overflow-y-auto">
+                    {rackProducts.map((product) => (
                       <div
                         key={product.binId}
-                        className={`p-2 rounded text-xs cursor-pointer transition-colors ${
+                        className={`p-2 rounded text-xs transition-colors ${
                           hoveredBinId === product.binId
                             ? 'bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400'
                             : 'bg-secondary/50 hover:bg-secondary'
@@ -682,29 +876,64 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
                         onMouseEnter={() => handlePalletHover(product.binId)}
                         onMouseLeave={() => handlePalletHover(null)}
                       >
-                        <div className="font-medium truncate">
-                          {product.productRef || <span className="text-muted-foreground italic">Empty slot</span>}
-                        </div>
-                        {product.productName && (
-                          <div className="text-muted-foreground truncate text-[10px]">
-                            {product.productName}
+                        {product.productRef ? (
+                          <>
+                            <div className="flex items-start justify-between gap-1">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{product.productRef}</div>
+                                <div className="text-muted-foreground truncate text-[10px]">{product.productName}</div>
+                              </div>
+                              <span className={`text-[10px] font-semibold shrink-0 ${
+                                (product.quantity ?? 0) <= 0 ? 'text-red-500' :
+                                (product.quantity ?? 0) < 10 ? 'text-amber-500' : 'text-green-500'
+                              }`}>
+                                {product.quantity ?? 0}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="text-[10px] text-muted-foreground">L{product.level + 1} B{product.bay + 1}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenAssignModal(
+                                    product.binId,
+                                    selectedObject.rackId || selectedObject.id,
+                                    product.level,
+                                    product.bay,
+                                    { ref: product.productRef!, name: product.productName || '' }
+                                  )
+                                }}
+                                className="text-[10px] text-primary hover:underline"
+                              >
+                                Change
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-muted-foreground italic">Empty</span>
+                              <span className="text-[10px] text-muted-foreground ml-2">L{product.level + 1} B{product.bay + 1}</span>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenAssignModal(
+                                  product.binId,
+                                  selectedObject.rackId || selectedObject.id,
+                                  product.level,
+                                  product.bay
+                                )
+                              }}
+                              className="flex items-center gap-0.5 text-[10px] text-primary hover:underline"
+                            >
+                              <Plus className="w-2.5 h-2.5" />
+                              Assign
+                            </button>
                           </div>
                         )}
-                        <div className="flex justify-between mt-1 text-[10px]">
-                          <span className="text-muted-foreground">L{product.level} B{product.bay}</span>
-                          <span className={`font-semibold ${
-                            (product.quantity ?? 0) <= 0 ? 'text-red-500' :
-                            (product.quantity ?? 0) < 10 ? 'text-amber-500' : 'text-green-500'
-                          }`}>
-                            {product.quantity !== undefined ? `Qty: ${product.quantity}` : ''}
-                          </span>
-                        </div>
                       </div>
                     ))}
-                </div>
-                {selectedObject.type !== 'pallet' && rackProducts.filter(p => !p.productRef).length > 0 && (
-                  <div className="mt-2 text-[10px] text-muted-foreground">
-                    {rackProducts.filter(p => !p.productRef).length} empty slots
                   </div>
                 )}
               </div>
@@ -732,6 +961,15 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
         accept=".json"
         onChange={handleFileUpload}
         className="hidden"
+      />
+
+      {/* Product assignment modal */}
+      <ProductAssignModal
+        isOpen={assignModal.isOpen}
+        onClose={handleCloseAssignModal}
+        onAssign={handleAssignProduct}
+        binId={assignModal.binId}
+        currentProduct={assignModal.currentProduct}
       />
     </div>
   )

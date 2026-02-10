@@ -1,6 +1,9 @@
 /**
  * useWarehouse3D Hook
  * Core Three.js scene setup: scene, camera, renderer, controls, and lighting
+ *
+ * IMPORTANT: The scene initialization runs ONCE on mount. Config and callbacks
+ * are read from refs so that re-renders do NOT destroy and recreate the scene.
  */
 
 import { useRef, useEffect, useCallback } from 'react'
@@ -31,8 +34,14 @@ export interface UseWarehouse3DReturn {
 }
 
 export function useWarehouse3D(options: UseWarehouse3DOptions = {}): UseWarehouse3DReturn {
-  const config = { ...DEFAULT_SCENE_CONFIG, ...options.config }
-  
+  // Store callback and config in refs to avoid re-creating the entire scene on re-render.
+  // Previously, config and options were in the useEffect deps, causing the scene to be
+  // torn down and rebuilt on every state change (click, hover, save, mode toggle).
+  const onSceneReadyRef = useRef(options.onSceneReady)
+  onSceneReadyRef.current = options.onSceneReady
+
+  const configRef = useRef({ ...DEFAULT_SCENE_CONFIG, ...options.config })
+
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null)
@@ -42,7 +51,7 @@ export function useWarehouse3D(options: UseWarehouse3DOptions = {}): UseWarehous
   const warehouseGroupRef = useRef<THREE.Group | null>(null)
   const animationFrameRef = useRef<number>(0)
 
-  // Render function
+  // Render function (stable - reads from refs)
   const render = useCallback(() => {
     if (rendererRef.current && sceneRef.current && cameraRef.current) {
       rendererRef.current.render(sceneRef.current, cameraRef.current)
@@ -52,37 +61,31 @@ export function useWarehouse3D(options: UseWarehouse3DOptions = {}): UseWarehous
     }
   }, [])
 
-  // Resize handler
+  // Resize handler (stable - reads from refs)
   const resize = useCallback(() => {
     const container = containerRef.current
     if (!container || !cameraRef.current || !rendererRef.current) return
-    
+
     const width = container.clientWidth
     const height = container.clientHeight
-    
+
     cameraRef.current.aspect = width / height
     cameraRef.current.updateProjectionMatrix()
-    
+
     rendererRef.current.setSize(width, height)
     if (labelRendererRef.current) {
       labelRendererRef.current.setSize(width, height)
     }
-    
+
     render()
   }, [render])
 
-  // Animation loop
-  const animate = useCallback(() => {
-    animationFrameRef.current = requestAnimationFrame(animate)
-    controlsRef.current?.update()
-    render()
-  }, [render])
-
-  // Initialize scene
+  // Initialize scene ONCE on mount
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
+    const config = configRef.current
     const width = container.clientWidth
     const height = container.clientHeight
 
@@ -165,18 +168,20 @@ export function useWarehouse3D(options: UseWarehouse3DOptions = {}): UseWarehous
     scene.add(warehouseGroup)
     warehouseGroupRef.current = warehouseGroup
 
-    // Notify parent that scene is ready
-    options.onSceneReady?.(scene)
+    // Notify parent that scene is ready (read from ref for latest callback)
+    onSceneReadyRef.current?.(scene)
 
-    // Start animation loop
+    // Start animation loop using local variables (no stale closure issues)
+    const animate = () => {
+      animationFrameRef.current = requestAnimationFrame(animate)
+      controls.update()
+      renderer.render(scene, camera)
+      labelRenderer.render(scene, camera)
+    }
     animate()
 
-    // Handle window resize
-    window.addEventListener('resize', resize)
-
-    // Cleanup
+    // Cleanup on unmount only
     return () => {
-      window.removeEventListener('resize', resize)
       cancelAnimationFrame(animationFrameRef.current)
 
       // Dispose of scene resources
@@ -208,7 +213,8 @@ export function useWarehouse3D(options: UseWarehouse3DOptions = {}): UseWarehous
       labelRendererRef.current = null
       warehouseGroupRef.current = null
     }
-  }, [animate, config, options, resize])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty deps: init once on mount. Config/callbacks read from refs.
 
   return {
     containerRef,

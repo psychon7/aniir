@@ -92,11 +92,40 @@ export function useWarehouseObjects(
     return shelves
   }
 
-  // Add a new rack
+  // AABB collision check: returns true if two rectangles overlap (with padding)
+  const checkOverlap = useCallback(
+    (
+      pos: { x: number; z: number },
+      dims: { width: number; depth: number },
+      padding: number = 0.2
+    ): boolean => {
+      return layoutRef.current.racks.some((existing) => {
+        const ax1 = pos.x - padding
+        const ax2 = pos.x + dims.width + padding
+        const az1 = pos.z - padding
+        const az2 = pos.z + dims.depth + padding
+        const bx1 = existing.position.x
+        const bx2 = existing.position.x + existing.dimensions.width
+        const bz1 = existing.position.z
+        const bz2 = existing.position.z + existing.dimensions.depth
+        return ax1 < bx2 && ax2 > bx1 && az1 < bz2 && az2 > bz1
+      })
+    },
+    []
+  )
+
+  // Add a new rack (with collision detection)
   const addRack = useCallback(
     (position: { x: number; z: number }, config?: Partial<RackConfig>): string | null => {
       const warehouseGroup = warehouseGroupRef.current
       if (!warehouseGroup) return null
+
+      const dims = config?.dimensions || DEFAULT_RACK_CONFIG.dimensions
+
+      // Collision check — skip for layout-generated racks (they have an id already)
+      if (!config?.id && checkOverlap(position, dims)) {
+        return null
+      }
 
       const id = config?.id || `rack_${uuidv4().slice(0, 8)}`
       const rackConfig: RackConfig = {
@@ -140,7 +169,7 @@ export function useWarehouseObjects(
 
       return id
     },
-    [warehouseGroupRef, onLayoutChange]
+    [warehouseGroupRef, onLayoutChange, checkOverlap]
   )
 
   // Remove a rack

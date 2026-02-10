@@ -16,6 +16,7 @@ import type {
   Warehouse3DUserData
 } from './types/warehouse3d'
 import type { RackProductInfo } from './hooks/useWarehouseObjects'
+import type { RackConfig } from './types/warehouse3d'
 import { DEFAULT_SCENE_CONFIG } from './types/warehouse3d'
 
 export interface Warehouse3DCanvasProps {
@@ -29,6 +30,8 @@ export interface Warehouse3DCanvasProps {
   mode: InteractionMode
   /** Current placement tool */
   placementTool: PlacementTool
+  /** Default rack config for manual placement */
+  rackDefaults?: Partial<RackConfig>
   /** Called when an object is selected */
   onObjectSelect?: (userData: Warehouse3DUserData | null) => void
   /** Called when layout changes */
@@ -43,10 +46,12 @@ export interface Warehouse3DCanvasHandle {
   getLayout: () => WarehouseLayout
   loadLayout: (layout: WarehouseLayout) => void
   clearWarehouse: () => void
-  addRack: (x: number, z: number) => string | null
+  addRack: (x: number, z: number, config?: Partial<RackConfig>) => string | null
   removeRack: (rackId: string) => boolean
   highlightPallet: (binId: string | null) => void
   getRackProducts: (rackId: string) => RackProductInfo[]
+  assignStockToPallet: (rackId: string, level: number, bay: number, stock: StockListItem) => boolean
+  clearPallet: (rackId: string, level: number, bay: number) => boolean
 }
 
 const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasProps>(
@@ -57,6 +62,7 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       config,
       mode,
       placementTool,
+      rackDefaults,
       onObjectSelect,
       onLayoutChange,
       onSceneReady,
@@ -64,6 +70,8 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
     } = props
 
     const sceneConfig = { ...DEFAULT_SCENE_CONFIG, ...config }
+    const rackDefaultsRef = useRef(rackDefaults)
+    rackDefaultsRef.current = rackDefaults
 
     // Initialize Three.js scene
     const {
@@ -82,6 +90,8 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       rackMapRef,
       addRack,
       removeRack,
+      assignStockToPallet,
+      clearPallet,
       syncStockData,
       loadLayout: loadLayoutInternal,
       clearWarehouse,
@@ -104,7 +114,7 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       onObjectSelect: (_, userData) => onObjectSelect?.(userData),
       onGridClick: (pos) => {
         if (mode === 'design' && placementTool === 'rack') {
-          addRack(pos)
+          addRack(pos, rackDefaultsRef.current)
         }
       }
     })
@@ -140,11 +150,13 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       getLayout,
       loadLayout: loadLayoutInternal,
       clearWarehouse,
-      addRack: (x: number, z: number) => addRack({ x, z }),
+      addRack: (x: number, z: number, config?: Partial<RackConfig>) => addRack({ x, z }, config),
       removeRack,
       highlightPallet,
-      getRackProducts
-    }), [getLayout, loadLayoutInternal, clearWarehouse, addRack, removeRack, highlightPallet, getRackProducts])
+      getRackProducts,
+      assignStockToPallet,
+      clearPallet
+    }), [getLayout, loadLayoutInternal, clearWarehouse, addRack, removeRack, highlightPallet, getRackProducts, assignStockToPallet, clearPallet])
 
     // Handle window resize
     useEffect(() => {
