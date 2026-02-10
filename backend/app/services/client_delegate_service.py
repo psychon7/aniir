@@ -2,7 +2,8 @@
 Service layer for Client Delegate operations.
 
 Handles CRUD operations for client delegates - entities that receive
-invoices on behalf of clients.
+invoices on behalf of clients. The TR_CDL_Client_Delegate table is a
+junction table; all delegate info is resolved from the linked Client.
 """
 import asyncio
 from typing import Optional, List, Tuple
@@ -71,12 +72,6 @@ class ClientDelegateService:
 
         return delegates, total
 
-    def _sync_get_delegate(self, delegate_id: int) -> Optional[ClientDelegate]:
-        """Synchronously get a delegate by ID."""
-        query = select(ClientDelegate).where(ClientDelegate.cdl_id == delegate_id)
-        result = self.db.execute(query)
-        return result.scalar_one_or_none()
-
     def _sync_get_delegate_for_client(self, client_id: int, delegate_id: int) -> Optional[ClientDelegate]:
         """Synchronously get a delegate by ID, verifying client ownership."""
         query = select(ClientDelegate).where(
@@ -91,16 +86,6 @@ class ClientDelegateService:
         delegate = ClientDelegate(
             cdl_cli_id=client_id,
             cdl_delegate_cli_id=data.cdl_delegate_cli_id,
-            cdl_company_name=data.cdl_company_name,
-            cdl_contact_name=data.cdl_contact_name,
-            cdl_email=data.cdl_email,
-            cdl_phone=data.cdl_phone,
-            cdl_address1=data.cdl_address1,
-            cdl_address2=data.cdl_address2,
-            cdl_postcode=data.cdl_postcode,
-            cdl_city=data.cdl_city,
-            cdl_country=data.cdl_country,
-            cdl_vat_number=data.cdl_vat_number,
         )
 
         self.db.add(delegate)
@@ -111,11 +96,11 @@ class ClientDelegateService:
 
     def _sync_update_delegate(self, delegate_id: int, data: ClientDelegateUpdate) -> ClientDelegate:
         """Synchronously update a delegate."""
-        delegate = self._sync_get_delegate(delegate_id)
+        query = select(ClientDelegate).where(ClientDelegate.cdl_id == delegate_id)
+        delegate = self.db.execute(query).scalar_one_or_none()
         if not delegate:
             raise ClientDelegateNotFoundError(delegate_id)
 
-        # Update fields
         update_data = data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             if hasattr(delegate, field):
@@ -128,7 +113,8 @@ class ClientDelegateService:
 
     def _sync_delete_delegate(self, delegate_id: int) -> bool:
         """Synchronously delete a delegate."""
-        delegate = self._sync_get_delegate(delegate_id)
+        query = select(ClientDelegate).where(ClientDelegate.cdl_id == delegate_id)
+        delegate = self.db.execute(query).scalar_one_or_none()
         if not delegate:
             raise ClientDelegateNotFoundError(delegate_id)
 
@@ -136,25 +122,25 @@ class ClientDelegateService:
         self.db.commit()
         return True
 
-    def _sync_get_primary_delegate(self, client_id: int) -> Optional[ClientDelegate]:
-        """Get the first delegate for a client (primary concept not available in legacy table)."""
-        query = select(ClientDelegate).where(
-            ClientDelegate.cdl_cli_id == client_id,
-        ).limit(1)
-        result = self.db.execute(query)
-        return result.scalar_one_or_none()
-
     def _enrich_delegate_response(self, delegate: ClientDelegate) -> ClientDelegateResponse:
-        """Enrich delegate with resolved lookup names."""
+        """Enrich delegate response with info from the linked Client record."""
         response = ClientDelegateResponse.model_validate(delegate)
 
-        # Resolve delegate client name if linked to existing client
+        # Resolve delegate client info
         if delegate.cdl_delegate_cli_id:
             delegate_client = self.db.execute(
                 select(Client).where(Client.cli_id == delegate.cdl_delegate_cli_id)
             ).scalar_one_or_none()
             if delegate_client:
-                response.delegateClientName = delegate_client.cli_company_name
+                response.companyName = delegate_client.cli_company_name
+                response.contactName = f"{delegate_client.cli_first_name or ''} {delegate_client.cli_last_name or ''}".strip() or None
+                response.email = delegate_client.cli_email
+                response.phone = delegate_client.cli_phone
+                response.address1 = delegate_client.cli_address1
+                response.city = delegate_client.cli_city
+                response.country = getattr(delegate_client, 'cli_country_name', None)
+                response.vatNumber = delegate_client.cli_vat_number
+                response.isActive = bool(getattr(delegate_client, 'cli_isactive', True))
 
         return response
 
@@ -206,7 +192,6 @@ class ClientDelegateService:
         data: ClientDelegateUpdate
     ) -> ClientDelegateResponse:
         """Update a delegate."""
-        # Verify ownership first
         delegate = await asyncio.to_thread(
             self._sync_get_delegate_for_client, client_id, delegate_id
         )
@@ -220,7 +205,6 @@ class ClientDelegateService:
 
     async def delete_delegate(self, client_id: int, delegate_id: int) -> bool:
         """Delete a delegate."""
-        # Verify ownership first
         delegate = await asyncio.to_thread(
             self._sync_get_delegate_for_client, client_id, delegate_id
         )
@@ -230,12 +214,12 @@ class ClientDelegateService:
         return await asyncio.to_thread(self._sync_delete_delegate, delegate_id)
 
     async def get_primary_delegate(self, client_id: int) -> Optional[ClientDelegateResponse]:
-        """Get the primary delegate for a client."""
-        delegate = await asyncio.to_thread(
-            self._sync_get_primary_delegate, client_id
+        """Get the first delegate for a client."""
+        delegates, _ = await asyncio.to_thread(
+            self._sync_list_delegates, client_id, 1, 1
         )
-        if delegate:
-            return self._enrich_delegate_response(delegate)
+        if delegates:
+            return self._enrich_delegate_response(delegates[0])
         return None
 
 

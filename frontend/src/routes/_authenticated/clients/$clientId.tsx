@@ -14,7 +14,6 @@ import { OverviewTab } from '@/components/features/clients/OverviewTab'
 import { ContactsTab } from '@/components/features/clients/ContactsTab'
 import { PricingTab } from '@/components/features/clients/PricingTab'
 import { ActivityTimeline } from '@/components/features/clients/ActivityTimeline'
-import { BankDetailsSection } from '@/components/features/clients/BankDetailsSection'
 import { DelegatesTab } from '@/components/features/clients/DelegatesTab'
 import { useClient, useUpdateClient, useDeleteClient, useClientContacts } from '@/hooks/useClients'
 import { useClientPrices } from '@/hooks/usePricing'
@@ -138,7 +137,6 @@ function ClientDetailPage() {
           <Tab value="pricing">{t('pricing.productPrices')} ({priceCount})</Tab>
           <Tab value="delegates">{t('delegates.delegates', 'Delegates')} ({delegateCount})</Tab>
           <Tab value="activity">{t('clients.activity', 'Activity')}</Tab>
-          <Tab value="banking">{t('clients.bankDetails', 'Banking')}</Tab>
         </TabList>
 
         <TabPanel value="overview">
@@ -159,10 +157,6 @@ function ClientDetailPage() {
 
         <TabPanel value="activity">
           <ActivityTimeline clientId={id} />
-        </TabPanel>
-
-        <TabPanel value="banking">
-          <BankDetailsSection client={client} />
         </TabPanel>
       </Tabs>
 

@@ -154,6 +154,25 @@ export function OverviewTab({ client }: OverviewTabProps) {
         </Card>
       )}
 
+      {/* Bank Details */}
+      <Card>
+        <CardHeader title={t('clients.bankDetails', 'Bank Details')} />
+        <CardContent>
+          {!(client.bankIban || client.bankBic || client.bankName || client.bankAccountHolder || client.bankAddress) ? (
+            <p className="text-sm text-muted-foreground">
+              {t('clients.noBankDetails', 'No bank details recorded.')}
+            </p>
+          ) : (
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InfoItem label="IBAN" value={client.bankIban} mono />
+              <InfoItem label="BIC / SWIFT" value={client.bankBic} mono />
+              <InfoItem label={t('clients.bankName', 'Bank Name')} value={client.bankName} />
+              <InfoItem label={t('clients.accountHolder', 'Account Holder')} value={client.bankAccountHolder} />
+            </dl>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Record Information */}
       <Card>
         <CardHeader title={t('clients.recordInfo', 'Record Information')} />
