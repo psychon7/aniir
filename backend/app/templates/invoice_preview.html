@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Preview - AXTECH</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #333;
+            background: #f5f5f5;
+        }
+
+        .invoice-container {
+            max-width: 210mm;
+            margin: 20px auto;
+            background: white;
+            padding: 20mm;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        /* Watermark */
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80pt;
+            font-weight: bold;
+            opacity: 0.08;
+            pointer-events: none;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        /* Header */
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #1e3a5f;
+        }
+
+        .company-section {
+            display: flex;
+            gap: 15px;
+        }
+
+        .company-logo img {
+            max-width: 150px;
+            max-height: 70px;
+            object-fit: contain;
+        }
+
+        .company-info {
+            font-size: 9pt;
+        }
+
+        .company-name {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #1e3a5f;
+            margin-bottom: 5px;
+        }
+
+        .company-details {
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .company-legal {
+            font-size: 8pt;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .invoice-title-section {
+            text-align: right;
+        }
+
+        .invoice-type {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #1e3a5f;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .invoice-reference {
+            font-size: 14pt;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .invoice-meta {
+            margin-top: 15px;
+            font-size: 9pt;
+        }
+
+        .meta-item {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 3px;
+        }
+
+        .meta-label {
+            color: #888;
+        }
+
+        .meta-value {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .status-badge {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 9pt;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-pending {
+            background: #fef3cd;
+            color: #856404;
+        }
+
+        .status-paid {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        /* Parties Section */
+        .parties-section {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .party-box {
+            flex: 1;
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 6px;
+            border-left: 3px solid #1e3a5f;
+        }
+
+        .party-box.summary {
+            border-left-color: #10b981;
+        }
+
+        .party-label {
+            font-size: 8pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .party-name {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #1e3a5f;
+            margin-bottom: 5px;
+        }
+
+        .party-address {
+            font-size: 9pt;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        .party-contact {
+            margin-top: 8px;
+            font-size: 8pt;
+            color: #666;
+        }
+
+        .summary-content {
+            font-size: 9pt;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .summary-row.total-due {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 2px solid #1e3a5f;
+            border-bottom: none;
+            font-weight: bold;
+            font-size: 12pt;
+        }
+
+        .summary-row.total-due .summary-value {
+            color: #1e3a5f;
+        }
+
+        /* Items Table */
+        .items-section {
+            margin-bottom: 30px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9pt;
+        }
+
+        .items-table thead tr {
+            background: #1e3a5f;
+            color: white;
+        }
+
+        .items-table th {
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .items-table th:nth-child(n+4) {
+            text-align: right;
+        }
+
+        .items-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .items-table td:nth-child(n+4) {
+            text-align: right;
+        }
+
+        .items-table tbody tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        .item-reference {
+            font-family: monospace;
+            font-size: 8pt;
+            color: #666;
+        }
+
+        .item-name {
+            font-weight: 500;
+        }
+
+        .item-description {
+            font-size: 8pt;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        /* Totals Section */
+        .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 30px;
+        }
+
+        .totals-box {
+            width: 280px;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 10pt;
+        }
+
+        .totals-row.subtotal {
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .totals-row.grand-total {
+            margin-top: 8px;
+            padding-top: 10px;
+            border-top: 2px solid #1e3a5f;
+            font-size: 14pt;
+            font-weight: bold;
+            color: #1e3a5f;
+        }
+
+        /* Payment Section */
+        .payment-section {
+            margin-top: 30px;
+            padding: 15px;
+            background: #f0f9ff;
+            border-radius: 6px;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .payment-title {
+            font-weight: bold;
+            color: #1e3a5f;
+            margin-bottom: 10px;
+        }
+
+        .payment-details {
+            font-size: 9pt;
+            color: #555;
+        }
+
+        .payment-details p {
+            margin-bottom: 3px;
+        }
+
+        /* Footer */
+        .invoice-footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 8pt;
+            color: #888;
+        }
+
+        .footer-note {
+            margin-bottom: 10px;
+        }
+
+        .legal-mentions {
+            font-size: 7pt;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Watermark -->
+        <div class="watermark">SAMPLE</div>
+
+        <!-- Header -->
+        <header class="invoice-header">
+            <div class="company-section">
+                <div class="company-logo">
+                    <img src="axtech_logo.png" alt="AXTECH">
+                </div>
+                <div class="company-info">
+                    <h1 class="company-name">AXTECH SARL</h1>
+                    <div class="company-details">
+                        <p>123 Avenue de l'Innovation</p>
+                        <p>75008 Paris, France</p>
+                        <p>Tel: +33 1 23 45 67 89</p>
+                        <p>contact@axtech.fr</p>
+                    </div>
+                    <div class="company-legal">
+                        <p>VAT: FR12345678901 | SIRET: 123 456 789 00012</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="invoice-title-section">
+                <h2 class="invoice-type">Invoice</h2>
+                <div class="invoice-reference">FAC-2026-00142</div>
+                <div class="invoice-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">Invoice Date:</span>
+                        <span class="meta-value">10/02/2026</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Due Date:</span>
+                        <span class="meta-value">10/03/2026</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Order Ref:</span>
+                        <span class="meta-value">CMD-2026-00089</span>
+                    </div>
+                </div>
+                <span class="status-badge status-pending">Pending</span>
+            </div>
+        </header>
+
+        <!-- Client Section -->
+        <section class="parties-section">
+            <div class="party-box billing">
+                <div class="party-label">Bill To</div>
+                <div class="party-name">Entreprise Martin & Fils</div>
+                <div class="party-address">
+                    <p>45 Rue du Commerce</p>
+                    <p>69002 Lyon</p>
+                    <p>France</p>
+                </div>
+                <div class="party-contact">
+                    <p>Client Ref: CLI-00245</p>
+                    <p>VAT: FR98765432101</p>
+                    <p>contact@martin-fils.fr</p>
+                </div>
+            </div>
+
+            <div class="party-box summary">
+                <div class="party-label">Invoice Summary</div>
+                <div class="summary-content">
+                    <div class="summary-row">
+                        <span class="summary-label">Invoice Number</span>
+                        <span class="summary-value">FAC-2026-00142</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Invoice Date</span>
+                        <span class="summary-value">10/02/2026</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Due Date</span>
+                        <span class="summary-value">10/03/2026</span>
+                    </div>
+                    <div class="summary-row">
+                        <span class="summary-label">Payment Terms</span>
+                        <span class="summary-value">Net 30 days</span>
+                    </div>
+                    <div class="summary-row total-due">
+                        <span class="summary-label">Amount Due</span>
+                        <span class="summary-value">€ 4,560.00</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Line Items -->
+        <section class="items-section">
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30px;">#</th>
+                        <th style="width: 80px;">Reference</th>
+                        <th>Description</th>
+                        <th style="width: 50px;">Qty</th>
+                        <th style="width: 40px;">Unit</th>
+                        <th style="width: 80px;">Unit Price</th>
+                        <th style="width: 50px;">VAT</th>
+                        <th style="width: 80px;">Total HT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><span class="item-reference">LED-PRO-100W</span></td>
+                        <td>
+                            <div class="item-name">Professional LED Panel 100W</div>
+                            <div class="item-description">High-efficiency industrial lighting, 4000K daylight</div>
+                        </td>
+                        <td>10</td>
+                        <td>pcs</td>
+                        <td>€ 189.00</td>
+                        <td>20%</td>
+                        <td>€ 1,890.00</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td><span class="item-reference">LED-STRIP-5M</span></td>
+                        <td>
+                            <div class="item-name">LED Strip Light 5m Roll</div>
+                            <div class="item-description">RGB flexible strip, IP65 waterproof, remote included</div>
+                        </td>
+                        <td>20</td>
+                        <td>pcs</td>
+                        <td>€ 45.00</td>
+                        <td>20%</td>
+                        <td>€ 900.00</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><span class="item-reference">CTRL-DMX-PRO</span></td>
+                        <td>
+                            <div class="item-name">DMX Controller Pro</div>
+                            <div class="item-description">512 channel DMX controller with wireless support</div>
+                        </td>
+                        <td>2</td>
+                        <td>pcs</td>
+                        <td>€ 295.00</td>
+                        <td>20%</td>
+                        <td>€ 590.00</td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td><span class="item-reference">INSTALL-SVC</span></td>
+                        <td>
+                            <div class="item-name">Installation Service</div>
+                            <div class="item-description">On-site installation and configuration (per hour)</div>
+                        </td>
+                        <td>8</td>
+                        <td>hrs</td>
+                        <td>€ 50.00</td>
+                        <td>20%</td>
+                        <td>€ 400.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Totals -->
+        <section class="totals-section">
+            <div class="totals-box">
+                <div class="totals-row subtotal">
+                    <span>Subtotal HT:</span>
+                    <span>€ 3,780.00</span>
+                </div>
+                <div class="totals-row">
+                    <span>VAT (20%):</span>
+                    <span>€ 756.00</span>
+                </div>
+                <div class="totals-row">
+                    <span>Shipping:</span>
+                    <span>€ 24.00</span>
+                </div>
+                <div class="totals-row grand-total">
+                    <span>TOTAL TTC:</span>
+                    <span>€ 4,560.00</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Payment Information -->
+        <section class="payment-section">
+            <div class="payment-title">Payment Information</div>
+            <div class="payment-details">
+                <p><strong>Bank:</strong> BNP Paribas</p>
+                <p><strong>IBAN:</strong> FR76 3000 4000 0300 0012 3456 789</p>
+                <p><strong>BIC:</strong> BNPAFRPP</p>
+                <p><strong>Payment Reference:</strong> FAC-2026-00142</p>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="invoice-footer">
+            <div class="footer-note">
+                Thank you for your business! For questions, contact us at comptabilite@axtech.fr
+            </div>
+            <div class="legal-mentions">
+                AXTECH SARL - Capital Social: 50 000 € - RCS Paris B 123 456 789 - NAF: 4670Z
+            </div>
+        </footer>
+    </div>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation - AXTECH</title>
+    <style>
+        @page { size: A4; margin: 15mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10pt; line-height: 1.4; color: #333; background: #f5f5f5; }
+        .order-container { max-width: 210mm; margin: 20px auto; background: white; padding: 20mm; box-shadow: 0 2px 10px rgba(0,0,0,0.1); position: relative; }
+        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 70pt; font-weight: bold; opacity: 0.06; pointer-events: none; text-transform: uppercase; }
+
+        /* Header - Green theme for orders */
+        .order-header { display: flex; justify-content: space-between; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #059669; }
+        .company-section { display: flex; gap: 15px; }
+        .company-logo img { max-width: 150px; max-height: 70px; object-fit: contain; }
+        .company-info { font-size: 9pt; }
+        .company-name { font-size: 16pt; font-weight: bold; color: #059669; margin-bottom: 5px; }
+        .company-details { color: #666; line-height: 1.5; }
+        .company-legal { font-size: 8pt; color: #888; margin-top: 5px; }
+
+        .order-title-section { text-align: right; }
+        .order-type { font-size: 22pt; font-weight: bold; color: #059669; text-transform: uppercase; letter-spacing: 1px; }
+        .order-reference { font-size: 14pt; color: #666; margin-top: 5px; }
+        .order-meta { margin-top: 15px; font-size: 9pt; }
+        .meta-item { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 3px; }
+        .meta-label { color: #888; }
+        .meta-value { font-weight: 500; color: #333; }
+
+        .status-badge { display: inline-block; margin-top: 10px; padding: 6px 14px; border-radius: 4px; font-size: 9pt; font-weight: 600; text-transform: uppercase; }
+        .status-confirmed { background: #d1fae5; color: #059669; }
+        .status-processing { background: #dbeafe; color: #2563eb; }
+
+        /* Parties Section */
+        .parties-section { display: flex; gap: 15px; margin-bottom: 25px; }
+        .party-box { flex: 1; padding: 15px; background: #f8fafc; border-radius: 6px; border-left: 3px solid #059669; }
+        .party-box.shipping { border-left-color: #2563eb; }
+        .party-box.summary { border-left-color: #f59e0b; }
+        .party-label { font-size: 8pt; font-weight: bold; text-transform: uppercase; color: #888; margin-bottom: 8px; }
+        .party-name { font-size: 11pt; font-weight: bold; color: #333; margin-bottom: 5px; }
+        .party-address { font-size: 9pt; color: #555; line-height: 1.5; }
+        .party-contact { margin-top: 8px; font-size: 8pt; color: #666; }
+
+        .summary-content { font-size: 9pt; }
+        .summary-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #e2e8f0; }
+        .summary-row.total { margin-top: 8px; padding-top: 8px; border-top: 2px solid #059669; border-bottom: none; font-weight: bold; font-size: 11pt; }
+        .summary-row.total .summary-value { color: #059669; }
+
+        /* Important Dates Banner */
+        .dates-banner { display: flex; justify-content: center; gap: 40px; margin-bottom: 25px; padding: 15px; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 8px; }
+        .date-block { text-align: center; }
+        .date-label { font-size: 8pt; font-weight: bold; text-transform: uppercase; color: #059669; margin-bottom: 5px; }
+        .date-value { font-size: 14pt; font-weight: bold; color: #333; }
+
+        /* Items Table */
+        .items-section { margin-bottom: 25px; }
+        .items-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+        .items-table thead tr { background: #059669; color: white; }
+        .items-table th { padding: 10px 8px; text-align: left; font-weight: 600; }
+        .items-table th:nth-child(n+4) { text-align: right; }
+        .items-table td { padding: 10px 8px; border-bottom: 1px solid #e2e8f0; }
+        .items-table td:nth-child(n+4) { text-align: right; }
+        .items-table tbody tr:nth-child(even) { background: #f8fafc; }
+        .item-reference { font-family: monospace; font-size: 8pt; color: #666; }
+        .item-name { font-weight: 500; }
+        .item-description { font-size: 8pt; color: #888; margin-top: 2px; }
+
+        /* Totals Section */
+        .totals-section { display: flex; justify-content: flex-end; margin-bottom: 25px; }
+        .totals-box { width: 280px; }
+        .totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 10pt; }
+        .totals-row.subtotal { border-bottom: 1px solid #e2e8f0; }
+        .totals-row.grand-total { margin-top: 8px; padding-top: 10px; border-top: 2px solid #059669; font-size: 14pt; font-weight: bold; color: #059669; }
+
+        /* Notes Section */
+        .notes-section { margin-top: 25px; padding: 15px; background: #fffbeb; border-radius: 6px; border-left: 3px solid #f59e0b; }
+        .notes-title { font-weight: bold; color: #b45309; margin-bottom: 8px; }
+        .notes-content { font-size: 9pt; color: #555; }
+
+        /* Footer */
+        .order-footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #888; }
+        .footer-note { margin-bottom: 10px; }
+        .legal-mentions { font-size: 7pt; color: #aaa; }
+
+        /* Confirmation Box */
+        .confirmation-box { margin-top: 30px; padding: 20px; background: #f0fdf4; border: 2px solid #059669; border-radius: 8px; text-align: center; }
+        .confirmation-title { font-size: 14pt; font-weight: bold; color: #059669; margin-bottom: 8px; }
+        .confirmation-text { font-size: 10pt; color: #555; }
+        .confirmation-id { font-family: monospace; font-size: 12pt; font-weight: bold; color: #333; margin-top: 10px; padding: 8px 15px; background: white; display: inline-block; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="order-container">
+        <div class="watermark">CONFIRMED</div>
+
+        <!-- Header -->
+        <header class="order-header">
+            <div class="company-section">
+                <div class="company-logo">
+                    <img src="axtech_logo.png" alt="AXTECH">
+                </div>
+                <div class="company-info">
+                    <h1 class="company-name">AXTECH SARL</h1>
+                    <div class="company-details">
+                        <p>123 Avenue de l'Innovation</p>
+                        <p>75008 Paris, France</p>
+                        <p>Tel: +33 1 23 45 67 89</p>
+                        <p>orders@axtech.fr</p>
+                    </div>
+                    <div class="company-legal">
+                        <p>VAT: FR12345678901 | SIRET: 123 456 789 00012</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="order-title-section">
+                <h2 class="order-type">Order Confirmation</h2>
+                <div class="order-reference">CMD-2026-00089</div>
+                <div class="order-meta">
+                    <div class="meta-item">
+                        <span class="meta-label">Order Date:</span>
+                        <span class="meta-value">10/02/2026</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Quote Ref:</span>
+                        <span class="meta-value">DEV-2026-00089</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Sales Rep:</span>
+                        <span class="meta-value">Jean Dupont</span>
+                    </div>
+                </div>
+                <span class="status-badge status-confirmed">✓ Confirmed</span>
+            </div>
+        </header>
+
+        <!-- Important Dates -->
+        <section class="dates-banner">
+            <div class="date-block">
+                <div class="date-label">Order Date</div>
+                <div class="date-value">10/02/2026</div>
+            </div>
+            <div class="date-block">
+                <div class="date-label">Expected Delivery</div>
+                <div class="date-value">28/02/2026</div>
+            </div>
+            <div class="date-block">
+                <div class="date-label">Payment Due</div>
+                <div class="date-value">10/03/2026</div>
+            </div>
+        </section>
+
+        <!-- Addresses Section -->
+        <section class="parties-section">
+            <div class="party-box">
+                <div class="party-label">Bill To</div>
+                <div class="party-name">Entreprise Martin & Fils</div>
+                <div class="party-address">
+                    <p>45 Rue du Commerce</p>
+                    <p>69002 Lyon</p>
+                    <p>France</p>
+                </div>
+                <div class="party-contact">
+                    <p>VAT: FR98765432101</p>
+                    <p>comptabilite@martin-fils.fr</p>
+                </div>
+            </div>
+
+            <div class="party-box shipping">
+                <div class="party-label">Ship To</div>
+                <div class="party-name">Entrepôt Martin</div>
+                <div class="party-address">
+                    <p>Zone Industrielle Nord</p>
+                    <p>12 Rue des Ateliers</p>
+                    <p>69100 Villeurbanne</p>
+                    <p>France</p>
+                </div>
+                <div class="party-contact">
+                    <p>Contact: Michel Bernard</p>
+                    <p>Tel: +33 4 72 00 00 01</p>
+                </div>
+            </div>
+
+            <div class="party-box summary">
+                <div class="party-label">Order Summary</div>
+                <div class="summary-content">
+                    <div class="summary-row">
+                        <span>Items:</span>
+                        <span>3</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Payment:</span>
+                        <span>Net 30</span>
+                    </div>
+                    <div class="summary-row">
+                        <span>Shipping:</span>
+                        <span>Standard</span>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Total TTC:</span>
+                        <span>€ 9,405.00</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Line Items -->
+        <section class="items-section">
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th style="width: 30px;">#</th>
+                        <th style="width: 80px;">Reference</th>
+                        <th>Description</th>
+                        <th style="width: 50px;">Qty</th>
+                        <th style="width: 80px;">Unit Price</th>
+                        <th style="width: 80px;">Total HT</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><span class="item-reference">LED-IND-200W</span></td>
+                        <td>
+                            <div class="item-name">Industrial LED High Bay 200W</div>
+                            <div class="item-description">IP65 rated, 25000 lumens, 5-year warranty</div>
+                        </td>
+                        <td>25</td>
+                        <td>€ 245.00</td>
+                        <td>€ 6,125.00</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td><span class="item-reference">SENS-MOT-360</span></td>
+                        <td>
+                            <div class="item-name">Motion Sensor 360°</div>
+                            <div class="item-description">Ceiling mount, 8m detection range</div>
+                        </td>
+                        <td>25</td>
+                        <td>€ 35.00</td>
+                        <td>€ 875.00</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><span class="item-reference">INSTALL-IND</span></td>
+                        <td>
+                            <div class="item-name">Industrial Installation Service</div>
+                            <div class="item-description">Complete installation with certified electricians</div>
+                        </td>
+                        <td>1</td>
+                        <td>€ 1,250.00</td>
+                        <td>€ 1,250.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Totals -->
+        <section class="totals-section">
+            <div class="totals-box">
+                <div class="totals-row subtotal">
+                    <span>Subtotal HT:</span>
+                    <span>€ 8,250.00</span>
+                </div>
+                <div class="totals-row">
+                    <span>Discount (5%):</span>
+                    <span>-€ 412.50</span>
+                </div>
+                <div class="totals-row">
+                    <span>Net HT:</span>
+                    <span>€ 7,837.50</span>
+                </div>
+                <div class="totals-row">
+                    <span>VAT (20%):</span>
+                    <span>€ 1,567.50</span>
+                </div>
+                <div class="totals-row grand-total">
+                    <span>TOTAL TTC:</span>
+                    <span>€ 9,405.00</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Special Notes -->
+        <section class="notes-section">
+            <div class="notes-title">Special Instructions</div>
+            <div class="notes-content">
+                <p>Please deliver between 8:00 AM - 5:00 PM on weekdays only. Call site contact 30 minutes before arrival. Forklift available on-site for unloading.</p>
+            </div>
+        </section>
+
+        <!-- Confirmation Box -->
+        <section class="confirmation-box">
+            <div class="confirmation-title">✓ Order Confirmed</div>
+            <div class="confirmation-text">Thank you for your order! Your order has been received and is being processed.</div>
+            <div class="confirmation-id">Tracking: AXTECH-2026-089</div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="order-footer">
+            <div class="footer-note">
+                For order updates, contact orders@axtech.fr or call +33 1 23 45 67 89
+            </div>
+            <div class="legal-mentions">
+                AXTECH SARL - Capital Social: 50 000 € - RCS Paris B 123 456 789 - NAF: 4670Z
+            </div>
+        </footer>
+    </div>
+</body>
+</html>
