@@ -820,3 +820,98 @@ class ShelfProductResponse(BaseModel):
     product_name: Optional[str] = Field(None, description="Product name")
     product_ref: Optional[str] = Field(None, description="Product reference")
     quantity: Optional[Decimal] = Field(None, description="Quantity on hand")
+
+
+# ==========================================================================
+# 3D Warehouse Layout Schemas
+# ==========================================================================
+
+class PalletSlot(BaseModel):
+    """Pallet slot within a shelf in 3D layout."""
+    bay: int = Field(..., ge=0, description="Bay index")
+    binId: str = Field("", description="Bin location ID")
+    stkId: Optional[int] = Field(None, description="Stock ID if assigned")
+
+
+class ShelfConfig(BaseModel):
+    """Shelf configuration in 3D layout."""
+    level: int = Field(..., ge=0, description="Level index (0-based)")
+    pallets: List[PalletSlot] = Field(default_factory=list, description="Pallet slots")
+
+
+class RackPosition(BaseModel):
+    """3D position of a rack."""
+    x: float = Field(..., description="X coordinate")
+    y: float = Field(0.0, description="Y coordinate (usually 0)")
+    z: float = Field(..., description="Z coordinate")
+
+
+class RackDimensions(BaseModel):
+    """Dimensions of a rack."""
+    width: float = Field(..., gt=0, description="Width in meters")
+    depth: float = Field(..., gt=0, description="Depth in meters")
+    height: float = Field(..., gt=0, description="Height in meters")
+
+
+class RackConfig(BaseModel):
+    """Rack configuration in 3D layout."""
+    id: str = Field(..., description="Unique rack ID")
+    position: RackPosition = Field(..., description="Position in 3D space")
+    dimensions: RackDimensions = Field(..., description="Rack dimensions")
+    levels: int = Field(..., ge=1, le=10, description="Number of shelf levels")
+    bays: int = Field(..., ge=1, le=10, description="Number of bays per level")
+    shelves: List[ShelfConfig] = Field(default_factory=list, description="Shelf configurations")
+
+
+class AisleConfig(BaseModel):
+    """Aisle configuration in 3D layout."""
+    id: str = Field(..., description="Unique aisle ID")
+    start: dict = Field(..., description="Start point {x, z}")
+    end: dict = Field(..., description="End point {x, z}")
+    width: float = Field(..., gt=0, description="Aisle width in meters")
+
+
+class WarehouseDimensions(BaseModel):
+    """Overall warehouse dimensions."""
+    width: float = Field(..., gt=0, description="Width in meters")
+    depth: float = Field(..., gt=0, description="Depth in meters")
+    height: float = Field(..., gt=0, description="Height in meters")
+
+
+class WarehouseLayoutJson(BaseModel):
+    """Complete 3D warehouse layout schema (stored as JSON)."""
+    version: str = Field("1.0.0", description="Schema version")
+    warehouseId: Optional[int] = Field(None, description="Associated warehouse ID")
+    name: Optional[str] = Field(None, description="Layout name")
+    dimensions: WarehouseDimensions = Field(..., description="Warehouse dimensions")
+    gridSize: float = Field(1.0, gt=0, description="Grid cell size in meters")
+    racks: List[RackConfig] = Field(default_factory=list, description="Rack configurations")
+    aisles: List[AisleConfig] = Field(default_factory=list, description="Aisle configurations")
+    createdAt: Optional[str] = Field(None, description="Creation timestamp")
+    updatedAt: Optional[str] = Field(None, description="Last update timestamp")
+
+
+class WarehouseLayoutCreate(BaseModel):
+    """Schema for creating a warehouse layout."""
+    warehouseId: int = Field(..., description="Warehouse ID")
+    name: Optional[str] = Field(None, max_length=100, description="Layout name")
+    layoutJson: WarehouseLayoutJson = Field(..., description="Layout data")
+
+
+class WarehouseLayoutUpdate(BaseModel):
+    """Schema for updating a warehouse layout."""
+    name: Optional[str] = Field(None, max_length=100, description="Layout name")
+    layoutJson: WarehouseLayoutJson = Field(..., description="Layout data")
+
+
+class WarehouseLayoutResponse(BaseModel):
+    """Schema for warehouse layout response."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., description="Layout ID")
+    warehouseId: int = Field(..., description="Warehouse ID")
+    name: Optional[str] = Field(None, description="Layout name")
+    version: str = Field(..., description="Schema version")
+    layoutJson: WarehouseLayoutJson = Field(..., description="Layout data")
+    createdAt: str = Field(..., description="Creation timestamp")
+    updatedAt: str = Field(..., description="Last update timestamp")

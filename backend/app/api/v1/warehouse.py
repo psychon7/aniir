@@ -44,6 +44,8 @@ from app.schemas.warehouse import (
     # Shelf schemas
     ShelfCreate, ShelfUpdate, ShelfResponse,
     ShelfListPaginatedResponse, ShelfProductResponse,
+    # 3D Layout schemas
+    WarehouseLayoutCreate, WarehouseLayoutUpdate, WarehouseLayoutResponse,
 )
 
 
@@ -815,3 +817,150 @@ async def list_products_on_shelf(
         return await service.list_products_on_shelf(she_id)
     except WarehouseServiceError as e:
         raise handle_warehouse_error(e)
+
+
+# ==========================================================================
+# 3D Warehouse Layout Endpoints
+# ==========================================================================
+
+# In-memory storage for layouts (temporary until database table is created)
+# TODO: Replace with proper database storage when TM_WHL_Warehouse_Layout table is created
+_layout_storage: dict[int, dict] = {}
+
+
+@router.get(
+    "/warehouses/{warehouse_id}/layout",
+    response_model=WarehouseLayoutResponse,
+    summary="Get warehouse 3D layout",
+    description="Get the 3D layout configuration for a warehouse."
+)
+async def get_warehouse_layout(
+    warehouse_id: int = Path(..., gt=0, description="Warehouse ID"),
+    service: WarehouseService = Depends(get_warehouse_service)
+):
+    """Get warehouse 3D layout."""
+    # Verify warehouse exists
+    warehouse = await service.get_by_id(warehouse_id)
+    if not warehouse:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Warehouse with ID {warehouse_id} not found"
+        )
+
+    # Get layout from storage
+    if warehouse_id not in _layout_storage:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No layout found for warehouse {warehouse_id}"
+        )
+
+    return _layout_storage[warehouse_id]
+
+
+@router.post(
+    "/warehouses/{warehouse_id}/layout",
+    response_model=WarehouseLayoutResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create warehouse 3D layout",
+    description="Create a new 3D layout configuration for a warehouse."
+)
+async def create_warehouse_layout(
+    warehouse_id: int = Path(..., gt=0, description="Warehouse ID"),
+    layout: WarehouseLayoutCreate = ...,
+    service: WarehouseService = Depends(get_warehouse_service)
+):
+    """Create warehouse 3D layout."""
+    # Verify warehouse exists
+    warehouse = await service.get_by_id(warehouse_id)
+    if not warehouse:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Warehouse with ID {warehouse_id} not found"
+        )
+
+    # Check if layout already exists
+    if warehouse_id in _layout_storage:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Layout already exists for warehouse {warehouse_id}. Use PUT to update."
+        )
+
+    # Create layout record
+    now = datetime.now().isoformat()
+    layout_record = {
+        "id": warehouse_id,  # Using warehouse_id as layout id for simplicity
+        "warehouseId": warehouse_id,
+        "name": layout.name or f"Layout for {warehouse.wh_name}",
+        "version": layout.layoutJson.version,
+        "layoutJson": layout.layoutJson.model_dump(),
+        "createdAt": now,
+        "updatedAt": now
+    }
+
+    _layout_storage[warehouse_id] = layout_record
+    return layout_record
+
+
+@router.put(
+    "/warehouses/{warehouse_id}/layout",
+    response_model=WarehouseLayoutResponse,
+    summary="Update warehouse 3D layout",
+    description="Update the 3D layout configuration for a warehouse."
+)
+async def update_warehouse_layout(
+    warehouse_id: int = Path(..., gt=0, description="Warehouse ID"),
+    layout: WarehouseLayoutUpdate = ...,
+    service: WarehouseService = Depends(get_warehouse_service)
+):
+    """Update warehouse 3D layout."""
+    # Verify warehouse exists
+    warehouse = await service.get_by_id(warehouse_id)
+    if not warehouse:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Warehouse with ID {warehouse_id} not found"
+        )
+
+    # Get existing layout
+    if warehouse_id not in _layout_storage:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No layout found for warehouse {warehouse_id}. Use POST to create."
+        )
+
+    existing = _layout_storage[warehouse_id]
+
+    # Update layout record
+    existing["layoutJson"] = layout.layoutJson.model_dump()
+    existing["version"] = layout.layoutJson.version
+    existing["updatedAt"] = datetime.now().isoformat()
+    if layout.name:
+        existing["name"] = layout.name
+
+    return existing
+
+
+@router.delete(
+    "/warehouses/{warehouse_id}/layout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete warehouse 3D layout",
+    description="Delete the 3D layout configuration for a warehouse."
+)
+async def delete_warehouse_layout(
+    warehouse_id: int = Path(..., gt=0, description="Warehouse ID"),
+    service: WarehouseService = Depends(get_warehouse_service)
+):
+    """Delete warehouse 3D layout."""
+    # Verify warehouse exists
+    warehouse = await service.get_by_id(warehouse_id)
+    if not warehouse:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Warehouse with ID {warehouse_id} not found"
+        )
+
+    # Delete layout if exists
+    if warehouse_id in _layout_storage:
+        del _layout_storage[warehouse_id]
+
+    return None

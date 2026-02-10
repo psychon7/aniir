@@ -84,7 +84,7 @@ export function ActionDropdown({ trigger, items, align = 'end' }: ActionDropdown
       <DropdownMenuTrigger asChild>
         {trigger}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="min-w-[180px] z-50">
+      <DropdownMenuContent align={align} className="min-w-[180px]">
         {items.map((item, index) => (
           <React.Fragment key={index}>
             {item.separator && index > 0 && <DropdownMenuSeparator />}
