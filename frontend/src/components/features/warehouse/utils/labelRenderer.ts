@@ -85,28 +85,29 @@ export function createBinLabel(binId: string): CSS2DObject {
 }
 
 /**
- * Create a rack label showing rack ID
+ * Create a rack label showing rack ID - positioned to the side
  */
 export function createRackLabel(rackId: string, levels: number, bays: number): CSS2DObject {
   const div = document.createElement('div')
   div.className = 'warehouse-label rack-label'
   div.style.cssText = `
-    background: rgba(30, 41, 59, 0.9);
+    background: rgba(30, 41, 59, 0.85);
     color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 9px;
     font-family: system-ui, -apple-system, sans-serif;
     pointer-events: none;
     user-select: none;
     text-align: center;
+    opacity: 0.8;
+    transform: translateX(-50%);
   `
-  
-  div.innerHTML = `
-    <div style="font-weight: 600;">${rackId}</div>
-    <div style="font-size: 10px; opacity: 0.7;">${levels}L × ${bays}B</div>
-  `
-  
+
+  // Simplified label - just show rack ID in compact form
+  const shortId = rackId.replace('rack_', '')
+  div.innerHTML = `<span style="font-weight: 500;">${shortId}</span>`
+
   const label = new CSS2DObject(div)
   label.name = 'rackLabel'
   return label

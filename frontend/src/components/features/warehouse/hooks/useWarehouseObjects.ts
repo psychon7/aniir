@@ -22,6 +22,16 @@ export interface UseWarehouseObjectsOptions {
   onLayoutChange?: (layout: WarehouseLayout) => void
 }
 
+export interface RackProductInfo {
+  binId: string
+  stkId?: number
+  productRef?: string
+  productName?: string
+  quantity?: number
+  level: number
+  bay: number
+}
+
 export interface UseWarehouseObjectsReturn {
   rackMapRef: React.RefObject<Map<string, THREE.Group>>
   palletMapRef: React.RefObject<Map<number, THREE.Mesh>>
@@ -41,6 +51,9 @@ export interface UseWarehouseObjectsReturn {
   clearWarehouse: () => void
   syncStockData: (stockItems: StockListItem[]) => void
   getLayout: () => WarehouseLayout
+  highlightPallet: (binId: string | null) => void
+  getRackProducts: (rackId: string) => RackProductInfo[]
+  getPalletByBinId: (binId: string) => THREE.Mesh | null
 }
 
 const DEFAULT_RACK_CONFIG: Omit<RackConfig, 'id' | 'position'> = {
@@ -109,12 +122,12 @@ export function useWarehouseObjects(
       const rackGroup = createRackGroup(rackConfig)
       rackGroup.position.set(position.x, 0, position.z)
 
-      // Add rack label
+      // Add rack label - positioned at the front bottom of the rack
       const label = createRackLabel(id, rackConfig.levels, rackConfig.bays)
       label.position.set(
         rackConfig.dimensions.width / 2,
-        rackConfig.dimensions.height + 0.5,
-        rackConfig.dimensions.depth / 2
+        0.3, // Near floor level
+        rackConfig.dimensions.depth + 0.3 // In front of the rack
       )
       rackGroup.add(label)
 
@@ -220,12 +233,12 @@ export function useWarehouseObjects(
         const rackGroup = createRackGroup(rackConfig)
         rackGroup.position.set(rackConfig.position.x, 0, rackConfig.position.z)
 
-        // Add rack label
+        // Add rack label - positioned at the front bottom of the rack
         const label = createRackLabel(rackConfig.id, rackConfig.levels, rackConfig.bays)
         label.position.set(
           rackConfig.dimensions.width / 2,
-          rackConfig.dimensions.height + 0.5,
-          rackConfig.dimensions.depth / 2
+          0.3, // Near floor level
+          rackConfig.dimensions.depth + 0.3 // In front of the rack
         )
         rackGroup.add(label)
 
@@ -365,6 +378,84 @@ export function useWarehouseObjects(
     [onLayoutChange]
   )
 
+  // Track highlighted pallet for cleanup
+  const highlightedPalletRef = useRef<THREE.Mesh | null>(null)
+  const originalMaterialRef = useRef<THREE.Material | THREE.Material[] | null>(null)
+
+  // Get pallet mesh by bin ID
+  const getPalletByBinId = useCallback((binId: string): THREE.Mesh | null => {
+    let foundPallet: THREE.Mesh | null = null
+    rackMapRef.current.forEach((rackGroup) => {
+      rackGroup.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const userData = child.userData as Warehouse3DUserData
+          if (userData.type === 'pallet' && userData.binId === binId) {
+            foundPallet = child
+          }
+        }
+      })
+    })
+    return foundPallet
+  }, [])
+
+  // Highlight a specific pallet by bin ID
+  const highlightPallet = useCallback((binId: string | null) => {
+    // Restore previous highlight
+    if (highlightedPalletRef.current && originalMaterialRef.current) {
+      highlightedPalletRef.current.material = originalMaterialRef.current
+      highlightedPalletRef.current = null
+      originalMaterialRef.current = null
+    }
+
+    if (!binId) return
+
+    const pallet = getPalletByBinId(binId)
+    if (pallet) {
+      // Store original material
+      originalMaterialRef.current = pallet.material
+      highlightedPalletRef.current = pallet
+
+      // Apply highlight material (bright yellow/gold)
+      pallet.material = new THREE.MeshStandardMaterial({
+        color: 0xffd700,
+        emissive: 0xffd700,
+        emissiveIntensity: 0.5,
+        metalness: 0.3,
+        roughness: 0.5
+      })
+    }
+  }, [getPalletByBinId])
+
+  // Get all products in a specific rack
+  const getRackProducts = useCallback((rackId: string): RackProductInfo[] => {
+    const products: RackProductInfo[] = []
+    const rack = rackMapRef.current.get(rackId)
+    if (!rack) return products
+
+    rack.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const userData = child.userData as Warehouse3DUserData
+        if (userData.type === 'pallet' && userData.binId) {
+          products.push({
+            binId: userData.binId,
+            stkId: userData.stkId,
+            productRef: userData.productRef,
+            productName: userData.productName,
+            quantity: userData.quantity,
+            level: userData.shelfLevel ?? 0,
+            bay: userData.bay ?? 0
+          })
+        }
+      }
+    })
+
+    // Sort by level then bay
+    return products.sort((a, b) => {
+      if (a.level !== b.level) return a.level - b.level
+      return a.bay - b.bay
+    })
+  }, [])
+
   return {
     rackMapRef,
     palletMapRef,
@@ -378,7 +469,10 @@ export function useWarehouseObjects(
     loadLayout,
     clearWarehouse,
     syncStockData,
-    getLayout: () => layoutRef.current
+    getLayout: () => layoutRef.current,
+    highlightPallet,
+    getRackProducts,
+    getPalletByBinId
   }
 }
 

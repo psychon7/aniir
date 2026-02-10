@@ -3,7 +3,7 @@
  * Three.js canvas wrapper for 3D warehouse visualization
  */
 
-import { useEffect, useCallback, useImperativeHandle, forwardRef } from 'react'
+import { useEffect, useCallback, useImperativeHandle, forwardRef, useRef } from 'react'
 import type { StockListItem } from '@/types/warehouse'
 import { useWarehouse3D } from './hooks/useWarehouse3D'
 import { useWarehouseObjects } from './hooks/useWarehouseObjects'
@@ -15,6 +15,7 @@ import type {
   WarehouseSceneConfig,
   Warehouse3DUserData
 } from './types/warehouse3d'
+import type { RackProductInfo } from './hooks/useWarehouseObjects'
 import { DEFAULT_SCENE_CONFIG } from './types/warehouse3d'
 
 export interface Warehouse3DCanvasProps {
@@ -44,6 +45,8 @@ export interface Warehouse3DCanvasHandle {
   clearWarehouse: () => void
   addRack: (x: number, z: number) => string | null
   removeRack: (rackId: string) => boolean
+  highlightPallet: (binId: string | null) => void
+  getRackProducts: (rackId: string) => RackProductInfo[]
 }
 
 const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasProps>(
@@ -82,7 +85,9 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       syncStockData,
       loadLayout: loadLayoutInternal,
       clearWarehouse,
-      getLayout
+      getLayout,
+      highlightPallet,
+      getRackProducts
     } = useWarehouseObjects({
       warehouseGroupRef,
       onLayoutChange
@@ -119,6 +124,9 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       [mode, selection.selectedObject, removeRack, clearSelection]
     )
 
+    // Track if initial layout has been loaded
+    const initialLayoutLoadedRef = useRef(false)
+
     // Sync stock data when items change
     useEffect(() => {
       if (stockItems.length > 0) {
@@ -126,12 +134,13 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       }
     }, [stockItems, syncStockData])
 
-    // Load layout when provided
+    // Load layout only once when first provided (not on every callback change)
     useEffect(() => {
-      if (layout) {
+      if (layout && !initialLayoutLoadedRef.current) {
+        initialLayoutLoadedRef.current = true
         loadLayoutInternal(layout)
       }
-    }, [layout, loadLayoutInternal])
+    }, [layout]) // Intentionally not including loadLayoutInternal to prevent reload cycles
 
     // Expose methods via ref
     useImperativeHandle(ref, () => ({
@@ -139,8 +148,10 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       loadLayout: loadLayoutInternal,
       clearWarehouse,
       addRack: (x: number, z: number) => addRack({ x, z }),
-      removeRack
-    }), [getLayout, loadLayoutInternal, clearWarehouse, addRack, removeRack])
+      removeRack,
+      highlightPallet,
+      getRackProducts
+    }), [getLayout, loadLayoutInternal, clearWarehouse, addRack, removeRack, highlightPallet, getRackProducts])
 
     // Handle window resize
     useEffect(() => {

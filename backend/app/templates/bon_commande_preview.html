@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bon de Commande {{ reference }}</title>
+    <style>
+        @page { size: A4; margin: 10mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9pt; line-height: 1.3; color: #333; background: #fff; }
+        
+        .document-container { max-width: 210mm; margin: 0 auto; padding: 10mm; position: relative; }
+        
+        /* Header */
+        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+        .company-section { }
+        .company-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+        .company-logo img { max-width: 120px; max-height: 50px; }
+        .company-logo .logo-text { font-size: 24pt; font-weight: bold; color: #333; }
+        
+        .company-contact { font-size: 8pt; color: #333; line-height: 1.4; }
+        .company-contact .name { font-weight: bold; font-size: 10pt; }
+        
+        .barcode-section { text-align: right; }
+        .document-number-box { margin-top: 10px; padding: 8px 15px; border: 2px solid #059669; background: #ecfdf5; display: inline-block; font-size: 11pt; font-weight: bold; color: #059669; }
+        
+        /* Client Box */
+        .client-box { width: 55%; margin-left: auto; margin-bottom: 20px; border: 1px solid #000; padding: 15px; min-height: 80px; }
+        .client-name { font-weight: bold; font-size: 11pt; margin-bottom: 5px; }
+        .client-dept { font-weight: bold; font-size: 10pt; margin-bottom: 5px; }
+        .client-address { font-size: 9pt; line-height: 1.4; }
+        
+        /* Order Info Banner */
+        .order-banner { background: linear-gradient(135deg, #059669 0%, #34d399 100%); color: white; padding: 10px 20px; margin-bottom: 15px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .order-text { font-size: 10pt; font-weight: bold; }
+        .order-date { font-size: 9pt; }
+        
+        /* Document Meta */
+        .document-meta { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 8pt; }
+        .meta-left { }
+        .meta-right { text-align: right; }
+        .meta-row { margin-bottom: 3px; }
+        .meta-label { color: #666; }
+        .meta-value { font-weight: 500; }
+        
+        /* Items Table */
+        .items-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 8pt; }
+        .items-table th { background: #059669; color: white; border: 1px solid #059669; padding: 6px 4px; text-align: center; font-weight: bold; text-transform: uppercase; }
+        .items-table td { border: 1px solid #000; padding: 6px 4px; vertical-align: top; }
+        .items-table .col-ref { width: 15%; }
+        .items-table .col-desc { width: 40%; }
+        .items-table .col-qty { width: 8%; text-align: center; }
+        .items-table .col-price { width: 12%; text-align: right; }
+        .items-table .col-total { width: 12%; text-align: right; }
+        
+        .item-details { font-size: 7pt; color: #666; margin-top: 3px; }
+        
+        /* VAT and Totals Section */
+        .vat-totals-section { display: flex; gap: 20px; margin-bottom: 20px; }
+        
+        .vat-table { flex: 1; }
+        .vat-table table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+        .vat-table th, .vat-table td { border: 1px solid #000; padding: 5px; text-align: right; }
+        .vat-table th { background: #f5f5f5; font-weight: bold; }
+        
+        .totals-table { width: 200px; }
+        .totals-table table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+        .totals-table td { border: 1px solid #000; padding: 5px; }
+        .totals-table .label { background: #ecfdf5; font-weight: bold; }
+        .totals-table .value { text-align: right; }
+        .totals-table .total-row { background: #059669; color: white; font-weight: bold; font-size: 10pt; }
+        
+        /* Delivery Info Section */
+        .delivery-section { display: flex; gap: 20px; margin-top: 15px; margin-bottom: 20px; }
+        
+        .delivery-box { flex: 1; border: 1px solid #059669; border-radius: 4px; padding: 12px; }
+        .delivery-box-title { font-weight: bold; color: #059669; margin-bottom: 8px; font-size: 9pt; border-bottom: 1px solid #059669; padding-bottom: 5px; }
+        .delivery-box-content { font-size: 8pt; line-height: 1.4; }
+        .delivery-box-content p { margin-bottom: 3px; }
+        
+        .notes-box { flex: 1; border: 1px solid #059669; border-radius: 4px; padding: 12px; }
+        .notes-box-title { font-weight: bold; color: #059669; margin-bottom: 8px; font-size: 9pt; border-bottom: 1px solid #059669; padding-bottom: 5px; }
+        .notes-box-content { font-size: 8pt; color: #555; line-height: 1.5; }
+        
+        /* Bank Section */
+        .bank-section { display: flex; gap: 20px; margin-top: 20px; font-size: 7pt; }
+        
+        .company-legal { flex: 0 0 180px; }
+        .company-legal p { margin-bottom: 2px; }
+        
+        .bank-info { flex: 1; border: 1px solid #000; }
+        .bank-header { display: flex; border-bottom: 1px solid #000; }
+        .bank-header-left { flex: 1; padding: 5px; border-right: 1px solid #000; }
+        .bank-header-right { flex: 1; padding: 5px; }
+        .bank-header-title { font-weight: bold; font-size: 7pt; margin-bottom: 3px; }
+        
+        .rib-section { padding: 5px; }
+        .rib-section-title { font-weight: bold; text-align: center; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 3px; }
+        .rib-table { width: 100%; border-collapse: collapse; }
+        .rib-table th, .rib-table td { border: 1px solid #000; padding: 3px; text-align: center; font-size: 7pt; }
+        .rib-table th { background: #f5f5f5; }
+        
+        .iban-row { display: flex; margin-top: 5px; font-size: 7pt; }
+        .iban-row span { padding: 3px 8px; border: 1px solid #000; }
+        .iban-row .label { background: #f5f5f5; font-weight: bold; }
+        
+        /* Footer */
+        .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 6pt; color: #666; line-height: 1.5; }
+        
+        .page-number { position: absolute; bottom: 10mm; right: 10mm; font-size: 8pt; }
+        .doc-reference { position: absolute; bottom: 10mm; left: 10mm; font-size: 8pt; }
+        
+        @media print {
+            .document-container { padding: 0; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+    <div class="document-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="company-section">
+                <div class="company-logo">
+                    <img src="axtech_logo.png" alt="AX TECH">
+                </div>
+                <div class="company-contact">
+                    <div class="name">AX TECH</div>
+                    <div>8 RUE MARBEAU</div>
+                    <div>75116 PARIS</div>
+                    <div>Tel. 01 72 99 57 49</div>
+                    <div>www.ecoled-europe.com</div>
+                </div>
+            </div>
+            
+            <div class="barcode-section">
+                <!-- Barcode -->
+                <svg width="200" height="50" viewBox="0 0 200 50">
+                    <rect x="0" y="0" width="200" height="50" fill="white"/>
+                    <g fill="#059669">
+                        <rect x="10" y="5" width="2" height="40"/>
+                        <rect x="14" y="5" width="1" height="40"/>
+                        <rect x="17" y="5" width="3" height="40"/>
+                        <rect x="22" y="5" width="1" height="40"/>
+                        <rect x="25" y="5" width="2" height="40"/>
+                        <rect x="29" y="5" width="1" height="40"/>
+                        <rect x="32" y="5" width="3" height="40"/>
+                        <rect x="37" y="5" width="2" height="40"/>
+                        <rect x="41" y="5" width="1" height="40"/>
+                        <rect x="44" y="5" width="2" height="40"/>
+                        <rect x="48" y="5" width="3" height="40"/>
+                        <rect x="53" y="5" width="1" height="40"/>
+                        <rect x="56" y="5" width="2" height="40"/>
+                        <rect x="60" y="5" width="1" height="40"/>
+                        <rect x="63" y="5" width="3" height="40"/>
+                        <rect x="68" y="5" width="2" height="40"/>
+                        <rect x="72" y="5" width="1" height="40"/>
+                        <rect x="75" y="5" width="2" height="40"/>
+                        <rect x="79" y="5" width="3" height="40"/>
+                        <rect x="84" y="5" width="1" height="40"/>
+                        <rect x="87" y="5" width="2" height="40"/>
+                        <rect x="91" y="5" width="1" height="40"/>
+                        <rect x="94" y="5" width="3" height="40"/>
+                        <rect x="99" y="5" width="2" height="40"/>
+                        <rect x="103" y="5" width="1" height="40"/>
+                        <rect x="106" y="5" width="2" height="40"/>
+                        <rect x="110" y="5" width="3" height="40"/>
+                        <rect x="115" y="5" width="1" height="40"/>
+                        <rect x="118" y="5" width="2" height="40"/>
+                        <rect x="122" y="5" width="1" height="40"/>
+                        <rect x="125" y="5" width="3" height="40"/>
+                        <rect x="130" y="5" width="2" height="40"/>
+                        <rect x="134" y="5" width="1" height="40"/>
+                        <rect x="137" y="5" width="2" height="40"/>
+                        <rect x="141" y="5" width="3" height="40"/>
+                    </g>
+                </svg>
+                <div class="document-number-box">BON DE COMMANDE N° : BC26010008</div>
+            </div>
+        </header>
+        
+        <!-- Client Box -->
+        <div class="client-box">
+            <div class="client-name">SAS ENERGIE</div>
+            <div class="client-dept">SERVICE ACHATS</div>
+            <div class="client-address">
+                Place Salvador Allende<br>
+                <br>
+                77340 / PONTAULT-COMBAULT France
+            </div>
+        </div>
+        
+        <!-- Order Banner -->
+        <div class="order-banner">
+            <div class="order-text">📦 Commande confirmée</div>
+            <div class="order-date">Date de livraison estimée : 10-févr.-2026</div>
+        </div>
+        
+        <!-- Document Meta -->
+        <div class="document-meta">
+            <div class="meta-left">
+                <div class="meta-row"><span class="meta-label">Date de commande :</span> <span class="meta-value">18-janv.-2026</span></div>
+                <div class="meta-row"><span class="meta-label">Référence devis :</span> <span class="meta-value">DV26010015</span></div>
+                <div class="meta-row"><span class="meta-label">Commercial :</span> <span class="meta-value">Jean Dupont</span></div>
+            </div>
+            <div class="meta-right">
+                <div class="meta-row"><span class="meta-label">N/Id CEE :</span> <span class="meta-value">FR86751982760</span></div>
+                <div class="meta-row"><span class="meta-label">Référence client :</span> <span class="meta-value">CLI-00245</span></div>
+                <div class="meta-row"><span class="meta-label">Nom d'Affaire :</span> <span class="meta-value">Projet LED DOWNLIGHT</span></div>
+            </div>
+        </div>
+        
+        <!-- Items Table -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th class="col-ref">RÉFÉRENCE</th>
+                    <th class="col-desc">DÉSIGNATION</th>
+                    <th class="col-qty">QTÉ</th>
+                    <th class="col-price">P. UNIT. HT</th>
+                    <th class="col-price">REMISE</th>
+                    <th class="col-total">MNT HT</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="col-ref">X130340N22WH</td>
+                    <td class="col-desc">
+                        SLIM Round Downlight SLIM rond
+                        <div class="item-details">
+                            4000 K | 1530 LMS | NORMAL | WHITE | 18 W |<br>
+                            Diam : 220 mm |
+                        </div>
+                    </td>
+                    <td class="col-qty">20,00</td>
+                    <td class="col-price">16,67 €</td>
+                    <td class="col-price">0%</td>
+                    <td class="col-total">333,33 €</td>
+                </tr>
+                <tr>
+                    <td class="col-ref">LED-DRIVER-24V</td>
+                    <td class="col-desc">
+                        Driver LED 24V constant voltage
+                        <div class="item-details">
+                            24V | 60W | IP20 | Dimmable DALI
+                        </div>
+                    </td>
+                    <td class="col-qty">5,00</td>
+                    <td class="col-price">45,00 €</td>
+                    <td class="col-price">5%</td>
+                    <td class="col-total">213,75 €</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <!-- VAT and Totals Section -->
+        <div class="vat-totals-section">
+            <div class="vat-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>BASE HT</th>
+                            <th>TAUX TVA</th>
+                            <th>MNT. TVA</th>
+                            <th>MNT. TTC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>547,08</td>
+                            <td>20,00</td>
+                            <td>109,42</td>
+                            <td>656,50</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="totals-table">
+                <table>
+                    <tr>
+                        <td class="label">Total HT</td>
+                        <td class="value">547,08 €</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Remise globale</td>
+                        <td class="value">0,00 €</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Net HT</td>
+                        <td class="value">547,08 €</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Total TVA</td>
+                        <td class="value">109,42 €</td>
+                    </tr>
+                    <tr>
+                        <td class="label total-row">TOTAL TTC</td>
+                        <td class="value total-row">656,50 €</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Delivery Info Section -->
+        <div class="delivery-section">
+            <div class="delivery-box">
+                <div class="delivery-box-title">📍 Adresse de livraison</div>
+                <div class="delivery-box-content">
+                    <p><strong>SAS ENERGIE</strong></p>
+                    <p>Place Salvador Allende</p>
+                    <p>77340 PONTAULT-COMBAULT</p>
+                    <p>France</p>
+                    <br>
+                    <p><strong>Contact :</strong> M. Martin</p>
+                    <p><strong>Téléphone :</strong> 01 XX XX XX XX</p>
+                </div>
+            </div>
+            
+            <div class="notes-box">
+                <div class="notes-box-title">📝 Instructions spéciales</div>
+                <div class="notes-box-content">
+                    <p>• Livraison du lundi au vendredi entre 8h et 17h</p>
+                    <p>• Prévoir un chariot élévateur pour le déchargement</p>
+                    <p>• Appeler 1h avant la livraison</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bank Section -->
+        <div class="bank-section">
+            <div class="company-legal">
+                <p><strong>Siret N° 751 982 760 00041</strong></p>
+                <p><strong>RCS PARIS : 751 982 760 00041</strong></p>
+                <p><strong>TVA N° FR86751982760</strong></p>
+                <br>
+                <p><strong>AX TECH</strong></p>
+                <p>ecoledeurope@gmail.com</p>
+                <p>01 72 99 57 49</p>
+            </div>
+            
+            <div class="bank-info">
+                <div class="bank-header">
+                    <div class="bank-header-left">
+                        <div class="bank-header-title">Titulaire du compte (Account Owner)</div>
+                        <div>AX TECH</div>
+                        <div>29 RUE DE LAGNY</div>
+                        <div>77181 LE PIN</div>
+                    </div>
+                    <div class="bank-header-right">
+                        <div class="bank-header-title">Domiciliation</div>
+                        <div>CREDIT INDUSTRIEL ET COMMERCIAL</div>
+                        <div>CIC GRAND PARIS EST ENTREPRISES</div>
+                        <div>1 RUE MONGE</div>
+                        <div>93160 NOISY LE GRAND</div>
+                    </div>
+                </div>
+                
+                <div class="rib-section">
+                    <div class="rib-section-title">RIB</div>
+                    <table class="rib-table">
+                        <thead>
+                            <tr>
+                                <th>Code Banque</th>
+                                <th>Code Agence</th>
+                                <th>N° compte</th>
+                                <th>Clé</th>
+                                <th>Domiciliation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>30066</td>
+                                <td>10900</td>
+                                <td>00020368201</td>
+                                <td>72</td>
+                                <td>CREDIT INDUSTRIEL ET COMMERCIAL</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="iban-row">
+                        <span class="label">IBAN:</span><span>FR76 3006 6109 0000 0203 6820 172</span>
+                        <span style="margin-left: 20px;" class="label">BIC:</span><span>CMCIFRPP</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Page Number -->
+        <div class="doc-reference">AX TECH - Siret 75198276000041 - RCS PARIS - TVA FR86751982760</div>
+        <div class="page-number">BC26010008 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1/1</div>
+    </div>
+</body>
+</html>

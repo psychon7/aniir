@@ -19,6 +19,7 @@ import type {
   PalletSlot,
   AisleConfig
 } from './types/warehouse3d'
+import type { RackProductInfo } from './hooks/useWarehouseObjects'
 
 // Icons from lucide-react
 import {
@@ -149,6 +150,10 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
   })
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  // Rack products panel state
+  const [rackProducts, setRackProducts] = useState<RackProductInfo[]>([])
+  const [hoveredBinId, setHoveredBinId] = useState<string | null>(null)
+
   // Layout configuration state
   const [layoutConfig, setLayoutConfig] = useState({
     numAisles: 3,
@@ -216,6 +221,19 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
 
   const handleObjectSelect = useCallback((userData: Warehouse3DUserData | null) => {
     setSelectedObject(userData)
+    // Fetch rack products when a rack is selected
+    if (userData?.type === 'rack' && canvasRef.current) {
+      const products = canvasRef.current.getRackProducts(userData.id)
+      setRackProducts(products)
+    } else {
+      setRackProducts([])
+    }
+  }, [])
+
+  // Handle pallet hover from products panel
+  const handlePalletHover = useCallback((binId: string | null) => {
+    setHoveredBinId(binId)
+    canvasRef.current?.highlightPallet(binId)
   }, [])
 
   const handleLayoutChange = useCallback((_layout: WarehouseLayout) => {
@@ -582,7 +600,7 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
 
         {/* Properties Panel */}
         {selectedObject && (
-          <div className="w-64 border-l bg-card p-3">
+          <div className="w-72 border-l bg-card p-3 overflow-y-auto max-h-full">
             <h4 className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wide">
               Properties
             </h4>
@@ -614,6 +632,50 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
                 </div>
               )}
             </div>
+
+            {/* Products in Rack - with hover highlighting */}
+            {selectedObject.type === 'rack' && rackProducts.length > 0 && (
+              <div className="mt-4 pt-3 border-t">
+                <h5 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                  Products in Rack ({rackProducts.filter(p => p.productRef).length})
+                </h5>
+                <div className="space-y-1 max-h-48 overflow-y-auto">
+                  {rackProducts
+                    .filter(p => p.productRef)
+                    .map((product) => (
+                      <div
+                        key={product.binId}
+                        className={`p-2 rounded text-xs cursor-pointer transition-colors ${
+                          hoveredBinId === product.binId
+                            ? 'bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400'
+                            : 'bg-secondary/50 hover:bg-secondary'
+                        }`}
+                        onMouseEnter={() => handlePalletHover(product.binId)}
+                        onMouseLeave={() => handlePalletHover(null)}
+                      >
+                        <div className="font-medium truncate">{product.productRef}</div>
+                        <div className="text-muted-foreground truncate text-[10px]">
+                          {product.productName}
+                        </div>
+                        <div className="flex justify-between mt-1 text-[10px]">
+                          <span className="text-muted-foreground">{product.binId}</span>
+                          <span className={`font-semibold ${
+                            (product.quantity ?? 0) <= 0 ? 'text-red-500' :
+                            (product.quantity ?? 0) < 10 ? 'text-amber-500' : 'text-green-500'
+                          }`}>
+                            Qty: {product.quantity ?? 0}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+                {rackProducts.filter(p => !p.productRef).length > 0 && (
+                  <div className="mt-2 text-[10px] text-muted-foreground">
+                    {rackProducts.filter(p => !p.productRef).length} empty slots
+                  </div>
+                )}
+              </div>
+            )}
 
             {mode === 'design' && selectedObject.type === 'rack' && (
               <div className="mt-4 pt-3 border-t">
