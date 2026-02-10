@@ -3,7 +3,7 @@
  * Main entry point for 3D warehouse visualization and layout designer
  */
 
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { StockListItem } from '@/types/warehouse'
 import Warehouse3DCanvas, { type Warehouse3DCanvasHandle } from './Warehouse3DCanvas'
@@ -177,24 +177,33 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
     onSaveError: (error) => console.error('Failed to save layout:', error)
   })
 
-  // Handle scene ready - load default layout if no saved layout
+  // Handle scene ready - just mark as initialized
   const handleSceneReady = useCallback(() => {
-    if (!hasInitialized && canvasRef.current) {
+    if (!hasInitialized) {
       setHasInitialized(true)
-      if (!savedLayout && !isLoadingLayout) {
-        const defaultLayout = generateDefaultLayout(
-          layoutConfig.numAisles,
-          layoutConfig.racksPerAisle,
-          layoutConfig.levelsPerRack,
-          layoutConfig.baysPerLevel
-        )
-        // Use setTimeout to ensure the scene is fully ready
-        setTimeout(() => {
-          canvasRef.current?.loadLayout(defaultLayout)
-        }, 100)
-      }
     }
-  }, [hasInitialized, isLoadingLayout, savedLayout, layoutConfig])
+  }, [hasInitialized])
+
+  // Load layout when scene is ready and layout data is available
+  // This effect handles initial load after scene initialization
+  useEffect(() => {
+    if (!hasInitialized || !canvasRef.current) return
+    if (isLoadingLayout) return // Wait for API response
+
+    // If we have a saved layout from API, it will be loaded via onLayoutLoaded callback
+    // If no saved layout exists, generate and load default layout
+    if (!savedLayout) {
+      const defaultLayout = generateDefaultLayout(
+        layoutConfig.numAisles,
+        layoutConfig.racksPerAisle,
+        layoutConfig.levelsPerRack,
+        layoutConfig.baysPerLevel
+      )
+      canvasRef.current.loadLayout(defaultLayout)
+    }
+    // Only run once after initialization and loading completes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasInitialized, isLoadingLayout])
 
   // Handler to regenerate layout with new config
   const handleRegenerateLayout = useCallback(() => {
@@ -221,10 +230,28 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
 
   const handleObjectSelect = useCallback((userData: Warehouse3DUserData | null) => {
     setSelectedObject(userData)
-    // Fetch rack products when a rack is selected
-    if (userData?.type === 'rack' && canvasRef.current) {
+    // Fetch rack products based on selection type
+    if (!userData || !canvasRef.current) {
+      setRackProducts([])
+      return
+    }
+
+    if (userData.type === 'rack') {
+      // Rack selected - show all products in rack
       const products = canvasRef.current.getRackProducts(userData.id)
       setRackProducts(products)
+    } else if (userData.type === 'shelf' && userData.rackId) {
+      // Shelf/Level selected - show products on this level
+      const allProducts = canvasRef.current.getRackProducts(userData.rackId)
+      const levelProducts = allProducts.filter(p => p.level === userData.shelfLevel)
+      setRackProducts(levelProducts)
+    } else if (userData.type === 'pallet' && userData.rackId) {
+      // Individual pallet selected - show just this pallet's info
+      const allProducts = canvasRef.current.getRackProducts(userData.rackId)
+      const palletProduct = allProducts.filter(
+        p => p.level === userData.shelfLevel && p.bay === userData.bay
+      )
+      setRackProducts(palletProduct)
     } else {
       setRackProducts([])
     }
@@ -633,15 +660,17 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
               )}
             </div>
 
-            {/* Products in Rack - with hover highlighting */}
-            {selectedObject.type === 'rack' && rackProducts.length > 0 && (
+            {/* Products list - works for rack, shelf, or pallet selection */}
+            {(selectedObject.type === 'rack' || selectedObject.type === 'shelf' || selectedObject.type === 'pallet') && rackProducts.length > 0 && (
               <div className="mt-4 pt-3 border-t">
                 <h5 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                  Products in Rack ({rackProducts.filter(p => p.productRef).length})
+                  {selectedObject.type === 'rack' && `Products in Rack (${rackProducts.filter(p => p.productRef).length})`}
+                  {selectedObject.type === 'shelf' && `Products on Level ${selectedObject.shelfLevel} (${rackProducts.filter(p => p.productRef).length})`}
+                  {selectedObject.type === 'pallet' && 'Pallet Contents'}
                 </h5>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {rackProducts
-                    .filter(p => p.productRef)
+                    .filter(p => selectedObject.type === 'pallet' || p.productRef)
                     .map((product) => (
                       <div
                         key={product.binId}
@@ -653,23 +682,27 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
                         onMouseEnter={() => handlePalletHover(product.binId)}
                         onMouseLeave={() => handlePalletHover(null)}
                       >
-                        <div className="font-medium truncate">{product.productRef}</div>
-                        <div className="text-muted-foreground truncate text-[10px]">
-                          {product.productName}
+                        <div className="font-medium truncate">
+                          {product.productRef || <span className="text-muted-foreground italic">Empty slot</span>}
                         </div>
+                        {product.productName && (
+                          <div className="text-muted-foreground truncate text-[10px]">
+                            {product.productName}
+                          </div>
+                        )}
                         <div className="flex justify-between mt-1 text-[10px]">
-                          <span className="text-muted-foreground">{product.binId}</span>
+                          <span className="text-muted-foreground">L{product.level} B{product.bay}</span>
                           <span className={`font-semibold ${
                             (product.quantity ?? 0) <= 0 ? 'text-red-500' :
                             (product.quantity ?? 0) < 10 ? 'text-amber-500' : 'text-green-500'
                           }`}>
-                            Qty: {product.quantity ?? 0}
+                            {product.quantity !== undefined ? `Qty: ${product.quantity}` : ''}
                           </span>
                         </div>
                       </div>
                     ))}
                 </div>
-                {rackProducts.filter(p => !p.productRef).length > 0 && (
+                {selectedObject.type !== 'pallet' && rackProducts.filter(p => !p.productRef).length > 0 && (
                   <div className="mt-2 text-[10px] text-muted-foreground">
                     {rackProducts.filter(p => !p.productRef).length} empty slots
                   </div>

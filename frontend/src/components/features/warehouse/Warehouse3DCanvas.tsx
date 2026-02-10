@@ -124,9 +124,6 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       [mode, selection.selectedObject, removeRack, clearSelection]
     )
 
-    // Track if initial layout has been loaded
-    const initialLayoutLoadedRef = useRef(false)
-
     // Sync stock data when items change
     useEffect(() => {
       if (stockItems.length > 0) {
@@ -134,13 +131,9 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       }
     }, [stockItems, syncStockData])
 
-    // Load layout only once when first provided (not on every callback change)
-    useEffect(() => {
-      if (layout && !initialLayoutLoadedRef.current) {
-        initialLayoutLoadedRef.current = true
-        loadLayoutInternal(layout)
-      }
-    }, [layout]) // Intentionally not including loadLayoutInternal to prevent reload cycles
+    // NOTE: Layout loading is now handled ONLY through the imperative loadLayout method
+    // exposed via ref. The parent component (Warehouse3DView) is responsible for calling
+    // loadLayout when needed. This prevents reload cycles and gives the parent full control.
 
     // Expose methods via ref
     useImperativeHandle(ref, () => ({

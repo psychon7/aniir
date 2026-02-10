@@ -3,7 +3,7 @@
  * Manages warehouse layout persistence: save/load JSON, API integration
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type {
   WarehouseLayout,
@@ -83,6 +83,8 @@ export function useWarehouseLayout(
   const { warehouseId, onLayoutLoaded, onSaveSuccess, onSaveError } = options
   const queryClient = useQueryClient()
   const [layoutId, setLayoutId] = useState<number | null>(null)
+  // Track if we've already notified about this layout to prevent duplicate loads
+  const lastLoadedLayoutIdRef = useRef<number | null>(null)
 
   // Fetch layout query
   const {
@@ -96,11 +98,17 @@ export function useWarehouseLayout(
     staleTime: 5 * 60 * 1000 // 5 minutes
   })
 
-  // Update layoutId when response changes
-  if (layoutResponse?.id && layoutResponse.id !== layoutId) {
-    setLayoutId(layoutResponse.id)
-    onLayoutLoaded?.(layoutResponse.layoutJson)
-  }
+  // Update layoutId when response changes - properly in useEffect
+  useEffect(() => {
+    if (layoutResponse?.id) {
+      setLayoutId(layoutResponse.id)
+      // Only call onLayoutLoaded once per layout ID to prevent reload cycles
+      if (lastLoadedLayoutIdRef.current !== layoutResponse.id) {
+        lastLoadedLayoutIdRef.current = layoutResponse.id
+        onLayoutLoaded?.(layoutResponse.layoutJson)
+      }
+    }
+  }, [layoutResponse?.id, layoutResponse?.layoutJson, onLayoutLoaded])
 
   // Save mutation
   const saveMutation = useMutation({

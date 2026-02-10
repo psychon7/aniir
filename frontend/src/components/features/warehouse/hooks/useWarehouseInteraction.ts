@@ -148,13 +148,13 @@ export function useWarehouseInteraction(
     [camera, getMouseNDC, gridSize]
   )
 
-  // Apply selection highlight
+  // Apply selection highlight (cyan color)
   const applySelectionHighlight = useCallback((object: THREE.Object3D) => {
     object.traverse((child) => {
       if (child instanceof THREE.Mesh && highlightMaterialRef.current) {
         // Create outline by scaling slightly and using backface material
         const outline = child.clone()
-        outline.material = highlightMaterialRef.current
+        outline.material = highlightMaterialRef.current.clone()
         outline.scale.multiplyScalar(1.05)
         outline.name = 'selectionOutline'
         child.parent?.add(outline)
@@ -171,6 +171,46 @@ export function useWarehouseInteraction(
       }
     })
     outlines.forEach((outline) => outline.removeFromParent())
+  }, [])
+
+  // Apply hover highlight (light blue, subtle)
+  const applyHoverHighlight = useCallback((object: THREE.Object3D) => {
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh && !child.name.includes('Outline')) {
+        // Store original material if not already stored
+        if (!originalMaterialsRef.current.has(child)) {
+          originalMaterialsRef.current.set(child, child.material)
+        }
+        // Apply emissive glow for hover
+        if (child.material instanceof THREE.MeshStandardMaterial) {
+          const hoverMaterial = child.material.clone()
+          hoverMaterial.emissive = new THREE.Color(0x4444ff)
+          hoverMaterial.emissiveIntensity = 0.3
+          child.material = hoverMaterial
+        }
+      }
+    })
+  }, [])
+
+  // Remove hover highlight
+  const removeHoverHighlight = useCallback((object: THREE.Object3D) => {
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const originalMaterial = originalMaterialsRef.current.get(child)
+        if (originalMaterial) {
+          // Dispose the hover material
+          if (child.material && child.material !== originalMaterial) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(m => m.dispose())
+            } else {
+              child.material.dispose()
+            }
+          }
+          child.material = originalMaterial
+          originalMaterialsRef.current.delete(child)
+        }
+      }
+    })
   }, [])
 
   // Select an object
@@ -296,7 +336,15 @@ export function useWarehouseInteraction(
         for (const intersection of intersections) {
           const selectableParent = getSelectableParent(intersection.object)
           if (selectableParent && selectableParent !== selection.hoveredObject) {
+            // Remove highlight from previous hover
+            if (selection.hoveredObject) {
+              removeHoverHighlight(selection.hoveredObject)
+            }
+            // Apply highlight to new hover (only for pallets to avoid visual clutter)
             const userData = selectableParent.userData as Warehouse3DUserData
+            if (userData?.type === 'pallet') {
+              applyHoverHighlight(selectableParent)
+            }
             setSelection((prev) => ({ ...prev, hoveredObject: selectableParent }))
             onObjectHover?.(selectableParent, userData)
             return
@@ -304,8 +352,9 @@ export function useWarehouseInteraction(
         }
       }
 
-      // No hover
+      // No hover - remove highlight
       if (selection.hoveredObject) {
+        removeHoverHighlight(selection.hoveredObject)
         setSelection((prev) => ({ ...prev, hoveredObject: null }))
         onObjectHover?.(null, null)
       }
@@ -318,6 +367,8 @@ export function useWarehouseInteraction(
       raycast,
       getSelectableParent,
       getFloorIntersection,
+      applyHoverHighlight,
+      removeHoverHighlight,
       onObjectDrag,
       onObjectHover
     ]
