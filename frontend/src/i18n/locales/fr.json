@@ -1170,7 +1170,8 @@
   },
   "dashboard": {
     "title": "Tableau de bord",
-    "welcome": "Bienvenue",
+    "welcome": "Bienvenue, {{name}}",
+    "subtitle": "Voici un aperçu de vos opérations commerciales",
     "overview": "Aperçu",
     "recentActivity": "Activité récente",
     "quickActions": "Actions rapides",
@@ -1200,7 +1201,28 @@
     "reports": "Rapports",
     "revenueOverview": "Aperçu du chiffre d'affaires",
     "monthlyPerformance": "Performance mensuelle de toutes les unités commerciales",
-    "details": "Détails"
+    "details": "Détails",
+    "kpi": {
+      "activeClients": "Clients actifs",
+      "quotesInProgress": "Devis en cours",
+      "pendingDeliveries": "Livraisons en attente",
+      "unpaidInvoices": "Factures impayées",
+      "backorderLines": "Lignes en reliquat",
+      "pendingInvoicing": "Facturation en attente",
+      "unpaidProformas": "Proformas impayées",
+      "recentQuotes": "Devis récents"
+    },
+    "containerTracking": "Suivi des conteneurs",
+    "unshippedContainers": "Conteneurs non expédiés",
+    "arrivingContainers": "Conteneurs en arrivée",
+    "quoteStatusBreakdown": "Répartition par statut de devis",
+    "noQuoteData": "Aucune donnée de statut de devis disponible",
+    "backorders": "Reliquats",
+    "noBackorders": "Aucune ligne en reliquat détectée",
+    "due": "Échéance",
+    "remaining": "restant",
+    "generatedAt": "Généré le",
+    "live": "En direct"
   },
   "form": {
     "required": "Ce champ est obligatoire",

@@ -1176,7 +1176,8 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "welcome": "Welcome back",
+    "welcome": "Welcome back, {{name}}",
+    "subtitle": "Here's an overview of your business operations",
     "overview": "Overview",
     "recentActivity": "Recent Activity",
     "quickActions": "Quick Actions",
@@ -1198,7 +1199,7 @@
     "recentOrders": "Recent Orders",
     "recentInvoices": "Recent Invoices",
     "salesChart": "Sales Chart",
-    "viewAll": "View all",
+    "viewAll": "View All",
     "businessUnits": "Business Units",
     "newQuote": "New Quote",
     "addClient": "Add Client",
@@ -1206,7 +1207,28 @@
     "reports": "Reports",
     "revenueOverview": "Revenue Overview",
     "monthlyPerformance": "Monthly performance across all business units",
-    "details": "Details"
+    "details": "Details",
+    "kpi": {
+      "activeClients": "Active Clients",
+      "quotesInProgress": "Quotes In Progress",
+      "pendingDeliveries": "Pending Deliveries",
+      "unpaidInvoices": "Unpaid Invoices",
+      "backorderLines": "Backorder Lines",
+      "pendingInvoicing": "Pending Invoicing",
+      "unpaidProformas": "Unpaid Proformas",
+      "recentQuotes": "Recent Quotes"
+    },
+    "containerTracking": "Container Tracking",
+    "unshippedContainers": "Unshipped Containers",
+    "arrivingContainers": "Arriving Containers",
+    "quoteStatusBreakdown": "Quote Status Breakdown",
+    "noQuoteData": "No quote status data available",
+    "backorders": "Backorders",
+    "noBackorders": "No backorder lines currently detected",
+    "due": "Due",
+    "remaining": "remaining",
+    "generatedAt": "Generated at",
+    "live": "Live"
   },
   "form": {
     "required": "This field is required",
