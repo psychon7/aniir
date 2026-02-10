@@ -613,14 +613,6 @@ class SupplierContactListPaginatedResponse(BaseModel):
         ...,
         description="Total count of contacts matching criteria"
     )
-    skip: int = Field(
-        ...,
-        description="Number of items skipped"
-    )
-    limit: int = Field(
-        ...,
-        description="Maximum items returned"
-    )
 
 
 # ==========================================================================
