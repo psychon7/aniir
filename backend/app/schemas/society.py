@@ -96,6 +96,30 @@ class SocietyUpdate(BaseModel):
     soc_cnss: Optional[str] = Field(None, max_length=200)
     soc_taxe_pro: Optional[str] = Field(None, max_length=200)
 
+    # Primary bank account
+    soc_rib_name: Optional[str] = Field(None, max_length=500)
+    soc_rib_address: Optional[str] = Field(None, max_length=1000)
+    soc_rib_code_iban: Optional[str] = Field(None, max_length=1000)
+    soc_rib_code_bic: Optional[str] = Field(None, max_length=1000)
+    soc_rib_bank_code: Optional[str] = Field(None, max_length=50)
+    soc_rib_agence_code: Optional[str] = Field(None, max_length=50)
+    soc_rib_account_number: Optional[str] = Field(None, max_length=50)
+    soc_rib_key: Optional[str] = Field(None, max_length=50)
+    soc_rib_domiciliation_agency: Optional[str] = Field(None, max_length=200)
+    soc_rib_abbre: Optional[str] = Field(None, max_length=50)
+
+    # Secondary bank account
+    soc_rib_name_2: Optional[str] = Field(None, max_length=50)
+    soc_rib_address_2: Optional[str] = Field(None, max_length=200)
+    soc_rib_code_iban_2: Optional[str] = Field(None, max_length=50)
+    soc_rib_code_bic_2: Optional[str] = Field(None, max_length=50)
+    soc_rib_bank_code_2: Optional[str] = Field(None, max_length=50)
+    soc_rib_agence_code_2: Optional[str] = Field(None, max_length=50)
+    soc_rib_account_number_2: Optional[str] = Field(None, max_length=50)
+    soc_rib_key_2: Optional[str] = Field(None, max_length=50)
+    soc_rib_domiciliation_agency_2: Optional[str] = Field(None, max_length=200)
+    soc_rib_abbre_2: Optional[str] = Field(None, max_length=50)
+
     # Settings
     soc_email_auto: Optional[bool] = None
     soc_mask_commission: Optional[bool] = None

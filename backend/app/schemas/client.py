@@ -228,6 +228,38 @@ class ClientBase(BaseModel):
         description="PDF version",
     )
 
+    # Bank details
+    cli_bank_iban: Optional[str] = Field(
+        default=None,
+        max_length=50,
+        validation_alias=AliasChoices("cli_bank_iban", "bankIban"),
+        description="Bank IBAN",
+    )
+    cli_bank_bic: Optional[str] = Field(
+        default=None,
+        max_length=20,
+        validation_alias=AliasChoices("cli_bank_bic", "bankBic"),
+        description="Bank BIC/SWIFT",
+    )
+    cli_bank_name: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cli_bank_name", "bankName"),
+        description="Bank name",
+    )
+    cli_bank_account_holder: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cli_bank_account_holder", "bankAccountHolder"),
+        description="Bank account holder",
+    )
+    cli_bank_address: Optional[str] = Field(
+        default=None,
+        max_length=400,
+        validation_alias=AliasChoices("cli_bank_address", "bankAddress"),
+        description="Bank address",
+    )
+
     # Status flags
     cli_isactive: Optional[bool] = Field(
         default=None,
@@ -315,6 +347,12 @@ class ClientUpdate(BaseModel):
     cli_invoice_day_is_last_day: Optional[bool] = Field(default=None, validation_alias=AliasChoices("cli_invoice_day_is_last_day", "invoiceDayIsLastDay"))
     cli_showdetail: Optional[bool] = Field(default=None, validation_alias=AliasChoices("cli_showdetail", "showDetail"))
     cli_pdf_version: Optional[str] = Field(default=None, max_length=20, validation_alias=AliasChoices("cli_pdf_version", "pdfVersion"))
+
+    cli_bank_iban: Optional[str] = Field(default=None, max_length=50, validation_alias=AliasChoices("cli_bank_iban", "bankIban"))
+    cli_bank_bic: Optional[str] = Field(default=None, max_length=20, validation_alias=AliasChoices("cli_bank_bic", "bankBic"))
+    cli_bank_name: Optional[str] = Field(default=None, max_length=200, validation_alias=AliasChoices("cli_bank_name", "bankName"))
+    cli_bank_account_holder: Optional[str] = Field(default=None, max_length=200, validation_alias=AliasChoices("cli_bank_account_holder", "bankAccountHolder"))
+    cli_bank_address: Optional[str] = Field(default=None, max_length=400, validation_alias=AliasChoices("cli_bank_address", "bankAddress"))
 
     cli_isactive: Optional[bool] = Field(default=None, validation_alias=AliasChoices("cli_isactive", "cli_is_active", "isActive"))
     cli_isblocked: Optional[bool] = Field(default=None, validation_alias=AliasChoices("cli_isblocked", "isBlocked"))
@@ -455,6 +493,13 @@ class ClientDetailResponse(BaseModel):
     showDetail: Optional[bool] = Field(None, validation_alias="cli_showdetail", description="Show detail on invoices")
     pdfVersion: Optional[str] = Field(None, validation_alias="cli_pdf_version", description="PDF version")
 
+    # Bank details
+    bankIban: Optional[str] = Field(None, validation_alias="cli_bank_iban", description="Bank IBAN")
+    bankBic: Optional[str] = Field(None, validation_alias="cli_bank_bic", description="Bank BIC/SWIFT")
+    bankName: Optional[str] = Field(None, validation_alias="cli_bank_name", description="Bank name")
+    bankAccountHolder: Optional[str] = Field(None, validation_alias="cli_bank_account_holder", description="Bank account holder")
+    bankAddress: Optional[str] = Field(None, validation_alias="cli_bank_address", description="Bank address")
+
     # =====================================================
     # Resolved lookup names (populated by service layer)
     # These are not from the ORM directly but enriched data
@@ -466,6 +511,11 @@ class ClientDetailResponse(BaseModel):
     paymentModeName: Optional[str] = Field(None, description="Resolved payment mode name")
     paymentConditionName: Optional[str] = Field(None, description="Resolved payment condition name")
     paymentTermDays: Optional[int] = Field(None, description="Payment term total days")
+
+    # Resolved commercial user names (populated by service layer)
+    commercialUser1Name: Optional[str] = Field(None, description="Resolved commercial user 1 name")
+    commercialUser2Name: Optional[str] = Field(None, description="Resolved commercial user 2 name")
+    commercialUser3Name: Optional[str] = Field(None, description="Resolved commercial user 3 name")
 
     @computed_field
     @property

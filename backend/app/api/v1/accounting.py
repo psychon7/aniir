@@ -11,6 +11,8 @@ Provides endpoints for:
 Uses synchronous Session with asyncio.to_thread() pattern.
 """
 import asyncio
+import csv
+import io
 from datetime import date, datetime
 from typing import Optional
 from decimal import Decimal
@@ -38,6 +40,7 @@ from app.services.statement_service import (
     ClientNotFoundError,
     get_statement_service,
 )
+from app.services.pdf_service import pdf_service
 from app.schemas.accounting import (
     ReceivablesAgingResponse,
     CustomerStatementResponse,
@@ -51,6 +54,87 @@ from app.schemas.payment_allocation import (
 )
 
 router = APIRouter(prefix="/accounting", tags=["Accounting"])
+
+
+def _sync_generate_receivables_aging_csv(
+    service: AccountingService,
+    as_of_date: Optional[date],
+    society_id: Optional[int],
+    client_id: Optional[int],
+    min_amount: Optional[Decimal],
+    currency_id: Optional[int],
+) -> str:
+    """Generate CSV export for receivables aging report."""
+    report = service.get_receivables_aging(
+        as_of_date=as_of_date,
+        society_id=society_id,
+        client_id=client_id,
+        min_amount=min_amount,
+        include_invoices=True,
+        currency_id=currency_id,
+    )
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "client_id",
+            "client_reference",
+            "client_name",
+            "invoice_id",
+            "invoice_reference",
+            "invoice_date",
+            "due_date",
+            "days_overdue",
+            "aging_bucket",
+            "total_amount",
+            "paid_amount",
+            "remaining_amount",
+            "currency_code",
+        ]
+    )
+
+    invoices = report.invoices or []
+    if invoices:
+        for inv in invoices:
+            writer.writerow(
+                [
+                    inv.client_id,
+                    "",
+                    inv.client_name,
+                    inv.invoice_id,
+                    inv.invoice_reference,
+                    inv.invoice_date.isoformat() if inv.invoice_date else "",
+                    inv.due_date.isoformat() if inv.due_date else "",
+                    inv.days_overdue,
+                    inv.aging_bucket,
+                    str(inv.total_amount),
+                    str(inv.paid_amount),
+                    str(inv.remaining_amount),
+                    inv.currency_code,
+                ]
+            )
+    else:
+        for client in report.by_client:
+            writer.writerow(
+                [
+                    client.client_id,
+                    client.client_reference,
+                    client.client_name,
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    str(client.total_outstanding),
+                    "0",
+                    str(client.total_outstanding),
+                    "",
+                ]
+            )
+
+    return output.getvalue()
 
 
 # ==========================================================================
@@ -95,6 +179,70 @@ async def get_receivables_aging(
         )
 
     return await asyncio.to_thread(_sync)
+
+
+@router.get(
+    "/receivables-aging",
+    response_model=ReceivablesAgingResponse,
+    summary="Get accounts receivable aging report (compatibility alias)",
+    description="Compatibility alias for /accounting/receivables/aging.",
+)
+async def get_receivables_aging_compat(
+    as_of_date: Optional[date] = Query(None, description="Calculate aging as of this date (default: today)"),
+    society_id: Optional[int] = Query(None, description="Filter by company/society ID"),
+    client_id: Optional[int] = Query(None, description="Filter by specific client"),
+    min_amount: Optional[Decimal] = Query(None, description="Minimum outstanding amount"),
+    include_invoices: bool = Query(False, description="Include invoice-level details"),
+    currency_id: Optional[int] = Query(None, description="Filter by currency"),
+    service: AccountingService = Depends(get_accounting_service),
+):
+    """Backward-compatible alias for receivables aging endpoint."""
+    def _sync():
+        return service.get_receivables_aging(
+            as_of_date=as_of_date,
+            society_id=society_id,
+            client_id=client_id,
+            min_amount=min_amount,
+            include_invoices=include_invoices,
+            currency_id=currency_id,
+        )
+
+    return await asyncio.to_thread(_sync)
+
+
+@router.get(
+    "/receivables-aging/export",
+    summary="Export accounts receivable aging report as CSV",
+    description="Compatibility CSV export endpoint for receivables aging.",
+    responses={
+        200: {"description": "CSV exported successfully", "content": {"text/csv": {}}},
+    },
+)
+async def export_receivables_aging_csv(
+    as_of_date: Optional[date] = Query(None, description="Calculate aging as of this date (default: today)"),
+    society_id: Optional[int] = Query(None, description="Filter by company/society ID"),
+    client_id: Optional[int] = Query(None, description="Filter by specific client"),
+    min_amount: Optional[Decimal] = Query(None, description="Minimum outstanding amount"),
+    currency_id: Optional[int] = Query(None, description="Filter by currency"),
+    service: AccountingService = Depends(get_accounting_service),
+):
+    """Export receivables aging report as CSV."""
+
+    csv_content = await asyncio.to_thread(
+        _sync_generate_receivables_aging_csv,
+        service,
+        as_of_date,
+        society_id,
+        client_id,
+        min_amount,
+        currency_id,
+    )
+    filename = f"receivables_aging_{(as_of_date or date.today()).isoformat()}.csv"
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ==========================================================================
@@ -320,6 +468,135 @@ async def export_customer_statement_csv(
             content=csv_result["data"],
             media_type=csv_result["content_type"],
             headers={"Content-Disposition": f'attachment; filename="{csv_result["filename"]}"'},
+        )
+    except ClientNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Client with ID {client_id} not found",
+        )
+    except StatementServiceError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": e.message, "code": e.code},
+        )
+
+
+def _sync_export_customer_statement_pdf(
+    service: StatementService,
+    client_id: int,
+    from_date: date,
+    to_date: date,
+    include_paid: bool,
+    society_id: Optional[int],
+    include_invoice_pages: bool,
+    bl_mode: bool,
+):
+    """Build a statement PDF payload (template PDF service placeholder)."""
+    statement = service.generate_customer_statement(
+        client_id=client_id,
+        from_date=from_date,
+        to_date=to_date,
+        include_paid_invoices=include_paid,
+        society_id=society_id,
+    )
+
+    pdf_bytes = pdf_service.generate_pdf(
+        template_name="customer_statement",
+        context={
+            "statement": statement,
+            "include_invoice_pages": include_invoice_pages,
+            "bl_mode": bl_mode,
+        },
+    )
+
+    client_ref = (statement.get("client", {}) or {}).get("reference", f"client-{client_id}")
+    mode = "bl" if bl_mode else ("with-invoice" if include_invoice_pages else "without-invoice")
+    filename = f"statement_{client_ref}_{from_date.isoformat()}_{to_date.isoformat()}_{mode}.pdf"
+    return {"data": pdf_bytes, "filename": filename}
+
+
+@router.get(
+    "/clients/{client_id}/statement/export/pdf",
+    summary="Export customer statement as PDF",
+    description="Export statement PDF with optional invoice pages.",
+    responses={
+        200: {"description": "PDF exported successfully", "content": {"application/pdf": {}}},
+        404: {"description": "Client not found"},
+    },
+)
+async def export_customer_statement_pdf(
+    client_id: int = Path(..., description="Client ID"),
+    from_date: date = Query(..., description="Start date of statement period"),
+    to_date: date = Query(..., description="End date of statement period"),
+    include_paid: bool = Query(True, description="Include fully paid invoices"),
+    include_invoice: bool = Query(True, description="Include invoice pages in PDF"),
+    society_id: Optional[int] = Query(None, description="Filter by society ID"),
+    service: StatementService = Depends(get_statement_service),
+):
+    """Export customer statement as PDF."""
+    try:
+        result = await asyncio.to_thread(
+            _sync_export_customer_statement_pdf,
+            service,
+            client_id,
+            from_date,
+            to_date,
+            include_paid,
+            society_id,
+            include_invoice,
+            False,
+        )
+        return Response(
+            content=result["data"],
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{result["filename"]}"'},
+        )
+    except ClientNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Client with ID {client_id} not found",
+        )
+    except StatementServiceError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": e.message, "code": e.code},
+        )
+
+
+@router.get(
+    "/clients/{client_id}/statement/export/bl-pdf",
+    summary="Export customer statement BL PDF",
+    description="Export statement PDF in delivery-note (BL) mode.",
+    responses={
+        200: {"description": "PDF exported successfully", "content": {"application/pdf": {}}},
+        404: {"description": "Client not found"},
+    },
+)
+async def export_customer_statement_bl_pdf(
+    client_id: int = Path(..., description="Client ID"),
+    from_date: date = Query(..., description="Start date of statement period"),
+    to_date: date = Query(..., description="End date of statement period"),
+    include_paid: bool = Query(True, description="Include fully paid invoices"),
+    society_id: Optional[int] = Query(None, description="Filter by society ID"),
+    service: StatementService = Depends(get_statement_service),
+):
+    """Export customer statement BL PDF."""
+    try:
+        result = await asyncio.to_thread(
+            _sync_export_customer_statement_pdf,
+            service,
+            client_id,
+            from_date,
+            to_date,
+            include_paid,
+            society_id,
+            False,
+            True,
+        )
+        return Response(
+            content=result["data"],
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{result["filename"]}"'},
         )
     except ClientNotFoundError:
         raise HTTPException(

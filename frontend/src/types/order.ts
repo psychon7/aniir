@@ -28,6 +28,7 @@ export interface Order {
   currency?: string
 
   discountAmount?: number
+  discountPercentage?: number
   paidAmount?: number
   paymentStatusName?: string
 
@@ -129,4 +130,23 @@ export interface OrderListItem {
   statusName?: string
   totalAmount?: number
   currencyCode?: string
+}
+
+/**
+ * Request for updating order-level discount
+ */
+export interface OrderDiscountRequest {
+  discountPercentage?: number
+  discountAmount?: number
+}
+
+/**
+ * Response payload for converting an order to a quote
+ */
+export interface OrderConvertToQuoteResponse {
+  orderId: number
+  quoteId: number
+  quoteReference: string
+  convertedAt: string
+  linesConverted: number
 }

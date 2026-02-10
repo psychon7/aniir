@@ -5,6 +5,8 @@ import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
 import { StatusBadge } from '@/components/ui/Badge'
 import { useDownloadDeliveryPdf } from '@/hooks/useDeliveries'
+import { useCreateInvoiceFromDelivery } from '@/hooks/useInvoices'
+import { useToast } from '@/components/ui/feedback/Toast'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/deliveries/$deliveryId')({
@@ -15,6 +17,8 @@ function DeliveryDetailPage() {
   const { deliveryId } = Route.useParams()
   const navigate = useNavigate()
   const downloadPdf = useDownloadDeliveryPdf()
+  const createInvoice = useCreateInvoiceFromDelivery()
+  const { success, error: showError } = useToast()
 
   const { data: delivery, isLoading } = useQuery({
     queryKey: ['delivery', deliveryId],
@@ -59,6 +63,24 @@ function DeliveryDetailPage() {
         onClick={() => downloadPdf.mutate(parseInt(deliveryId, 10))}
       >
         {downloadPdf.isPending ? 'Generating...' : 'Download PDF'}
+      </button>
+      <button
+        className="btn-secondary"
+        disabled={createInvoice.isPending}
+        onClick={async () => {
+          try {
+            const result = await createInvoice.mutateAsync({ deliveryId: parseInt(deliveryId, 10) })
+            success(
+              result.alreadyExists ? 'Invoice already exists' : 'Invoice created',
+              `Invoice ${result.invoiceReference} is ready.`
+            )
+            navigate({ to: '/invoices/$invoiceId' as any, params: { invoiceId: String(result.invoiceId) } } as any)
+          } catch {
+            showError('Invoice creation failed', 'Unable to create invoice from this delivery.')
+          }
+        }}
+      >
+        {createInvoice.isPending ? 'Creating...' : 'Create Invoice'}
       </button>
       {delivery.statusName !== 'Delivered' && (
         <button className="btn-primary">Mark as Delivered</button>

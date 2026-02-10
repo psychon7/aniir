@@ -41,6 +41,31 @@
     --accent-violet: 265 70% 55%;
   }
 
+  .theme-bu-led {
+    --primary: 220 85% 55%;
+    --ring: 220 85% 55%;
+  }
+
+  .theme-bu-domotics {
+    --primary: 332 82% 54%;
+    --ring: 332 82% 54%;
+  }
+
+  .theme-bu-hvac {
+    --primary: 158 72% 39%;
+    --ring: 158 72% 39%;
+  }
+
+  .theme-bu-waveconcept {
+    --primary: 28 94% 52%;
+    --ring: 28 94% 52%;
+  }
+
+  .theme-bu-accessories {
+    --primary: 252 72% 57%;
+    --ring: 252 72% 57%;
+  }
+
   .dark {
     --background: 220 20% 7%;
     --foreground: 220 15% 95%;

@@ -26,6 +26,26 @@ export interface EnterpriseSettings {
   capital: string | null
   emailAuto: boolean | null
   maskCommission: boolean | null
+  ribName: string | null
+  ribAddress: string | null
+  ribIban: string | null
+  ribBic: string | null
+  ribBankCode: string | null
+  ribAgencyCode: string | null
+  ribAccountNumber: string | null
+  ribKey: string | null
+  ribDomiciliationAgency: string | null
+  ribAbbreviation: string | null
+  ribName2: string | null
+  ribAddress2: string | null
+  ribIban2: string | null
+  ribBic2: string | null
+  ribBankCode2: string | null
+  ribAgencyCode2: string | null
+  ribAccountNumber2: string | null
+  ribKey2: string | null
+  ribDomiciliationAgency2: string | null
+  ribAbbreviation2: string | null
   fullAddress: string | null
 }
 
@@ -49,6 +69,26 @@ export interface EnterpriseSettingsUpdateDto {
   soc_rcs?: string
   soc_tva_intra?: string
   soc_capital?: string
+  soc_rib_name?: string
+  soc_rib_address?: string
+  soc_rib_code_iban?: string
+  soc_rib_code_bic?: string
+  soc_rib_bank_code?: string
+  soc_rib_agence_code?: string
+  soc_rib_account_number?: string
+  soc_rib_key?: string
+  soc_rib_domiciliation_agency?: string
+  soc_rib_abbre?: string
+  soc_rib_name_2?: string
+  soc_rib_address_2?: string
+  soc_rib_code_iban_2?: string
+  soc_rib_code_bic_2?: string
+  soc_rib_bank_code_2?: string
+  soc_rib_agence_code_2?: string
+  soc_rib_account_number_2?: string
+  soc_rib_key_2?: string
+  soc_rib_domiciliation_agency_2?: string
+  soc_rib_abbre_2?: string
   soc_email_auto?: boolean
   soc_mask_commission?: boolean
 }

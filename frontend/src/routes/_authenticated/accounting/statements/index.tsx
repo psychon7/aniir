@@ -1,343 +1,219 @@
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
-import i18n from 'i18next'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
-import { DataTable, Column } from '@/components/ui/data-table'
-import { StatusBadge } from '@/components/ui/Badge'
-import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
-import { useToast } from '@/components/ui/feedback/Toast'
+import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
 import { FormSelect } from '@/components/ui/form/FormSelect'
-import { StatementForm } from '@/components/features/statements/StatementForm'
+import { useToast } from '@/components/ui/feedback/Toast'
+import { useClients } from '@/hooks/useClients'
 import {
-  useStatements,
-  useCreateStatement,
-  useUpdateStatement,
-  useDeleteStatement,
-  useExportStatements,
+  useCustomerStatement,
+  useExportCustomerStatementBlPdf,
+  useExportCustomerStatementCsv,
+  useExportCustomerStatementPdf,
 } from '@/hooks/useStatements'
-import { useStatementStatuses, useStatementTypes } from '@/hooks/useStatementLookups'
-import { useBusinessUnits } from '@/hooks/useLookups'
-import type { Statement, StatementCreateDto, StatementSearchParams } from '@/types/statement'
+import type { StatementGenerationParams } from '@/types/statement'
 
 export const Route = createFileRoute('/_authenticated/accounting/statements/')({
   component: StatementsPage,
 })
 
+function getTodayIso(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function getMonthStartIso(): string {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+}
+
+function formatDate(value?: string | null): string {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '-'
+  return date.toLocaleDateString()
+}
+
+function formatCurrency(value?: number | null): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: 2,
+  }).format(value || 0)
+}
+
 function StatementsPage() {
-  const { t } = useTranslation()
   const { success, error: showError } = useToast()
 
-  // Search and filter state
-  const [searchParams, setSearchParams] = useState<StatementSearchParams>({
+  const [clientId, setClientId] = useState('')
+  const [fromDate, setFromDate] = useState(getMonthStartIso())
+  const [toDate, setToDate] = useState(getTodayIso())
+  const [includePaid, setIncludePaid] = useState(true)
+  const [request, setRequest] = useState<{ clientId: number; params: StatementGenerationParams } | null>(null)
+
+  const { data: clientsData, isLoading: isLoadingClients } = useClients({
     page: 1,
-    pageSize: 10,
-    sortBy: 'statementDate',
-    sortOrder: 'desc',
+    pageSize: 200,
+    sortBy: 'companyName',
+    sortOrder: 'asc',
   })
 
-  // Modal state
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [editingStatement, setEditingStatement] = useState<Statement | null>(null)
-  const [deletingStatement, setDeletingStatement] = useState<Statement | null>(null)
+  const currentParams = useMemo<StatementGenerationParams>(
+    () => ({
+      fromDate,
+      toDate,
+      includePaid,
+    }),
+    [fromDate, toDate, includePaid]
+  )
 
-  // Data fetching
-  const { data: statementsData, isLoading } = useStatements(searchParams)
-  const { data: statuses = [] } = useStatementStatuses()
-  const { data: statementTypes = [] } = useStatementTypes()
-  const { data: businessUnits = [] } = useBusinessUnits()
+  const statementQuery = useCustomerStatement(
+    request?.clientId,
+    request?.params || currentParams,
+    !!request
+  )
 
-  // Mutations
-  const createMutation = useCreateStatement()
-  const updateMutation = useUpdateStatement()
-  const deleteMutation = useDeleteStatement()
-  const exportMutation = useExportStatements()
+  const exportMutation = useExportCustomerStatementCsv()
+  const exportPdfMutation = useExportCustomerStatementPdf()
+  const exportBlPdfMutation = useExportCustomerStatementBlPdf()
 
-  // Handle search
-  const handleSearch = (search: string) => {
-    setSearchParams((prev) => ({ ...prev, search, page: 1 }))
-  }
+  const clients = clientsData?.data || []
 
-  // Handle page change
-  const handlePageChange = (page: number) => {
-    setSearchParams((prev) => ({ ...prev, page }))
-  }
-
-  // Handle page size change
-  const handlePageSizeChange = (pageSize: number) => {
-    setSearchParams((prev) => ({ ...prev, pageSize, page: 1 }))
-  }
-
-  // Handle sort change
-  const handleSortChange = (sortBy: string, sortOrder: 'asc' | 'desc') => {
-    setSearchParams((prev) => ({ ...prev, sortBy, sortOrder }))
-  }
-
-  // Handle filter changes
-  const handleStatusFilter = (value: string) => {
-    setSearchParams((prev) => ({
-      ...prev,
-      statusId: value ? Number(value) : undefined,
-      page: 1,
-    }))
-  }
-
-  const handleTypeFilter = (value: string) => {
-    setSearchParams((prev) => ({
-      ...prev,
-      statementTypeId: value ? Number(value) : undefined,
-      page: 1,
-    }))
-  }
-
-  const handleBusinessUnitFilter = (value: string) => {
-    setSearchParams((prev) => ({
-      ...prev,
-      businessUnitId: value ? Number(value) : undefined,
-      page: 1,
-    }))
-  }
-
-  // Handle create/edit
-  const handleOpenCreate = () => {
-    setEditingStatement(null)
-    setIsFormOpen(true)
-  }
-
-  const handleOpenEdit = (statement: Statement) => {
-    setEditingStatement(statement)
-    setIsFormOpen(true)
-  }
-
-  const handleFormSubmit = async (data: StatementCreateDto) => {
-    try {
-      if (editingStatement) {
-        await updateMutation.mutateAsync({ ...data, id: editingStatement.id })
-        success(t('statements.statementUpdated'), t('statements.statementUpdatedDesc'))
-      } else {
-        await createMutation.mutateAsync(data)
-        success(t('statements.statementCreated'), t('statements.statementCreatedDesc'))
-      }
-      setIsFormOpen(false)
-      setEditingStatement(null)
-    } catch {
-      showError(t('common.error'), t('statements.saveError'))
+  const handleGenerate = () => {
+    const parsedClientId = Number(clientId)
+    if (!parsedClientId || !fromDate || !toDate) {
+      showError('Missing filters', 'Client, from date, and to date are required.')
+      return
     }
-  }
 
-  // Handle delete
-  const handleConfirmDelete = async () => {
-    if (!deletingStatement) return
-
-    try {
-      await deleteMutation.mutateAsync(deletingStatement.id)
-      success(t('statements.statementDeleted'), t('statements.statementDeletedDesc'))
-      setDeletingStatement(null)
-    } catch {
-      showError(t('common.error'), t('statements.deleteError'))
+    const nextRequest = {
+      clientId: parsedClientId,
+      params: currentParams,
     }
+
+    if (
+      request &&
+      request.clientId === nextRequest.clientId &&
+      JSON.stringify(request.params) === JSON.stringify(nextRequest.params)
+    ) {
+      statementQuery.refetch()
+      return
+    }
+
+    setRequest(nextRequest)
   }
 
-  // Handle export
   const handleExport = () => {
-    exportMutation.mutate(searchParams, {
-      onSuccess: () => success(t('statements.exportComplete'), t('statements.exportCompleteDesc')),
-      onError: () => showError(t('statements.exportFailed'), t('statements.exportFailedDesc')),
-    })
+    const parsedClientId = Number(clientId)
+    const targetClientId = request?.clientId || parsedClientId
+    const targetParams = request?.params || currentParams
+
+    if (!targetClientId || !targetParams.fromDate || !targetParams.toDate) {
+      showError('Missing filters', 'Generate a statement first or fill all required filters.')
+      return
+    }
+
+    exportMutation.mutate(
+      {
+        clientId: targetClientId,
+        params: targetParams,
+      },
+      {
+        onSuccess: () => success('Export complete', 'Statement CSV export started.'),
+        onError: () => showError('Export failed', 'Unable to export statement CSV.'),
+      }
+    )
   }
 
-  // Format currency
-  const formatAmount = (amount: number, currency: string) => {
-    return new Intl.NumberFormat(i18n.language, {
-      style: 'currency',
-      currency: currency || 'EUR',
-      minimumFractionDigits: 2,
-    }).format(amount)
+  const handleExportPdf = (includeInvoice: boolean) => {
+    const parsedClientId = Number(clientId)
+    const targetClientId = request?.clientId || parsedClientId
+    const targetParams = request?.params || currentParams
+
+    if (!targetClientId || !targetParams.fromDate || !targetParams.toDate) {
+      showError('Missing filters', 'Generate a statement first or fill all required filters.')
+      return
+    }
+
+    exportPdfMutation.mutate(
+      {
+        clientId: targetClientId,
+        params: targetParams,
+        includeInvoice,
+      },
+      {
+        onSuccess: () =>
+          success(
+            'Export complete',
+            includeInvoice
+              ? 'Statement PDF (with invoice) export started.'
+              : 'Statement PDF (without invoice) export started.'
+          ),
+        onError: () => showError('Export failed', 'Unable to export statement PDF.'),
+      }
+    )
   }
 
-  // Format date
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString(i18n.language, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
+  const handleExportBlPdf = () => {
+    const parsedClientId = Number(clientId)
+    const targetClientId = request?.clientId || parsedClientId
+    const targetParams = request?.params || currentParams
+
+    if (!targetClientId || !targetParams.fromDate || !targetParams.toDate) {
+      showError('Missing filters', 'Generate a statement first or fill all required filters.')
+      return
+    }
+
+    exportBlPdfMutation.mutate(
+      {
+        clientId: targetClientId,
+        params: targetParams,
+      },
+      {
+        onSuccess: () => success('Export complete', 'Statement BL PDF export started.'),
+        onError: () => showError('Export failed', 'Unable to export statement BL PDF.'),
+      }
+    )
   }
 
-  // Format date range for period
-  const formatPeriod = (start: string, end: string) => {
-    const startDate = new Date(start).toLocaleDateString(i18n.language, {
-      month: 'short',
-      day: 'numeric',
-    })
-    const endDate = new Date(end).toLocaleDateString(i18n.language, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-    return `${startDate} - ${endDate}`
-  }
+  const statement = statementQuery.data
 
-  // Table columns
-  const columns = useMemo<Column<Statement>[]>(
-    () => [
-      {
-        id: 'reference',
-        header: t('statements.reference'),
-        accessorKey: 'reference',
-        sortable: true,
-        cell: (row) => (
-          <span className="font-mono text-sm text-muted-foreground">{row.reference}</span>
-        ),
-      },
-      {
-        id: 'clientName',
-        header: t('statements.client'),
-        accessorKey: 'clientName',
-        sortable: true,
-        cell: (row) => (
-          <div>
-            <p className="font-medium text-foreground">{row.clientName}</p>
-            <p className="text-sm text-muted-foreground">{row.statementTypeName}</p>
-          </div>
-        ),
-      },
-      {
-        id: 'period',
-        header: t('statements.period'),
-        accessorKey: 'periodStart',
-        sortable: true,
-        cell: (row) => (
-          <span className="text-sm text-muted-foreground">
-            {formatPeriod(row.periodStart, row.periodEnd)}
-          </span>
-        ),
-      },
-      {
-        id: 'openingBalance',
-        header: t('statements.openingBalance'),
-        accessorKey: 'openingBalance',
-        sortable: true,
-        cell: (row) => (
-          <span className={`font-medium ${row.openingBalance < 0 ? 'text-destructive' : 'text-foreground'}`}>
-            {formatAmount(row.openingBalance, row.currencyCode)}
-          </span>
-        ),
-        className: 'text-right',
-      },
-      {
-        id: 'closingBalance',
-        header: t('statements.closingBalance'),
-        accessorKey: 'closingBalance',
-        sortable: true,
-        cell: (row) => (
-          <span className={`font-medium ${row.closingBalance < 0 ? 'text-destructive' : 'text-foreground'}`}>
-            {formatAmount(row.closingBalance, row.currencyCode)}
-          </span>
-        ),
-        className: 'text-right',
-      },
-      {
-        id: 'statementDate',
-        header: t('statements.date'),
-        accessorKey: 'statementDate',
-        sortable: true,
-        cell: (row) => (
-          <span className="text-sm text-muted-foreground">{formatDate(row.statementDate)}</span>
-        ),
-      },
-      {
-        id: 'statusName',
-        header: t('statements.status'),
-        accessorKey: 'statusName',
-        sortable: true,
-        cell: (row) => <StatusBadge status={row.statusName} />,
-      },
-      {
-        id: 'actions',
-        header: t('common.actions'),
-        cell: (row) => (
-          <div className="flex items-center justify-end gap-1">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                handleOpenEdit(row)
-              }}
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title={t('common.edit')}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setDeletingStatement(row)
-              }}
-              className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-              title={t('common.delete')}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
-        ),
-        className: 'w-24',
-      },
-    ],
-    [t]
-  )
-
-  // Filter components
-  const filters = (
-    <>
-      <FormSelect
-        value={searchParams.statusId?.toString() || ''}
-        onChange={(e) => handleStatusFilter(e.target.value)}
-        options={[
-          { value: '', label: t('statements.allStatuses') },
-          ...statuses.map((s) => ({ value: s.key, label: s.value })),
-        ]}
-        className="w-40"
-      />
-      <FormSelect
-        value={searchParams.statementTypeId?.toString() || ''}
-        onChange={(e) => handleTypeFilter(e.target.value)}
-        options={[
-          { value: '', label: t('statements.allTypes') },
-          ...statementTypes.map((t) => ({ value: t.key, label: t.value })),
-        ]}
-        className="w-40"
-      />
-      <FormSelect
-        value={searchParams.businessUnitId?.toString() || ''}
-        onChange={(e) => handleBusinessUnitFilter(e.target.value)}
-        options={[
-          { value: '', label: t('statements.allUnits') },
-          ...businessUnits.map((u) => ({ value: u.key, label: u.value })),
-        ]}
-        className="w-40"
-      />
-    </>
-  )
-
-  // Action buttons
   const actions = (
     <>
-      <button onClick={handleExport} className="btn-secondary" disabled={exportMutation.isPending}>
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        {t('common.export')}
+      <button
+        onClick={() => handleExportPdf(true)}
+        className="btn-secondary"
+        disabled={exportPdfMutation.isPending}
+      >
+        {exportPdfMutation.isPending ? 'Exporting...' : 'PDF (With Invoice)'}
       </button>
-      <button onClick={handleOpenCreate} className="btn-primary">
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-        </svg>
-        {t('statements.newStatement')}
+      <button
+        onClick={() => handleExportPdf(false)}
+        className="btn-secondary"
+        disabled={exportPdfMutation.isPending}
+      >
+        {exportPdfMutation.isPending ? 'Exporting...' : 'PDF (Without Invoice)'}
+      </button>
+      <button
+        onClick={handleExportBlPdf}
+        className="btn-secondary"
+        disabled={exportBlPdfMutation.isPending}
+      >
+        {exportBlPdfMutation.isPending ? 'Exporting...' : 'BL PDF'}
+      </button>
+      <button
+        onClick={handleExport}
+        className="btn-secondary"
+        disabled={exportMutation.isPending}
+      >
+        {exportMutation.isPending ? 'Exporting...' : 'Export CSV'}
+      </button>
+      <button
+        onClick={handleGenerate}
+        className="btn-primary"
+        disabled={statementQuery.isFetching}
+      >
+        {statementQuery.isFetching ? 'Generating...' : 'Generate Statement'}
       </button>
     </>
   )
@@ -345,54 +221,180 @@ function StatementsPage() {
   return (
     <PageContainer>
       <PageHeader
-        title={t('statements.title')}
-        description={t('statements.description')}
+        title="Customer Statements"
+        description="Generate client account statements with opening/closing balances and transaction history."
         actions={actions}
       />
 
-      <DataTable
-        columns={columns}
-        data={statementsData?.data || []}
-        keyField="id"
-        isLoading={isLoading}
-        page={searchParams.page}
-        pageSize={searchParams.pageSize}
-        totalCount={statementsData?.totalCount || 0}
-        totalPages={statementsData?.totalPages || 1}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
-        sortBy={searchParams.sortBy}
-        sortOrder={searchParams.sortOrder}
-        onSortChange={handleSortChange}
-        searchValue={searchParams.search}
-        onSearchChange={handleSearch}
-        searchPlaceholder={t('statements.searchStatements')}
-        filters={filters}
-        onRowClick={handleOpenEdit}
-        emptyMessage={t('statements.noStatementsFound')}
-        emptyDescription={t('statements.getStartedStatements')}
-      />
+      <Card className="mb-6">
+        <CardHeader
+          title="Filters"
+          description="Select a client and date range to generate a statement."
+        />
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <FormSelect
+              label="Client"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              options={[
+                { value: '', label: isLoadingClients ? 'Loading clients...' : 'Select client' },
+                ...clients.map((client) => ({
+                  value: String(client.id),
+                  label: `${client.reference} - ${client.companyName}`,
+                })),
+              ]}
+            />
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">From Date</label>
+              <input
+                type="date"
+                className="w-full px-4 py-2.5 bg-background border border-border rounded-lg"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">To Date</label>
+              <input
+                type="date"
+                className="w-full px-4 py-2.5 bg-background border border-border rounded-lg"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <label className="inline-flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includePaid}
+                  onChange={(e) => setIncludePaid(e.target.checked)}
+                />
+                Include fully paid invoices
+              </label>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Create/Edit Form Modal */}
-      <StatementForm
-        isOpen={isFormOpen}
-        onClose={() => {
-          setIsFormOpen(false)
-          setEditingStatement(null)
-        }}
-        onSubmit={handleFormSubmit}
-        statement={editingStatement}
-        isSubmitting={createMutation.isPending || updateMutation.isPending}
-      />
+      {statementQuery.isError && (
+        <Card className="mb-6">
+          <CardContent>
+            <p className="text-destructive">
+              Failed to generate statement. Verify filters and try again.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Delete Confirmation Dialog */}
-      <DeleteConfirmDialog
-        isOpen={!!deletingStatement}
-        onClose={() => setDeletingStatement(null)}
-        onConfirm={handleConfirmDelete}
-        itemName={deletingStatement?.reference || t('statements.thisStatement')}
-        isLoading={deleteMutation.isPending}
-      />
+      {statement && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <MetricCard label="Opening Balance" value={formatCurrency(statement.opening_balance)} />
+            <MetricCard label="Total Debits" value={formatCurrency(statement.totals.total_debits)} />
+            <MetricCard label="Total Credits" value={formatCurrency(statement.totals.total_credits)} />
+            <MetricCard label="Closing Balance" value={formatCurrency(statement.closing_balance)} />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <Card>
+              <CardHeader title="Client" />
+              <CardContent>
+                <dl className="space-y-2 text-sm">
+                  <Row label="Name" value={statement.client.company_name || '-'} />
+                  <Row label="Reference" value={statement.client.reference || '-'} />
+                  <Row label="Email" value={statement.client.email || '-'} />
+                  <Row label="Period" value={`${formatDate(statement.period.from_date)} - ${formatDate(statement.period.to_date)}`} />
+                </dl>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader title="Aging Summary" />
+              <CardContent>
+                <dl className="space-y-2 text-sm">
+                  <Row label="0-30 days" value={formatCurrency(statement.aging_summary.current)} />
+                  <Row label="31-60 days" value={formatCurrency(statement.aging_summary.days_31_60)} />
+                  <Row label="61-90 days" value={formatCurrency(statement.aging_summary.days_61_90)} />
+                  <Row label="90+ days" value={formatCurrency(statement.aging_summary.over_90)} />
+                </dl>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader title="Report Details" />
+              <CardContent>
+                <dl className="space-y-2 text-sm">
+                  <Row label="Transactions" value={String(statement.totals.transaction_count)} />
+                  <Row label="Net Change" value={formatCurrency(statement.totals.net_change)} />
+                  <Row label="Generated At" value={formatDate(statement.generated_at)} />
+                </dl>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader
+              title="Transactions"
+              description="Invoices, credit notes, and payments in chronological order."
+            />
+            <CardContent>
+              {statement.transactions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No transactions found for the selected period.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 pr-4">Date</th>
+                        <th className="text-left py-2 pr-4">Type</th>
+                        <th className="text-left py-2 pr-4">Reference</th>
+                        <th className="text-left py-2 pr-4">Description</th>
+                        <th className="text-right py-2 pr-4">Debit</th>
+                        <th className="text-right py-2 pr-4">Credit</th>
+                        <th className="text-right py-2">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {statement.transactions.map((transaction, index) => (
+                        <tr key={`${transaction.reference}-${index}`} className="border-b border-border/50">
+                          <td className="py-2 pr-4">{formatDate(transaction.date)}</td>
+                          <td className="py-2 pr-4">{transaction.type}</td>
+                          <td className="py-2 pr-4 font-mono">{transaction.reference}</td>
+                          <td className="py-2 pr-4">{transaction.description}</td>
+                          <td className="py-2 pr-4 text-right">{formatCurrency(transaction.debit)}</td>
+                          <td className="py-2 pr-4 text-right">{formatCurrency(transaction.credit)}</td>
+                          <td className="py-2 text-right font-medium">{formatCurrency(transaction.balance)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </PageContainer>
+  )
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <Card>
+      <CardContent>
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="text-2xl font-semibold text-foreground mt-1">{value}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-foreground text-right">{value}</dd>
+    </div>
   )
 }

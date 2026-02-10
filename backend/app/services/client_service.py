@@ -21,6 +21,7 @@ from fastapi import Depends
 
 from app.database import get_db
 from app.models.client import Client
+from app.models.user import User
 from app.models.society import Society
 from app.models.currency import Currency
 from app.models.client_type import ClientType
@@ -207,6 +208,14 @@ class ClientService:
                 response_data["paymentConditionName"] = payment_term.pco_designation
                 response_data["paymentTermDays"] = payment_term.pco_numday + payment_term.pco_day_additional
 
+        # Commercial Users
+        for idx in [1, 2, 3]:
+            usr_id = getattr(client, f"cli_usr_com{idx}", None)
+            if usr_id:
+                user = self.db.get(User, usr_id)
+                if user:
+                    response_data[f"commercialUser{idx}Name"] = user.full_name
+
         return response_data
 
     def _sync_get_client_by_email(self, email: str) -> Optional[Client]:
@@ -224,6 +233,12 @@ class ClientService:
             raise ClientReferenceNotFoundError(reference)
         return client
 
+    def _sync_generate_client_reference(self) -> str:
+        """Generate deterministic client reference."""
+        year = datetime.utcnow().year
+        max_id = self.db.execute(select(func.max(Client.cli_id))).scalar() or 0
+        return f"CLI-{year}-{int(max_id) + 1:05d}"
+
     def _sync_create_client(self, data: ClientCreate, user_id: Optional[int] = None) -> Client:
         """Synchronous create client."""
         if hasattr(data, 'cli_email') and data.cli_email:
@@ -232,6 +247,16 @@ class ClientService:
                 raise DuplicateClientError("email", data.cli_email)
 
         client_data = data.model_dump(exclude_unset=True)
+        now = datetime.utcnow()
+        client_data.setdefault("cli_d_creation", now)
+        client_data.setdefault("cli_d_update", now)
+        client_data.setdefault("usr_created_by", user_id or 1)
+        client_data.setdefault("cli_isactive", True)
+        client_data.setdefault("cli_isblocked", False)
+        client_data.setdefault("cli_recieve_newsletter", False)
+        if not client_data.get("cli_ref"):
+            client_data["cli_ref"] = self._sync_generate_client_reference()
+
         client = Client(**client_data)
 
         self.db.add(client)
@@ -246,6 +271,7 @@ class ClientService:
         update_data = data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(client, field, value)
+        client.cli_d_update = datetime.utcnow()
 
         self.db.commit()
         self.db.refresh(client)

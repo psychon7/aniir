@@ -12,12 +12,14 @@ from app.api.v1 import (
     auth,
     users,
     clients,
+    categories,
     consignees,  # ENABLED: Consignee Management
     # client_types,
     suppliers,
     supplier_orders,
     supplier_invoices,
     products,
+    product_components,
     brands,  # ENABLED: Wave 4 Brands
     quotes,
     orders,
@@ -78,10 +80,12 @@ api_router.include_router(users.router)
 # Core Business Entities
 # -----------------------------------------------------------------------------
 api_router.include_router(clients.router)
+api_router.include_router(categories.router)
 api_router.include_router(consignees.router)  # ENABLED: Consignee Management
 # api_router.include_router(client_types.router)
 api_router.include_router(suppliers.router)
 api_router.include_router(products.router)
+api_router.include_router(product_components.router)
 api_router.include_router(product_attributes.router)  # ENABLED: Wave 3 Product Attributes
 api_router.include_router(brands.router)  # ENABLED: Wave 4 Brands
 

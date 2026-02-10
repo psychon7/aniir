@@ -149,3 +149,70 @@ export interface StatementType {
   id: number
   name: string
 }
+
+/**
+ * Request parameters for customer statement generation.
+ */
+export interface StatementGenerationParams {
+  fromDate: string
+  toDate: string
+  includePaid?: boolean
+  societyId?: number
+}
+
+/**
+ * Transaction row from generated customer statement.
+ */
+export interface CustomerStatementTransaction {
+  date: string
+  type: string
+  reference: string
+  description: string
+  debit: number
+  credit: number
+  balance: number
+  due_date?: string | null
+  document_id?: number | null
+  days_overdue?: number
+}
+
+/**
+ * Generated customer statement payload from backend.
+ */
+export interface CustomerStatementReport {
+  statement_type: string
+  client: {
+    id: number
+    reference?: string
+    company_name?: string
+    address?: string
+    city?: string
+    postal_code?: string
+    country?: string
+    email?: string
+  }
+  period: {
+    from_date: string
+    to_date: string
+  }
+  opening_balance: number
+  transactions: CustomerStatementTransaction[]
+  totals: {
+    total_debits: number
+    total_credits: number
+    net_change: number
+    transaction_count: number
+  }
+  closing_balance: number
+  aging_summary: {
+    current: number
+    days_31_60: number
+    days_61_90: number
+    over_90: number
+  }
+  filters: {
+    include_paid_invoices?: boolean
+    society_id?: number | null
+  }
+  generated_at: string
+}

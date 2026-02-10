@@ -11,8 +11,25 @@ import type {
   InvoicePaymentCreateDto,
   InvoiceSearchParams,
   InvoiceFinancialInfo,
+  InvoiceDiscountRequest,
 } from '@/types/invoice'
 import type { PagedResponse } from '@/types/api'
+
+export interface DeliveryInvoiceItem {
+  deliveryId: number
+  invoiceId: number
+  invoiceReference: string
+  alreadyExists: boolean
+}
+
+export interface DeliveryInvoiceBulkResult {
+  success: boolean
+  created: DeliveryInvoiceItem[]
+  skipped: Array<{
+    delivery_id?: number
+    reason?: string
+  }>
+}
 
 /**
  * Invoices API methods
@@ -107,6 +124,18 @@ export const invoicesApi = {
   },
 
   /**
+   * Update invoice-level discount
+   */
+  async updateDiscount(id: number, request: InvoiceDiscountRequest): Promise<Invoice> {
+    const payload = {
+      discount_percentage: request.discountPercentage,
+      discount_amount: request.discountAmount,
+    }
+    const response = await apiClient.post(`/invoices/${id}/discount`, payload)
+    return response.data.data || response.data
+  },
+
+  /**
    * Get invoice financial info
    */
   async getFinancialInfo(id: number): Promise<InvoiceFinancialInfo> {
@@ -120,6 +149,41 @@ export const invoicesApi = {
   async createFromOrder(orderId: number, options?: { includeAllLines?: boolean }): Promise<Invoice> {
     const response = await apiClient.post(`/invoices/from-order/${orderId}`, options || {})
     return response.data.invoice || response.data.data || response.data
+  },
+
+  /**
+   * Create invoice from delivery
+   */
+  async createFromDelivery(deliveryId: number): Promise<DeliveryInvoiceItem> {
+    const response = await apiClient.post(`/invoices/from-delivery/${deliveryId}`)
+    const payload = response.data || {}
+    return {
+      deliveryId: payload.delivery_id ?? payload.deliveryId,
+      invoiceId: payload.invoice_id ?? payload.invoiceId,
+      invoiceReference: payload.invoice_reference ?? payload.invoiceReference ?? '',
+      alreadyExists: Boolean(payload.already_exists ?? payload.alreadyExists),
+    }
+  },
+
+  /**
+   * Create invoices from deliveries in bulk
+   */
+  async createFromDeliveries(deliveryIds?: number[]): Promise<DeliveryInvoiceBulkResult> {
+    const response = await apiClient.post('/invoices/from-deliveries', {
+      delivery_ids: deliveryIds,
+      include_all_lines: true,
+    })
+    const payload = response.data || {}
+    return {
+      success: Boolean(payload.success ?? true),
+      created: (payload.created || []).map((item: any) => ({
+        deliveryId: item.delivery_id ?? item.deliveryId,
+        invoiceId: item.invoice_id ?? item.invoiceId,
+        invoiceReference: item.invoice_reference ?? item.invoiceReference ?? '',
+        alreadyExists: Boolean(item.already_exists ?? item.alreadyExists),
+      })),
+      skipped: payload.skipped || [],
+    }
   },
 
   // ==================== Invoice Lines ====================

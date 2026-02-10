@@ -1,9 +1,11 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/authStore'
+import { useThemeStore } from '@/stores/themeStore'
 import { authApi } from '@/api/auth'
 import { useState } from 'react'
 import { ThemeToggle } from '@/components/ui/theme/ThemeToggle'
+import { useBusinessUnits } from '@/hooks/useLookups'
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -99,6 +101,10 @@ export function AppLayout({ children }: AppLayoutProps) {
   const user = useAuthStore((state) => state.user)
   const isDevMode = useAuthStore((state) => state.isDevMode)
   const logout = useAuthStore((state) => state.logout)
+  const linkedBusinessUnitId = useThemeStore((state) => state.linkedBusinessUnitId)
+  const setBusinessUnitTheme = useThemeStore((state) => state.setBusinessUnitTheme)
+  const setBusinessTheme = useThemeStore((state) => state.setBusinessTheme)
+  const { data: businessUnits = [] } = useBusinessUnits()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const handleLogout = async () => {
@@ -117,6 +123,18 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const isActive = (path: string) => {
     return routerState.location.pathname === path
+  }
+
+  const handleBusinessUnitChange = (value: string) => {
+    if (!value) {
+      setBusinessTheme('default')
+      setBusinessUnitTheme(undefined, undefined)
+      return
+    }
+
+    const selected = businessUnits.find((bu) => String(bu.key) === value)
+    if (!selected) return
+    setBusinessUnitTheme(Number(selected.key), selected.value)
   }
 
   return (
@@ -257,6 +275,24 @@ export function AppLayout({ children }: AppLayoutProps) {
                     {lang === 'zh' ? '中文' : lang.toUpperCase()}
                   </button>
                 ))}
+              </div>
+
+              {/* Business Unit theme link */}
+              <div className="flex items-center gap-2 px-2 py-1.5 bg-secondary/50 rounded-lg">
+                <span className="text-xs text-muted-foreground">{t('common.businessUnit', 'BU')}</span>
+                <select
+                  value={linkedBusinessUnitId ? String(linkedBusinessUnitId) : ''}
+                  onChange={(e) => handleBusinessUnitChange(e.target.value)}
+                  className="bg-transparent text-xs text-foreground border-0 focus:outline-none"
+                  title={t('common.businessUnit', 'Business unit')}
+                >
+                  <option value="">{t('common.default', 'Default')}</option>
+                  {businessUnits.map((bu) => (
+                    <option key={bu.key} value={String(bu.key)}>
+                      {bu.value}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Theme toggle */}

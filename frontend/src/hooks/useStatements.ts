@@ -1,99 +1,46 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { statementsApi } from '@/api/statements'
-import type { StatementCreateDto, StatementUpdateDto, StatementSearchParams } from '@/types/statement'
+import type { StatementGenerationParams } from '@/types/statement'
 
-// Query keys
 export const statementKeys = {
-  all: ['statements'] as const,
-  lists: () => [...statementKeys.all, 'list'] as const,
-  list: (params: StatementSearchParams) => [...statementKeys.lists(), params] as const,
-  details: () => [...statementKeys.all, 'detail'] as const,
-  detail: (id: number) => [...statementKeys.details(), id] as const,
+  all: ['customer-statements'] as const,
+  report: (clientId: number, params: StatementGenerationParams) =>
+    [...statementKeys.all, 'report', clientId, params] as const,
 }
 
 /**
- * Hook to fetch paginated list of statements
+ * Generate customer statement report.
  */
-export function useStatements(params: StatementSearchParams = {}) {
+export function useCustomerStatement(
+  clientId: number | undefined,
+  params: StatementGenerationParams,
+  enabled = true
+) {
   return useQuery({
-    queryKey: statementKeys.list(params),
-    queryFn: () => statementsApi.getAll(params),
-    staleTime: 30 * 1000, // Consider data fresh for 30 seconds
+    queryKey: statementKeys.report(clientId || 0, params),
+    queryFn: () => statementsApi.getCustomerStatement(clientId as number, params),
+    enabled: enabled && !!clientId && !!params.fromDate && !!params.toDate,
+    staleTime: 30 * 1000,
   })
 }
 
 /**
- * Hook to fetch a single statement by ID
+ * Export customer statement to CSV.
  */
-export function useStatement(id: number) {
-  return useQuery({
-    queryKey: statementKeys.detail(id),
-    queryFn: () => statementsApi.getById(id),
-    enabled: !!id,
-  })
-}
-
-/**
- * Hook to create a new statement
- */
-export function useCreateStatement() {
-  const queryClient = useQueryClient()
-
+export function useExportCustomerStatementCsv() {
   return useMutation({
-    mutationFn: (data: StatementCreateDto) => statementsApi.create(data),
-    onSuccess: () => {
-      // Invalidate statement list queries to refetch
-      queryClient.invalidateQueries({ queryKey: statementKeys.lists() })
-    },
-  })
-}
-
-/**
- * Hook to update an existing statement
- */
-export function useUpdateStatement() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (data: StatementUpdateDto) => statementsApi.update(data),
-    onSuccess: (updatedStatement) => {
-      // Update the specific statement in cache
-      queryClient.setQueryData(statementKeys.detail(updatedStatement.id), updatedStatement)
-      // Invalidate list queries to refetch
-      queryClient.invalidateQueries({ queryKey: statementKeys.lists() })
-    },
-  })
-}
-
-/**
- * Hook to delete a statement
- */
-export function useDeleteStatement() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (id: number) => statementsApi.delete(id),
-    onSuccess: (_, deletedId) => {
-      // Remove the statement from cache
-      queryClient.removeQueries({ queryKey: statementKeys.detail(deletedId) })
-      // Invalidate list queries to refetch
-      queryClient.invalidateQueries({ queryKey: statementKeys.lists() })
-    },
-  })
-}
-
-/**
- * Hook to export statements to CSV
- */
-export function useExportStatements() {
-  return useMutation({
-    mutationFn: (params: StatementSearchParams = {}) => statementsApi.exportCSV(params),
+    mutationFn: ({
+      clientId,
+      params,
+    }: {
+      clientId: number
+      params: StatementGenerationParams
+    }) => statementsApi.exportCustomerStatementCsv(clientId, params),
     onSuccess: (csvData) => {
-      // Create and download the CSV file
       const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = `statements-export-${new Date().toISOString().slice(0, 10)}.csv`
+      link.download = `customer-statement-${new Date().toISOString().slice(0, 10)}.csv`
       link.click()
       URL.revokeObjectURL(link.href)
     },
@@ -101,32 +48,48 @@ export function useExportStatements() {
 }
 
 /**
- * Hook to send statement to client via email
+ * Export customer statement to PDF.
  */
-export function useSendStatement() {
-  const queryClient = useQueryClient()
-
+export function useExportCustomerStatementPdf() {
   return useMutation({
-    mutationFn: ({ id, email }: { id: number; email: string }) => statementsApi.sendToClient(id, email),
-    onSuccess: (_, { id }) => {
-      // Invalidate the specific statement to refetch sent status
-      queryClient.invalidateQueries({ queryKey: statementKeys.detail(id) })
-      queryClient.invalidateQueries({ queryKey: statementKeys.lists() })
+    mutationFn: ({
+      clientId,
+      params,
+      includeInvoice,
+    }: {
+      clientId: number
+      params: StatementGenerationParams
+      includeInvoice: boolean
+    }) => statementsApi.exportCustomerStatementPdf(clientId, params, includeInvoice),
+    onSuccess: (pdfBlob, variables) => {
+      const blob = new Blob([pdfBlob], { type: 'application/pdf' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      const mode = variables.includeInvoice ? 'with-invoice' : 'without-invoice'
+      link.download = `customer-statement-${mode}-${new Date().toISOString().slice(0, 10)}.pdf`
+      link.click()
+      URL.revokeObjectURL(link.href)
     },
   })
 }
 
 /**
- * Hook to generate and download statement PDF
+ * Export customer statement to BL PDF.
  */
-export function useGenerateStatementPDF() {
+export function useExportCustomerStatementBlPdf() {
   return useMutation({
-    mutationFn: (id: number) => statementsApi.generatePDF(id),
-    onSuccess: (blob, id) => {
-      // Create and download the PDF file
+    mutationFn: ({
+      clientId,
+      params,
+    }: {
+      clientId: number
+      params: StatementGenerationParams
+    }) => statementsApi.exportCustomerStatementBlPdf(clientId, params),
+    onSuccess: (pdfBlob) => {
+      const blob = new Blob([pdfBlob], { type: 'application/pdf' })
       const link = document.createElement('a')
       link.href = URL.createObjectURL(blob)
-      link.download = `statement-${id}-${new Date().toISOString().slice(0, 10)}.pdf`
+      link.download = `customer-statement-bl-${new Date().toISOString().slice(0, 10)}.pdf`
       link.click()
       URL.revokeObjectURL(link.href)
     },

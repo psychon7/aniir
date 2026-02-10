@@ -124,6 +124,13 @@ class Client(Base):
     cli_showdetail = Column(Boolean, nullable=True)
     cli_pdf_version = Column(String(20), nullable=True)  # nvarchar, not int
 
+    # Bank details
+    cli_bank_iban = Column(String(50), nullable=True)
+    cli_bank_bic = Column(String(20), nullable=True)
+    cli_bank_name = Column(String(200), nullable=True)
+    cli_bank_account_holder = Column(String(200), nullable=True)
+    cli_bank_address = Column(String(400), nullable=True)
+
     # Aliases for schema compatibility (Pydantic uses these)
     @property
     def cli_reference(self):

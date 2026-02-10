@@ -24,6 +24,8 @@ export interface Invoice {
   vatAmount?: number
   totalAmount: number
   paidAmount?: number
+  discountPercentage?: number
+  discountAmount?: number
 
   // Status
   statusName?: string
@@ -238,4 +240,12 @@ export interface InvoiceSearchParams {
   pageSize?: number
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
+}
+
+/**
+ * Request for updating invoice-level discount
+ */
+export interface InvoiceDiscountRequest {
+  discountPercentage?: number
+  discountAmount?: number
 }

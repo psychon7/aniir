@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
@@ -7,9 +8,11 @@ import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
 import { StatusBadge } from '@/components/ui/Badge'
 import { DocumentAttachments } from '@/components/attachments'
 import { AttachFileButton } from '@/components/attachments'
+import { FormInput } from '@/components/ui/form/FormInput'
+import { FormModal, FormModalFooter } from '@/components/ui/form/FormModal'
 import { useDeliveriesByOrder } from '@/hooks/useDeliveries'
 import { useCreateInvoiceFromOrder } from '@/hooks/useInvoices'
-import { useExportOrderPDF } from '@/hooks/useOrders'
+import { useConvertOrderToQuote, useExportOrderPDF, useUpdateOrderDiscount } from '@/hooks/useOrders'
 import { useToast } from '@/components/ui/feedback/Toast'
 import apiClient from '@/api/client'
 
@@ -20,8 +23,12 @@ export const Route = createFileRoute('/_authenticated/orders/$orderId')({
 function OrderDetailPage() {
   const { orderId } = Route.useParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { t } = useTranslation()
   const { success, error: showError } = useToast()
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false)
+  const [discountPercentage, setDiscountPercentage] = useState('')
+  const [discountAmount, setDiscountAmount] = useState('')
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', orderId],
@@ -33,6 +40,8 @@ function OrderDetailPage() {
 
   const { data: deliveries = [] } = useDeliveriesByOrder(Number(orderId))
   const createInvoiceMutation = useCreateInvoiceFromOrder()
+  const convertToQuoteMutation = useConvertOrderToQuote()
+  const updateDiscountMutation = useUpdateOrderDiscount()
   const downloadPdf = useExportOrderPDF()
 
   if (isLoading) {
@@ -59,10 +68,23 @@ function OrderDetailPage() {
     )
   }
 
+  const invoicingSnapshot = order.invoicingContactSnapshot
+  const deliverySnapshot = order.deliveryContactSnapshot
+
   const actions = (
     <div className="flex gap-2">
       <button onClick={() => navigate({ to: '/orders' as any })} className="btn-secondary">
         Back
+      </button>
+      <button
+        className="btn-secondary"
+        onClick={() => {
+          setDiscountPercentage(order.discountPercentage != null ? String(order.discountPercentage) : '')
+          setDiscountAmount(order.discountAmount != null ? String(order.discountAmount) : '')
+          setIsDiscountModalOpen(true)
+        }}
+      >
+        Discount
       </button>
       <AttachFileButton
         entityType="ORDER"
@@ -78,9 +100,24 @@ function OrderDetailPage() {
       </button>
       <button
         className="btn-secondary"
-        onClick={() => navigate({ to: '/deliveries/new' as any, search: { orderId: Number(orderId) } })}
+        onClick={() => navigate({ to: '/deliveries/new' as any, search: { orderId: Number(orderId) } } as any)}
       >
         Create Delivery
+      </button>
+      <button
+        className="btn-secondary"
+        disabled={convertToQuoteMutation.isPending}
+        onClick={async () => {
+          try {
+            const result = await convertToQuoteMutation.mutateAsync(Number(orderId))
+            success(t('common.success'), `Quote ${result.quoteReference} created`)
+            navigate({ to: '/quotes/$quoteId' as any, params: { quoteId: String(result.quoteId) } } as any)
+          } catch {
+            showError(t('common.error'), 'Unable to convert this order to a quote.')
+          }
+        }}
+      >
+        {convertToQuoteMutation.isPending ? 'Converting...' : 'Convert to Quote'}
       </button>
       <button
         className="btn-primary"
@@ -89,7 +126,7 @@ function OrderDetailPage() {
             const invoice = await createInvoiceMutation.mutateAsync({ orderId: Number(orderId) })
             if (invoice?.id) {
               success(t('common.success'), t('invoices.invoiceCreated'))
-              navigate({ to: '/invoices/$invoiceId' as any, params: { invoiceId: String(invoice.id) } })
+              navigate({ to: '/invoices/$invoiceId' as any, params: { invoiceId: String(invoice.id) } } as any)
             }
           } catch {
             showError(t('common.error'), t('common.errorOccurred'))
@@ -141,12 +178,25 @@ function OrderDetailPage() {
             </CardContent>
           </Card>
 
+          {(invoicingSnapshot || deliverySnapshot) && (
+            <Card>
+              <CardHeader title="Address Snapshots" />
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <AddressSnapshotCard title="Commercial / Billing" snapshot={invoicingSnapshot} />
+                  <AddressSnapshotCard title="Delivery" snapshot={deliverySnapshot} />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader title={t('orders.lineItems')} />
             <CardContent>
               <table className="w-full">
                 <thead>
                   <tr className="border-b">
+                    <th className="text-left py-2 text-sm text-muted-foreground">Image</th>
                     <th className="text-left py-2 text-sm text-muted-foreground">{t('orders.product')}</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">{t('orders.quantity')}</th>
                     <th className="text-right py-2 text-sm text-muted-foreground">{t('orders.delivered')}</th>
@@ -157,6 +207,17 @@ function OrderDetailPage() {
                 <tbody>
                   {order.lines?.map((line: any, index: number) => (
                     <tr key={index} className="border-b">
+                      <td className="py-3 pr-2">
+                        {line.imageUrl ? (
+                          <img
+                            src={line.imageUrl}
+                            alt={line.productName || 'Product image'}
+                            className="w-12 h-12 rounded-md border border-border object-cover bg-muted"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-md border border-border bg-muted/40" />
+                        )}
+                      </td>
                       <td className="py-3">
                         <p className="font-medium">{line.productName || line.description}</p>
                         {line.description && line.productName && (
@@ -178,7 +239,7 @@ function OrderDetailPage() {
                     </tr>
                   )) || (
                     <tr>
-                      <td colSpan={5} className="text-center py-8 text-muted-foreground">
+                      <td colSpan={6} className="text-center py-8 text-muted-foreground">
                         {t('orders.noLineItems')}
                       </td>
                     </tr>
@@ -291,6 +352,81 @@ function OrderDetailPage() {
           />
         </div>
       </div>
+
+      <FormModal
+        isOpen={isDiscountModalOpen}
+        onClose={() => setIsDiscountModalOpen(false)}
+        title="Apply Discount"
+        description="Set either discount percentage or fixed amount."
+        footer={
+          <FormModalFooter
+            onCancel={() => setIsDiscountModalOpen(false)}
+            onSubmit={async () => {
+              try {
+                await updateDiscountMutation.mutateAsync({
+                  id: Number(orderId),
+                  request: {
+                    discountPercentage: discountPercentage !== '' ? Number(discountPercentage) : undefined,
+                    discountAmount: discountAmount !== '' ? Number(discountAmount) : undefined,
+                  },
+                })
+                await queryClient.invalidateQueries({ queryKey: ['order', orderId] })
+                success('Discount updated', 'Order discount has been updated.')
+                setIsDiscountModalOpen(false)
+              } catch {
+                showError('Error', 'Unable to update order discount.')
+              }
+            }}
+            submitText="Apply"
+            isSubmitting={updateDiscountMutation.isPending}
+          />
+        }
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormInput
+            type="number"
+            label="Discount %"
+            value={discountPercentage}
+            onChange={(e) => setDiscountPercentage(e.target.value)}
+            placeholder="0"
+          />
+          <FormInput
+            type="number"
+            label="Discount Amount"
+            value={discountAmount}
+            onChange={(e) => setDiscountAmount(e.target.value)}
+            placeholder="0"
+          />
+        </div>
+      </FormModal>
     </PageContainer>
+  )
+}
+
+function AddressSnapshotCard({
+  title,
+  snapshot,
+}: {
+  title: string
+  snapshot?: any
+}) {
+  return (
+    <div className="rounded-lg border border-border p-4">
+      <p className="text-sm font-medium text-foreground mb-2">{title}</p>
+      {!snapshot ? (
+        <p className="text-sm text-muted-foreground">No snapshot available.</p>
+      ) : (
+        <div className="text-sm text-foreground space-y-1">
+          <p className="font-medium">
+            {[snapshot.addressTitle, snapshot.firstName, snapshot.lastName].filter(Boolean).join(' ')}
+          </p>
+          {snapshot.reference && <p className="font-mono text-xs text-muted-foreground">{snapshot.reference}</p>}
+          <p>{[snapshot.address1, snapshot.address2].filter(Boolean).join(' ') || '-'}</p>
+          <p>{[snapshot.postcode, snapshot.city, snapshot.country].filter(Boolean).join(' ') || '-'}</p>
+          <p>{snapshot.phone || snapshot.mobile || '-'}</p>
+          <p>{snapshot.email || '-'}</p>
+        </div>
+      )}
+    </div>
   )
 }

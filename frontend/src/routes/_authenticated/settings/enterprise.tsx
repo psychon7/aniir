@@ -47,6 +47,26 @@ function EnterpriseSettingsPage() {
         soc_rcs: enterprise.rcs || '',
         soc_tva_intra: enterprise.vatIntra || '',
         soc_capital: enterprise.capital || '',
+        soc_rib_name: enterprise.ribName || '',
+        soc_rib_address: enterprise.ribAddress || '',
+        soc_rib_code_iban: enterprise.ribIban || '',
+        soc_rib_code_bic: enterprise.ribBic || '',
+        soc_rib_bank_code: enterprise.ribBankCode || '',
+        soc_rib_agence_code: enterprise.ribAgencyCode || '',
+        soc_rib_account_number: enterprise.ribAccountNumber || '',
+        soc_rib_key: enterprise.ribKey || '',
+        soc_rib_domiciliation_agency: enterprise.ribDomiciliationAgency || '',
+        soc_rib_abbre: enterprise.ribAbbreviation || '',
+        soc_rib_name_2: enterprise.ribName2 || '',
+        soc_rib_address_2: enterprise.ribAddress2 || '',
+        soc_rib_code_iban_2: enterprise.ribIban2 || '',
+        soc_rib_code_bic_2: enterprise.ribBic2 || '',
+        soc_rib_bank_code_2: enterprise.ribBankCode2 || '',
+        soc_rib_agence_code_2: enterprise.ribAgencyCode2 || '',
+        soc_rib_account_number_2: enterprise.ribAccountNumber2 || '',
+        soc_rib_key_2: enterprise.ribKey2 || '',
+        soc_rib_domiciliation_agency_2: enterprise.ribDomiciliationAgency2 || '',
+        soc_rib_abbre_2: enterprise.ribAbbreviation2 || '',
       })
     }
     setIsEditing(true)
@@ -247,6 +267,144 @@ function EnterpriseSettingsPage() {
                 label={t('settings.enterprise.vatIntra')}
                 value={isEditing ? formData.soc_tva_intra || '' : enterprise.vatIntra || ''}
                 onChange={(e) => setFormData({ ...formData, soc_tva_intra: e.target.value })}
+                disabled={!isEditing}
+                className="md:col-span-2"
+              />
+            </div>
+          </div>
+
+          {/* Primary Bank (RIB) */}
+          <div className="card p-6">
+            <h3 className="text-lg font-medium mb-4">{t('settings.enterprise.primaryBank', 'Primary Bank (RIB)')}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormInput
+                label={t('settings.enterprise.bankName', 'Bank Name')}
+                value={isEditing ? formData.soc_rib_name || '' : enterprise.ribName || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_name: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.bankAbbreviation', 'Bank Abbreviation')}
+                value={isEditing ? formData.soc_rib_abbre || '' : enterprise.ribAbbreviation || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_abbre: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.bankAddress', 'Bank Address')}
+                value={isEditing ? formData.soc_rib_address || '' : enterprise.ribAddress || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_address: e.target.value })}
+                disabled={!isEditing}
+                className="md:col-span-2"
+              />
+              <FormInput
+                label={t('settings.enterprise.iban', 'IBAN')}
+                value={isEditing ? formData.soc_rib_code_iban || '' : enterprise.ribIban || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_code_iban: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.bic', 'BIC / SWIFT')}
+                value={isEditing ? formData.soc_rib_code_bic || '' : enterprise.ribBic || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_code_bic: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.bankCode', 'Bank Code')}
+                value={isEditing ? formData.soc_rib_bank_code || '' : enterprise.ribBankCode || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_bank_code: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.agencyCode', 'Agency Code')}
+                value={isEditing ? formData.soc_rib_agence_code || '' : enterprise.ribAgencyCode || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_agence_code: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.accountNumber', 'Account Number')}
+                value={isEditing ? formData.soc_rib_account_number || '' : enterprise.ribAccountNumber || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_account_number: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.ribKey', 'RIB Key')}
+                value={isEditing ? formData.soc_rib_key || '' : enterprise.ribKey || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_key: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.domiciliationAgency', 'Domiciliation Agency')}
+                value={isEditing ? formData.soc_rib_domiciliation_agency || '' : enterprise.ribDomiciliationAgency || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_domiciliation_agency: e.target.value })}
+                disabled={!isEditing}
+                className="md:col-span-2"
+              />
+            </div>
+          </div>
+
+          {/* Secondary Bank (RIB) */}
+          <div className="card p-6">
+            <h3 className="text-lg font-medium mb-4">{t('settings.enterprise.secondaryBank', 'Secondary Bank (RIB)')}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormInput
+                label={t('settings.enterprise.bankName', 'Bank Name')}
+                value={isEditing ? formData.soc_rib_name_2 || '' : enterprise.ribName2 || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_name_2: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.bankAbbreviation', 'Bank Abbreviation')}
+                value={isEditing ? formData.soc_rib_abbre_2 || '' : enterprise.ribAbbreviation2 || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_abbre_2: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.bankAddress', 'Bank Address')}
+                value={isEditing ? formData.soc_rib_address_2 || '' : enterprise.ribAddress2 || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_address_2: e.target.value })}
+                disabled={!isEditing}
+                className="md:col-span-2"
+              />
+              <FormInput
+                label={t('settings.enterprise.iban', 'IBAN')}
+                value={isEditing ? formData.soc_rib_code_iban_2 || '' : enterprise.ribIban2 || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_code_iban_2: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.bic', 'BIC / SWIFT')}
+                value={isEditing ? formData.soc_rib_code_bic_2 || '' : enterprise.ribBic2 || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_code_bic_2: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.bankCode', 'Bank Code')}
+                value={isEditing ? formData.soc_rib_bank_code_2 || '' : enterprise.ribBankCode2 || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_bank_code_2: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.agencyCode', 'Agency Code')}
+                value={isEditing ? formData.soc_rib_agence_code_2 || '' : enterprise.ribAgencyCode2 || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_agence_code_2: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.accountNumber', 'Account Number')}
+                value={isEditing ? formData.soc_rib_account_number_2 || '' : enterprise.ribAccountNumber2 || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_account_number_2: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.ribKey', 'RIB Key')}
+                value={isEditing ? formData.soc_rib_key_2 || '' : enterprise.ribKey2 || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_key_2: e.target.value })}
+                disabled={!isEditing}
+              />
+              <FormInput
+                label={t('settings.enterprise.domiciliationAgency', 'Domiciliation Agency')}
+                value={isEditing ? formData.soc_rib_domiciliation_agency_2 || '' : enterprise.ribDomiciliationAgency2 || ''}
+                onChange={(e) => setFormData({ ...formData, soc_rib_domiciliation_agency_2: e.target.value })}
                 disabled={!isEditing}
                 className="md:col-span-2"
               />

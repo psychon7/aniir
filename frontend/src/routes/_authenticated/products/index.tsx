@@ -8,7 +8,11 @@ import { DataTable, Column } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/Badge'
 import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
+import { FormInput } from '@/components/ui/form/FormInput'
 import { FormSelect } from '@/components/ui/form/FormSelect'
+import { FormModal, FormModalFooter } from '@/components/ui/form/FormModal'
+import { useCategories, useCreateCategory, useDeleteCategory, useUpdateCategory } from '@/hooks/useCategories'
+import type { Category } from '@/types/category'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/products/')({
@@ -54,6 +58,18 @@ function ProductsPage() {
   })
 
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    parentId: '',
+    order: 0,
+    imagePath: '',
+    description: '',
+    displayInMenu: true,
+    displayInExhibition: false,
+    isActive: true,
+  })
 
   // Fetch products
   const { data: productsData, isLoading } = useQuery({
@@ -73,6 +89,16 @@ function ProductsPage() {
       return response.data
     },
   })
+
+  const { data: categoriesData, isLoading: categoriesLoading } = useCategories({
+    limit: 500,
+    skip: 0,
+  })
+  const categories = categoriesData?.items || []
+
+  const createCategoryMutation = useCreateCategory()
+  const updateCategoryMutation = useUpdateCategory()
+  const deleteCategoryMutation = useDeleteCategory()
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -113,6 +139,86 @@ function ProductsPage() {
       isActive: value === '' ? undefined : value === 'true',
       page: 1,
     }))
+  }
+
+  const handleCategoryFilter = (value: string) => {
+    setSearchParams((prev) => ({
+      ...prev,
+      categoryId: value ? Number(value) : undefined,
+      page: 1,
+    }))
+  }
+
+  const resetCategoryForm = () => {
+    setCategoryForm({
+      name: '',
+      parentId: '',
+      order: 0,
+      imagePath: '',
+      description: '',
+      displayInMenu: true,
+      displayInExhibition: false,
+      isActive: true,
+    })
+    setEditingCategory(null)
+  }
+
+  const startEditCategory = (category: Category) => {
+    setEditingCategory(category)
+    setCategoryForm({
+      name: category.cat_name || '',
+      parentId: category.cat_parent_cat_id ? String(category.cat_parent_cat_id) : '',
+      order: category.cat_order || 0,
+      imagePath: category.cat_image_path || '',
+      description: category.cat_description || '',
+      displayInMenu: category.cat_display_in_menu ?? true,
+      displayInExhibition: category.cat_display_in_exhibition ?? false,
+      isActive: category.cat_is_actived ?? true,
+    })
+  }
+
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      showError(t('common.error'), t('products.categoryNameRequired', 'Category name is required'))
+      return
+    }
+
+    const payload = {
+      name: categoryForm.name.trim(),
+      order: categoryForm.order || 0,
+      imagePath: categoryForm.imagePath || undefined,
+      description: categoryForm.description || undefined,
+      displayInMenu: categoryForm.displayInMenu,
+      displayInExhibition: categoryForm.displayInExhibition,
+      isActive: categoryForm.isActive,
+      parentId: categoryForm.parentId ? Number(categoryForm.parentId) : undefined,
+    }
+
+    try {
+      if (editingCategory) {
+        await updateCategoryMutation.mutateAsync({
+          categoryId: editingCategory.cat_id,
+          data: payload,
+        })
+        success(t('products.categoryUpdated', 'Category updated'), t('products.categoryUpdatedDescription', 'Category has been updated successfully.'))
+      } else {
+        await createCategoryMutation.mutateAsync(payload)
+        success(t('products.categoryCreated', 'Category created'), t('products.categoryCreatedDescription', 'Category has been created successfully.'))
+      }
+      resetCategoryForm()
+    } catch {
+      showError(t('common.error'), t('products.categorySaveError', 'Failed to save category.'))
+    }
+  }
+
+  const handleDeleteCategory = async (category: Category) => {
+    try {
+      await deleteCategoryMutation.mutateAsync(category.cat_id)
+      success(t('products.categoryDeleted', 'Category deleted'), t('products.categoryDeletedDescription', 'Category has been deleted successfully.'))
+      if (editingCategory?.cat_id === category.cat_id) resetCategoryForm()
+    } catch {
+      showError(t('common.error'), t('products.categoryDeleteError', 'Failed to delete category.'))
+    }
   }
 
   const columns = useMemo<Column<Product>[]>(
@@ -223,16 +329,34 @@ function ProductsPage() {
   )
 
   const filters = (
-    <FormSelect
-      value={searchParams.isActive === undefined ? '' : searchParams.isActive.toString()}
-      onChange={(e) => handleActiveFilter(e.target.value)}
-      options={[
-        { value: '', label: t('common.allStatuses') },
-        { value: 'true', label: t('common.active') },
-        { value: 'false', label: t('common.inactive') },
-      ]}
-      className="w-32"
-    />
+    <div className="flex items-center gap-2">
+      <FormSelect
+        value={searchParams.categoryId ? String(searchParams.categoryId) : ''}
+        onChange={(e) => handleCategoryFilter(e.target.value)}
+        options={[
+          { value: '', label: t('products.allCategories', 'All categories') },
+          ...categories.map((category) => ({ value: String(category.cat_id), label: category.cat_name })),
+        ]}
+        className="w-44"
+      />
+      <FormSelect
+        value={searchParams.isActive === undefined ? '' : searchParams.isActive.toString()}
+        onChange={(e) => handleActiveFilter(e.target.value)}
+        options={[
+          { value: '', label: t('common.allStatuses') },
+          { value: 'true', label: t('common.active') },
+          { value: 'false', label: t('common.inactive') },
+        ]}
+        className="w-32"
+      />
+      <button
+        type="button"
+        onClick={() => setIsCategoryModalOpen(true)}
+        className="btn-secondary"
+      >
+        {t('products.manageCategories', 'Manage Categories')}
+      </button>
+    </div>
   )
 
   const actions = (
@@ -285,6 +409,153 @@ function ProductsPage() {
         itemName={deletingProduct?.name || 'this product'}
         isLoading={deleteMutation.isPending}
       />
+
+      <FormModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => {
+          setIsCategoryModalOpen(false)
+          resetCategoryForm()
+        }}
+        title={t('products.manageCategories', 'Manage Categories')}
+        description={t('products.manageCategoriesDescription', 'Create, update and organize product categories.')}
+        size="xl"
+        footer={
+          <FormModalFooter
+            onCancel={() => {
+              setIsCategoryModalOpen(false)
+              resetCategoryForm()
+            }}
+            onSubmit={handleSaveCategory}
+            submitText={editingCategory ? t('common.saveChanges') : t('common.create', 'Create')}
+            isSubmitting={createCategoryMutation.isPending || updateCategoryMutation.isPending}
+          />
+        }
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-3 max-h-[52vh] overflow-y-auto pr-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium text-foreground">{t('products.categories', 'Categories')}</h4>
+              <button
+                type="button"
+                className="text-xs text-primary hover:underline"
+                onClick={() => resetCategoryForm()}
+              >
+                {t('common.new', 'New')}
+              </button>
+            </div>
+            {categoriesLoading ? (
+              <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+            ) : categories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('products.noCategoriesFound', 'No categories found')}</p>
+            ) : (
+              categories.map((category) => (
+                <div
+                  key={category.cat_id}
+                  className={`rounded-lg border p-3 ${
+                    editingCategory?.cat_id === category.cat_id ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      className="text-left min-w-0"
+                      onClick={() => startEditCategory(category)}
+                    >
+                      <p className="font-medium text-sm text-foreground truncate">{category.cat_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        #{category.cat_id}
+                        {category.cat_parent_cat_id ? ` | Parent: ${category.cat_parent_cat_id}` : ''}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs text-destructive hover:underline"
+                      onClick={() => handleDeleteCategory(category)}
+                      disabled={deleteCategoryMutation.isPending}
+                    >
+                      {t('common.delete')}
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium text-foreground">
+              {editingCategory
+                ? t('products.editCategory', 'Edit Category')
+                : t('products.newCategory', 'New Category')}
+            </h4>
+
+            <FormInput
+              label={t('products.categoryName', 'Category Name')}
+              value={categoryForm.name}
+              onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))}
+              required
+            />
+
+            <FormSelect
+              label={t('products.parentCategory', 'Parent Category')}
+              value={categoryForm.parentId}
+              onChange={(e) => setCategoryForm((prev) => ({ ...prev, parentId: e.target.value }))}
+              options={[
+                { value: '', label: t('products.noParent', 'No parent') },
+                ...categories
+                  .filter((category) => category.cat_id !== editingCategory?.cat_id)
+                  .map((category) => ({ value: String(category.cat_id), label: category.cat_name })),
+              ]}
+            />
+
+            <FormInput
+              label={t('products.displayOrder', 'Display Order')}
+              type="number"
+              value={String(categoryForm.order)}
+              onChange={(e) => setCategoryForm((prev) => ({ ...prev, order: Number(e.target.value || 0) }))}
+            />
+
+            <FormInput
+              label={t('products.imageUrl', 'Image URL')}
+              value={categoryForm.imagePath}
+              onChange={(e) => setCategoryForm((prev) => ({ ...prev, imagePath: e.target.value }))}
+              placeholder="https://..."
+            />
+
+            <FormInput
+              label={t('products.description', 'Description')}
+              value={categoryForm.description}
+              onChange={(e) => setCategoryForm((prev) => ({ ...prev, description: e.target.value }))}
+            />
+
+            <div className="grid grid-cols-1 gap-2 pt-2">
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={categoryForm.displayInMenu}
+                  onChange={(e) => setCategoryForm((prev) => ({ ...prev, displayInMenu: e.target.checked }))}
+                />
+                {t('products.displayInMenu', 'Display In Menu')}
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={categoryForm.displayInExhibition}
+                  onChange={(e) => setCategoryForm((prev) => ({ ...prev, displayInExhibition: e.target.checked }))}
+                />
+                {t('products.displayInExhibition', 'Display In Exhibition')}
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={categoryForm.isActive}
+                  onChange={(e) => setCategoryForm((prev) => ({ ...prev, isActive: e.target.checked }))}
+                />
+                {t('common.active')}
+              </label>
+            </div>
+          </div>
+        </div>
+      </FormModal>
     </PageContainer>
   )
 }

@@ -74,6 +74,12 @@ class ClientContactBase(BaseModel):
         validation_alias=AliasChoices("cco_comment", "notes"),
     )
 
+    cco_role: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        validation_alias=AliasChoices("cco_role", "role"),
+    )
+
 
 class ClientContactCreate(ClientContactBase):
     """Schema for creating a client contact."""
@@ -144,6 +150,12 @@ class ClientContactUpdate(BaseModel):
         validation_alias=AliasChoices("cco_comment", "notes"),
     )
 
+    cco_role: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        validation_alias=AliasChoices("cco_role", "role"),
+    )
+
 
 class ClientContactResponse(BaseModel):
     """Client contact response schema (camelCase output)."""
@@ -178,6 +190,7 @@ class ClientContactResponse(BaseModel):
     isInvoicingAddress: bool = Field(False, validation_alias="cco_is_invoicing_adr")
 
     comment: Optional[str] = Field(None, validation_alias="cco_comment")
+    role: Optional[str] = Field(None, validation_alias="cco_role")
     communeId: Optional[int] = Field(None, validation_alias="cmu_id")
 
     createdAt: Optional[datetime] = Field(None, validation_alias="cco_d_creation")

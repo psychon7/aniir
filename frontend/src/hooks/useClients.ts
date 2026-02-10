@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { clientsApi } from '@/api/clients'
-import type { ClientCreateDto, ClientUpdateDto, ClientSearchParams } from '@/types/client'
+import type { ClientContact, ClientCreateDto, ClientUpdateDto, ClientSearchParams } from '@/types/client'
 
 // Query keys
 export const clientKeys = {
@@ -90,6 +90,51 @@ export function useDeleteClient() {
       queryClient.removeQueries({ queryKey: clientKeys.detail(deletedId) })
       // Invalidate list queries to refetch
       queryClient.invalidateQueries({ queryKey: clientKeys.lists() })
+    },
+  })
+}
+
+/**
+ * Hook to create a contact for a client
+ */
+export function useCreateClientContact(clientId: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: Omit<ClientContact, 'id' | 'clientId'>) =>
+      clientsApi.createContact(clientId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientKeys.contacts(clientId) })
+    },
+  })
+}
+
+/**
+ * Hook to update a contact for a client
+ */
+export function useUpdateClientContact(clientId: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ contactId, data }: { contactId: number; data: Partial<Omit<ClientContact, 'id' | 'clientId'>> }) =>
+      clientsApi.updateContact(clientId, contactId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientKeys.contacts(clientId) })
+    },
+  })
+}
+
+/**
+ * Hook to delete a contact from a client
+ */
+export function useDeleteClientContact(clientId: number) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (contactId: number) =>
+      clientsApi.deleteContact(clientId, contactId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientKeys.contacts(clientId) })
     },
   })
 }

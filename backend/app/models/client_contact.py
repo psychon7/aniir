@@ -96,6 +96,9 @@ class ClientContact(Base):
     # Comment
     cco_comment: Mapped[Optional[str]] = mapped_column("cco_comment", Text, nullable=True)
 
+    # Role
+    cco_role: Mapped[Optional[str]] = mapped_column("cco_role", String(100), nullable=True)
+
     # Relationships
     client: Mapped["Client"] = relationship("Client", lazy="selectin")
 
@@ -131,6 +134,10 @@ class ClientContact(Base):
     @property
     def mobile(self) -> Optional[str]:
         return self.cco_cellphone
+
+    @property
+    def role(self) -> Optional[str]:
+        return self.cco_role
 
     @property
     def client_id(self) -> int:

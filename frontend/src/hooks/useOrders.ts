@@ -5,6 +5,7 @@ import type {
   OrderCreateDto,
   OrderUpdateDto,
   OrderLineCreateDto,
+  OrderDiscountRequest,
 } from '@/types/order'
 
 // Query keys factory
@@ -159,6 +160,38 @@ export function useDuplicateOrder() {
   return useMutation({
     mutationFn: (id: number) => ordersApi.duplicate(id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() })
+    },
+  })
+}
+
+/**
+ * Hook to convert an order back to a quote
+ */
+export function useConvertOrderToQuote() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: number) => ordersApi.convertToQuote(id),
+    onSuccess: (_, orderId) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(orderId) })
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: ['quotes'] })
+    },
+  })
+}
+
+/**
+ * Hook to update order-level discount
+ */
+export function useUpdateOrderDiscount() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: number; request: OrderDiscountRequest }) =>
+      ordersApi.updateDiscount(id, request),
+    onSuccess: (updatedOrder) => {
+      queryClient.setQueryData(orderKeys.detail(updatedOrder.id), updatedOrder)
       queryClient.invalidateQueries({ queryKey: orderKeys.lists() })
     },
   })

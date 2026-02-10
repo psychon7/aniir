@@ -63,6 +63,11 @@ from app.schemas.client_delegate import (
     ClientDelegateCreate, ClientDelegateUpdate, ClientDelegateResponse,
     ClientDelegateListResponse
 )
+from app.services.client_activity_service import (
+    ClientActivityService,
+    get_client_activity_service,
+)
+from app.schemas.client_activity import ActivityResponse
 
 router = APIRouter(prefix="/clients", tags=["Clients"])
 
@@ -448,6 +453,32 @@ async def deactivate_client(
         return client
     except ClientServiceError as e:
         raise handle_client_error(e)
+
+
+# ==========================================================================
+# Client Activity Feed
+# ==========================================================================
+
+@router.get(
+    "/{client_id}/activity",
+    response_model=ActivityResponse,
+    summary="Get client activity feed",
+    description="Get a unified timeline of quotes, orders, deliveries, invoices, and payments for a client."
+)
+async def get_client_activity(
+    client_id: int = Path(..., gt=0, description="Client ID"),
+    page: int = Query(1, ge=1, description="Page number"),
+    pageSize: int = Query(20, ge=1, le=100, alias="pageSize", description="Items per page"),
+    entityType: Optional[str] = Query(None, description="Filter by entity type (quote, order, delivery, invoice, payment)"),
+    service: ClientActivityService = Depends(get_client_activity_service),
+):
+    """Get unified activity timeline for a client."""
+    return await service.get_activity(
+        client_id=client_id,
+        page=page,
+        page_size=pageSize,
+        entity_type=entityType,
+    )
 
 
 # ==========================================================================

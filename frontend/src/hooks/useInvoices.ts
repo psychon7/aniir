@@ -7,6 +7,7 @@ import type {
   InvoiceLineCreateDto,
   InvoiceLineUpdateDto,
   InvoicePaymentCreateDto,
+  InvoiceDiscountRequest,
 } from '@/types/invoice'
 
 // Query keys factory
@@ -131,6 +132,40 @@ export function useCreateInvoiceFromOrder() {
 }
 
 /**
+ * Hook to create invoice from delivery
+ */
+export function useCreateInvoiceFromDelivery() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ deliveryId }: { deliveryId: number }) =>
+      invoicesApi.createFromDelivery(deliveryId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+    },
+  })
+}
+
+/**
+ * Hook to create invoices from deliveries in bulk
+ */
+export function useCreateInvoicesFromDeliveries() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ deliveryIds }: { deliveryIds?: number[] }) =>
+      invoicesApi.createFromDeliveries(deliveryIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+    },
+  })
+}
+
+/**
  * Hook to update an existing invoice
  */
 export function useUpdateInvoice() {
@@ -189,6 +224,23 @@ export function useVoidInvoice() {
     onSuccess: (updatedInvoice) => {
       queryClient.setQueryData(invoiceKeys.detail(updatedInvoice.id), updatedInvoice)
       queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() })
+    },
+  })
+}
+
+/**
+ * Hook to update invoice-level discount
+ */
+export function useUpdateInvoiceDiscount() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, request }: { id: number; request: InvoiceDiscountRequest }) =>
+      invoicesApi.updateDiscount(id, request),
+    onSuccess: (updatedInvoice) => {
+      queryClient.setQueryData(invoiceKeys.detail(updatedInvoice.id), updatedInvoice)
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: invoiceKeys.financialInfo(updatedInvoice.id) })
     },
   })
 }

@@ -2,33 +2,44 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 type Theme = 'light' | 'dark' | 'system'
+type BusinessTheme = 'default' | 'led' | 'domotics' | 'hvac' | 'waveconcept' | 'accessories'
 
 interface ThemeState {
   theme: Theme
   resolvedTheme: 'light' | 'dark'
+  businessTheme: BusinessTheme
+  linkedBusinessUnitId?: number
+  linkedBusinessUnitLabel?: string
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
+  setBusinessTheme: (businessTheme: BusinessTheme) => void
+  setBusinessUnitTheme: (businessUnitId?: number, businessUnitLabel?: string) => void
 }
 
-// Get system preference
 function getSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light'
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
-// Resolve theme to actual light/dark
 function resolveTheme(theme: Theme): 'light' | 'dark' {
-  if (theme === 'system') {
-    return getSystemTheme()
-  }
+  if (theme === 'system') return getSystemTheme()
   return theme
 }
 
-// Apply theme to document
-function applyTheme(resolvedTheme: 'light' | 'dark') {
+function resolveBusinessThemeFromLabel(label?: string): BusinessTheme {
+  const value = (label || '').toLowerCase()
+  if (!value) return 'default'
+  if (value.includes('led')) return 'led'
+  if (value.includes('domotic')) return 'domotics'
+  if (value.includes('hvac')) return 'hvac'
+  if (value.includes('wave')) return 'waveconcept'
+  if (value.includes('access')) return 'accessories'
+  return 'default'
+}
+
+function applyTheme(resolvedTheme: 'light' | 'dark', businessTheme: BusinessTheme) {
   const root = document.documentElement
 
-  // Add transition class for smooth theme change
   root.classList.add('theme-transition')
 
   if (resolvedTheme === 'dark') {
@@ -37,7 +48,17 @@ function applyTheme(resolvedTheme: 'light' | 'dark') {
     root.classList.remove('dark')
   }
 
-  // Remove transition class after animation completes
+  root.classList.remove(
+    'theme-bu-led',
+    'theme-bu-domotics',
+    'theme-bu-hvac',
+    'theme-bu-waveconcept',
+    'theme-bu-accessories'
+  )
+  if (businessTheme !== 'default') {
+    root.classList.add(`theme-bu-${businessTheme}`)
+  }
+
   setTimeout(() => {
     root.classList.remove('theme-transition')
   }, 300)
@@ -48,43 +69,71 @@ export const useThemeStore = create<ThemeState>()(
     (set, get) => ({
       theme: 'system',
       resolvedTheme: getSystemTheme(),
+      businessTheme: 'default',
+      linkedBusinessUnitId: undefined,
+      linkedBusinessUnitLabel: undefined,
 
       setTheme: (theme) => {
         const resolvedTheme = resolveTheme(theme)
-        applyTheme(resolvedTheme)
+        const businessTheme = get().businessTheme
+        applyTheme(resolvedTheme, businessTheme)
         set({ theme, resolvedTheme })
       },
 
       toggleTheme: () => {
-        const { theme } = get()
-        const newTheme = theme === 'dark' ? 'light' : theme === 'light' ? 'dark' : getSystemTheme() === 'dark' ? 'light' : 'dark'
+        const { theme, businessTheme } = get()
+        const newTheme =
+          theme === 'dark'
+            ? 'light'
+            : theme === 'light'
+              ? 'dark'
+              : getSystemTheme() === 'dark'
+                ? 'light'
+                : 'dark'
         const resolvedTheme = resolveTheme(newTheme)
-        applyTheme(resolvedTheme)
+        applyTheme(resolvedTheme, businessTheme)
         set({ theme: newTheme, resolvedTheme })
+      },
+
+      setBusinessTheme: (businessTheme) => {
+        const resolvedTheme = resolveTheme(get().theme)
+        applyTheme(resolvedTheme, businessTheme)
+        set({ businessTheme })
+      },
+
+      setBusinessUnitTheme: (businessUnitId, businessUnitLabel) => {
+        const businessTheme = resolveBusinessThemeFromLabel(businessUnitLabel)
+        const resolvedTheme = resolveTheme(get().theme)
+        applyTheme(resolvedTheme, businessTheme)
+        set({
+          businessTheme,
+          linkedBusinessUnitId: businessUnitId,
+          linkedBusinessUnitLabel: businessUnitLabel,
+        })
       },
     }),
     {
       name: 'erp-theme-storage',
       onRehydrateStorage: () => (state) => {
-        // Apply theme on rehydration
         if (state) {
           const resolvedTheme = resolveTheme(state.theme)
-          applyTheme(resolvedTheme)
+          const businessTheme = state.businessTheme || 'default'
+          applyTheme(resolvedTheme, businessTheme)
           state.resolvedTheme = resolvedTheme
+          state.businessTheme = businessTheme
         }
       },
     }
   )
 )
 
-// Listen for system theme changes
 if (typeof window !== 'undefined') {
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   mediaQuery.addEventListener('change', () => {
     const state = useThemeStore.getState()
     if (state.theme === 'system') {
       const resolvedTheme = getSystemTheme()
-      applyTheme(resolvedTheme)
+      applyTheme(resolvedTheme, state.businessTheme)
       useThemeStore.setState({ resolvedTheme })
     }
   })

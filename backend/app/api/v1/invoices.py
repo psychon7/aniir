@@ -889,6 +889,18 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
             ClientInvoice.cin_discount_amount,
             ClientInvoice.cin_header_text,
             ClientInvoice.cin_footer_text,
+            ClientInvoice.cco_id_invoicing,
+            ClientInvoice.cin_inv_cco_firstname,
+            ClientInvoice.cin_inv_cco_lastname,
+            ClientInvoice.cin_inv_cco_address1,
+            ClientInvoice.cin_inv_cco_address2,
+            ClientInvoice.cin_inv_cco_postcode,
+            ClientInvoice.cin_inv_cco_city,
+            ClientInvoice.cin_inv_cco_country,
+            ClientInvoice.cin_inv_cco_tel1,
+            ClientInvoice.cin_inv_cco_fax,
+            ClientInvoice.cin_inv_cco_cellphone,
+            ClientInvoice.cin_inv_cco_email,
             ClientInvoice.cur_id,
             Client.cli_company_name,
             Currency.cur_designation.label("currency_code"),
@@ -958,6 +970,20 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
             "imageUrl": l.cii_image_url,
         })
 
+    invoicing_snapshot = {
+        "firstName": row.cin_inv_cco_firstname,
+        "lastName": row.cin_inv_cco_lastname,
+        "address1": row.cin_inv_cco_address1,
+        "address2": row.cin_inv_cco_address2,
+        "postcode": row.cin_inv_cco_postcode,
+        "city": row.cin_inv_cco_city,
+        "country": row.cin_inv_cco_country,
+        "phone": row.cin_inv_cco_tel1,
+        "fax": row.cin_inv_cco_fax,
+        "mobile": row.cin_inv_cco_cellphone,
+        "email": row.cin_inv_cco_email,
+    }
+
     return {
         "id": row.cin_id,
         "reference": row.cin_code or "",
@@ -980,6 +1006,8 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
         "paymentReference": None,
         "headerText": row.cin_header_text or "",
         "footerText": row.cin_footer_text or "",
+        "invoicingContactId": row.cco_id_invoicing,
+        "invoicingContactSnapshot": invoicing_snapshot,
         "lines": lines,
     }
 

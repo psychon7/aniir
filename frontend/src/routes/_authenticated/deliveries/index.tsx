@@ -7,6 +7,7 @@ import { DataTable, Column } from '@/components/ui/data-table'
 import { StatusBadge } from '@/components/ui/Badge'
 import { useToast } from '@/components/ui/feedback/Toast'
 import { useDeliveries } from '@/hooks/useDeliveries'
+import { useCreateInvoicesFromDeliveries } from '@/hooks/useInvoices'
 import type { DeliveryForm, DeliverySearchParams } from '@/types/delivery'
 
 export const Route = createFileRoute('/_authenticated/deliveries/')({
@@ -16,7 +17,8 @@ export const Route = createFileRoute('/_authenticated/deliveries/')({
 function DeliveriesPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { success: _success, error: _showError } = useToast()
+  const { success, error: showError } = useToast()
+  const createInvoicesBulk = useCreateInvoicesFromDeliveries()
 
   const [searchParams, setSearchParams] = useState<DeliverySearchParams>({
     page: 1,
@@ -45,7 +47,7 @@ function DeliveriesPage() {
   }
 
   const handleRowClick = (delivery: DeliveryForm) => {
-    navigate({ to: '/deliveries/$deliveryId' as any, params: { deliveryId: String(delivery.id) } })
+    navigate({ to: '/deliveries/$deliveryId' as any, params: { deliveryId: String(delivery.id) } } as any)
   }
 
   const columns = useMemo<Column<DeliveryForm>[]>(
@@ -115,7 +117,7 @@ function DeliveriesPage() {
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                navigate({ to: '/deliveries/$deliveryId' as any, params: { deliveryId: String(row.id) } })
+                navigate({ to: '/deliveries/$deliveryId' as any, params: { deliveryId: String(row.id) } } as any)
               }}
               className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               title={t('common.view')}
@@ -134,15 +136,37 @@ function DeliveriesPage() {
   )
 
   const actions = (
-    <button
-      onClick={() => navigate({ to: '/deliveries/new' as any })}
-      className="btn-primary"
-    >
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-      </svg>
-      {t('deliveries.newDelivery')}
-    </button>
+    <>
+      <button
+        className="btn-secondary"
+        disabled={createInvoicesBulk.isPending}
+        onClick={async () => {
+          const confirmed = window.confirm('Create invoices in bulk from non-invoiced deliveries?')
+          if (!confirmed) return
+          try {
+            const result = await createInvoicesBulk.mutateAsync({ deliveryIds: undefined })
+            success(
+              'Bulk invoice creation complete',
+              `Created/returned ${result.created.length} invoice(s).`
+            )
+          } catch {
+            showError('Bulk invoice creation failed', 'Unable to create invoices from deliveries.')
+          }
+        }}
+      >
+        {createInvoicesBulk.isPending ? 'Creating...' : 'Bulk Create Invoices'}
+      </button>
+
+      <button
+        onClick={() => navigate({ to: '/deliveries/new' as any })}
+        className="btn-primary"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+        </svg>
+        {t('deliveries.newDelivery')}
+      </button>
+    </>
   )
 
   return (

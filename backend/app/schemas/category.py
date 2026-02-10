@@ -1,170 +1,168 @@
-"""
-Pydantic schemas for Category API requests and responses.
-"""
+"""Pydantic schemas for Category API requests and responses."""
+
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict, computed_field
 
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, computed_field
 
-# ==========================================================================
-# Category Base Schemas
-# ==========================================================================
 
 class CategoryBase(BaseModel):
-    """Base schema for Category."""
-    cat_code: str = Field(
-        ...,
-        max_length=20,
-        description="Category code (e.g., LED, DOMOTICS)"
+    """Base schema aligned with TM_CAT_Category."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    cat_name: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cat_name", "name"),
+        description="Category name",
     )
-    cat_name: str = Field(
-        ...,
-        max_length=100,
-        description="Category name"
+    cat_sub_name_1: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cat_sub_name_1", "subName1"),
+        description="Category sub-name 1",
     )
-    cat_parent_id: Optional[int] = Field(
-        None,
-        description="Parent category ID for hierarchical structure"
+    cat_sub_name_2: Optional[str] = Field(
+        default=None,
+        max_length=200,
+        validation_alias=AliasChoices("cat_sub_name_2", "subName2"),
+        description="Category sub-name 2",
     )
-    cat_is_active: bool = Field(
+    cat_order: Optional[int] = Field(
+        default=0,
+        validation_alias=AliasChoices("cat_order", "order"),
+        description="Display order",
+    )
+    cat_is_actived: Optional[bool] = Field(
         default=True,
-        description="Whether the category is active"
+        validation_alias=AliasChoices("cat_is_actived", "cat_is_active", "isActive"),
+        description="Whether category is active",
+    )
+    cat_image_path: Optional[str] = Field(
+        default=None,
+        max_length=2000,
+        validation_alias=AliasChoices("cat_image_path", "imagePath", "imageUrl"),
+        description="Category image path/URL",
+    )
+    cat_display_in_menu: Optional[bool] = Field(
+        default=True,
+        validation_alias=AliasChoices("cat_display_in_menu", "displayInMenu"),
+        description="Display in menu",
+    )
+    cat_display_in_exhibition: Optional[bool] = Field(
+        default=False,
+        validation_alias=AliasChoices("cat_display_in_exhibition", "displayInExhibition"),
+        description="Display in exhibition",
+    )
+    cat_parent_cat_id: Optional[int] = Field(
+        default=None,
+        validation_alias=AliasChoices("cat_parent_cat_id", "cat_parent_id", "parentId"),
+        description="Parent category ID",
+    )
+    soc_id: Optional[int] = Field(
+        default=1,
+        validation_alias=AliasChoices("soc_id", "societyId"),
+        description="Society ID",
+    )
+    cat_description: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("cat_description", "description"),
+        description="Category description",
     )
 
 
 class CategoryCreate(CategoryBase):
-    """Schema for creating a Category."""
-    pass
+    """Schema for creating a category."""
+
+    cat_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        validation_alias=AliasChoices("cat_name", "name"),
+    )
+    soc_id: int = Field(default=1, validation_alias=AliasChoices("soc_id", "societyId"))
 
 
-class CategoryUpdate(BaseModel):
-    """Schema for updating a Category."""
-    cat_code: Optional[str] = Field(
-        None,
-        max_length=20,
-        description="Category code"
-    )
-    cat_name: Optional[str] = Field(
-        None,
-        max_length=100,
-        description="Category name"
-    )
-    cat_parent_id: Optional[int] = Field(
-        None,
-        description="Parent category ID"
-    )
-    cat_is_active: Optional[bool] = Field(
-        None,
-        description="Whether the category is active"
-    )
+class CategoryUpdate(CategoryBase):
+    """Schema for updating a category."""
 
 
-class CategoryResponse(CategoryBase):
-    """Schema for Category response."""
-    model_config = ConfigDict(from_attributes=True)
+class CategoryResponse(BaseModel):
+    """Category response schema."""
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     cat_id: int = Field(..., description="Category ID")
+    cat_name: str = Field(..., description="Category name")
+    cat_sub_name_1: Optional[str] = None
+    cat_sub_name_2: Optional[str] = None
+    cat_order: int = 0
+    cat_is_actived: bool = True
+    cat_image_path: Optional[str] = None
+    cat_display_in_menu: bool = True
+    cat_display_in_exhibition: bool = False
+    cat_parent_cat_id: Optional[int] = None
+    soc_id: int
+    cat_description: Optional[str] = None
 
     @computed_field
     @property
     def display_name(self) -> str:
-        """Get category display name."""
         return self.cat_name
 
     @computed_field
     @property
     def is_root(self) -> bool:
-        """Check if this is a root/top-level category."""
-        return self.cat_parent_id is None
+        return self.cat_parent_cat_id is None
 
 
 class CategoryListResponse(BaseModel):
-    """Schema for listing categories (lightweight)."""
+    """Lightweight category list item."""
+
     model_config = ConfigDict(from_attributes=True)
 
-    cat_id: int = Field(..., description="Category ID")
-    cat_code: str = Field(..., description="Category code")
-    cat_name: str = Field(..., description="Category name")
-    cat_parent_id: Optional[int] = Field(None, description="Parent category ID")
-    cat_is_active: bool = Field(..., description="Whether the category is active")
-
-    @computed_field
-    @property
-    def display_name(self) -> str:
-        """Get category display name."""
-        return self.cat_name
+    cat_id: int
+    cat_name: str
+    cat_parent_cat_id: Optional[int] = None
+    cat_is_actived: bool = True
+    cat_order: int = 0
+    cat_image_path: Optional[str] = None
 
 
 class CategoryWithChildrenResponse(CategoryResponse):
-    """Schema for Category response with children."""
-    children: List["CategoryWithChildrenResponse"] = Field(
-        default_factory=list,
-        description="Child categories"
-    )
+    """Category with nested children."""
+
+    children: List["CategoryWithChildrenResponse"] = Field(default_factory=list)
 
 
-# Self-reference for recursive model
 CategoryWithChildrenResponse.model_rebuild()
 
 
 class CategoryTreeResponse(BaseModel):
-    """Schema for hierarchical category tree response."""
-    categories: List[CategoryWithChildrenResponse] = Field(
-        ...,
-        description="List of root categories with nested children"
-    )
+    """Tree response wrapper."""
 
+    categories: List[CategoryWithChildrenResponse] = Field(default_factory=list)
 
-# ==========================================================================
-# List/Pagination Schemas
-# ==========================================================================
 
 class CategoryListPaginatedResponse(BaseModel):
-    """Paginated response for category list."""
-    items: List[CategoryResponse] = Field(
-        ...,
-        description="List of categories"
-    )
-    total: int = Field(
-        ...,
-        description="Total count of categories"
-    )
-    skip: int = Field(
-        ...,
-        description="Number of items skipped"
-    )
-    limit: int = Field(
-        ...,
-        description="Maximum items returned"
-    )
+    """Paginated category list response."""
 
+    items: List[CategoryResponse] = Field(default_factory=list)
+    total: int = 0
+    skip: int = 0
+    limit: int = 100
 
-# ==========================================================================
-# API Response Schemas
-# ==========================================================================
 
 class CategoryAPIResponse(BaseModel):
     """Standard API response wrapper for category operations."""
-    success: bool = Field(
-        True,
-        description="Whether the operation was successful"
-    )
-    message: Optional[str] = Field(
-        None,
-        description="Optional message"
-    )
-    data: Optional[CategoryResponse] = Field(
-        None,
-        description="Category data"
-    )
+
+    success: bool = True
+    message: Optional[str] = None
+    data: Optional[CategoryResponse] = None
 
 
 class CategoryErrorResponse(BaseModel):
     """Error response for category operations."""
-    success: bool = Field(
-        False,
-        description="Always false for errors"
-    )
-    error: dict = Field(
-        ...,
-        description="Error details with code and message"
-    )
+
+    success: bool = False
+    error: dict

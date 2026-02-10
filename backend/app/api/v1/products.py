@@ -132,6 +132,9 @@ async def search_products(
     service: ProductService = Depends(get_product_service)
 ):
     """Search and list products with pagination."""
+    if categoryId and not pty_id:
+        pty_id = categoryId
+
     # Map frontend camelCase sort fields to DB column names
     sort_field_map = {
         "name": "prd_name",

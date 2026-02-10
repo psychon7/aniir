@@ -22,6 +22,7 @@ import {
   useValidateInvoicesForX3Mutation,
 } from '@/hooks/useX3Export'
 import { useX3MappingStats } from '@/hooks/useX3Mappings'
+import { PdfUtilityPage } from '@/components/documents/PdfUtilityPage'
 import type {
   X3ExportLog,
   X3ExportLogSearchParams,
@@ -30,10 +31,35 @@ import type {
 } from '@/types/x3'
 
 export const Route = createFileRoute('/_authenticated/accounting/export/')({
+  validateSearch: (search: Record<string, unknown>) => ({
+    mode: typeof search.mode === 'string' ? search.mode : undefined,
+    source: typeof search.source === 'string' ? search.source : undefined,
+    title: typeof search.title === 'string' ? search.title : undefined,
+    filename: typeof search.filename === 'string' ? search.filename : undefined,
+  }),
   component: ExportPage,
 })
 
 function ExportPage() {
+  const search = Route.useSearch()
+  if (
+    (search.mode === 'pdf-viewer' || search.mode === 'pdf-download') &&
+    search.source
+  ) {
+    return (
+      <PdfUtilityPage
+        mode={search.mode}
+        source={search.source}
+        title={search.title}
+        filename={search.filename}
+      />
+    )
+  }
+
+  return <X3ExportPage />
+}
+
+function X3ExportPage() {
   const { t } = useTranslation()
   const { success, error: showError, warning } = useToast()
 

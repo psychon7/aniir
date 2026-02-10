@@ -60,6 +60,10 @@ export interface AgingSummary {
 export interface AgingFilters {
   companyId?: number
   buId?: number
+  clientId?: number
+  minAmount?: number
+  currencyId?: number
+  search?: string
 }
 
 /**
@@ -80,6 +84,10 @@ export interface ReceivablesAgingResponse {
 export interface ReceivablesAgingParams {
   companyId?: number
   buId?: number
+  clientId?: number
+  minAmount?: number
+  currencyId?: number
+  includeInvoices?: boolean
   asOfDate?: string
   search?: string
 }

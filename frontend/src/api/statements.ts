@@ -1,113 +1,136 @@
 import apiClient from './client'
-import * as mockHandlers from '@/mocks/handlers'
 import { isMockEnabled } from '@/mocks/delay'
-import type { Statement, StatementCreateDto, StatementUpdateDto, StatementSearchParams } from '@/types/statement'
-import type { ApiResponse, PagedResponse } from '@/types/api'
+import type { CustomerStatementReport, StatementGenerationParams } from '@/types/statement'
+
+function buildMockStatement(clientId: number, params: StatementGenerationParams): CustomerStatementReport {
+  const fromDate = params.fromDate
+  const toDate = params.toDate
+
+  return {
+    statement_type: 'CUSTOMER',
+    client: {
+      id: clientId,
+      reference: `CLI-${clientId}`,
+      company_name: `Client #${clientId}`,
+    },
+    period: {
+      from_date: fromDate,
+      to_date: toDate,
+    },
+    opening_balance: 0,
+    transactions: [],
+    totals: {
+      total_debits: 0,
+      total_credits: 0,
+      net_change: 0,
+      transaction_count: 0,
+    },
+    closing_balance: 0,
+    aging_summary: {
+      current: 0,
+      days_31_60: 0,
+      days_61_90: 0,
+      over_90: 0,
+    },
+    filters: {
+      include_paid_invoices: params.includePaid ?? true,
+      society_id: params.societyId,
+    },
+    generated_at: new Date().toISOString(),
+  }
+}
 
 /**
- * Statements API methods
- * Automatically switches between mock and real API based on VITE_USE_MOCK_API env variable
+ * Customer statement API methods.
  */
 export const statementsApi = {
   /**
-   * Get paginated list of statements with optional filtering
+   * Generate customer statement for a client and date range.
    */
-  async getAll(params: StatementSearchParams = {}): Promise<PagedResponse<Statement>> {
+  async getCustomerStatement(
+    clientId: number,
+    params: StatementGenerationParams
+  ): Promise<CustomerStatementReport> {
     if (isMockEnabled()) {
-      return mockHandlers.getStatements(params)
+      return buildMockStatement(clientId, params)
     }
 
-    const response = await apiClient.get<PagedResponse<Statement>>('/statements', { params })
-    return response.data
-  },
-
-  /**
-   * Get a single statement by ID
-   */
-  async getById(id: number): Promise<Statement> {
-    if (isMockEnabled()) {
-      const response = await mockHandlers.getStatementById(id)
-      return response.data
-    }
-
-    const response = await apiClient.get<ApiResponse<Statement>>(`/statements/${id}`)
-    return response.data.data
-  },
-
-  /**
-   * Create a new statement
-   */
-  async create(data: StatementCreateDto): Promise<Statement> {
-    if (isMockEnabled()) {
-      const response = await mockHandlers.createStatement(data)
-      return response.data
-    }
-
-    const response = await apiClient.post<ApiResponse<Statement>>('/statements', data)
-    return response.data.data
-  },
-
-  /**
-   * Update an existing statement
-   */
-  async update(data: StatementUpdateDto): Promise<Statement> {
-    if (isMockEnabled()) {
-      const response = await mockHandlers.updateStatement(data)
-      return response.data
-    }
-
-    const response = await apiClient.put<ApiResponse<Statement>>(`/statements/${data.id}`, data)
-    return response.data.data
-  },
-
-  /**
-   * Delete a statement
-   */
-  async delete(id: number): Promise<void> {
-    if (isMockEnabled()) {
-      await mockHandlers.deleteStatement(id)
-      return
-    }
-
-    await apiClient.delete(`/statements/${id}`)
-  },
-
-  /**
-   * Export statements to CSV
-   */
-  async exportCSV(params: StatementSearchParams = {}): Promise<string> {
-    if (isMockEnabled()) {
-      return mockHandlers.exportStatementsToCSV(params)
-    }
-
-    const response = await apiClient.get<string>('/statements/export', {
-      params,
-      headers: { Accept: 'text/csv' },
+    const response = await apiClient.get<CustomerStatementReport>(`/accounting/clients/${clientId}/statement`, {
+      params: {
+        from_date: params.fromDate,
+        to_date: params.toDate,
+        include_paid: params.includePaid ?? true,
+        society_id: params.societyId,
+      },
     })
     return response.data
   },
 
   /**
-   * Send statement to client via email
+   * Export customer statement in CSV format.
    */
-  async sendToClient(id: number, email: string): Promise<void> {
+  async exportCustomerStatementCsv(clientId: number, params: StatementGenerationParams): Promise<string> {
     if (isMockEnabled()) {
-      await mockHandlers.sendStatementToClient(id, email)
-      return
+      return 'Date,Type,Reference,Description,Debit,Credit,Balance\n'
     }
 
-    await apiClient.post(`/statements/${id}/send`, { email })
+    const response = await apiClient.get<string>(`/accounting/clients/${clientId}/statement/export/csv`, {
+      params: {
+        from_date: params.fromDate,
+        to_date: params.toDate,
+        include_paid: params.includePaid ?? true,
+        society_id: params.societyId,
+      },
+      headers: {
+        Accept: 'text/csv',
+      },
+    })
+    return response.data
   },
 
   /**
-   * Generate statement PDF
+   * Export customer statement in PDF format.
    */
-  async generatePDF(id: number): Promise<Blob> {
+  async exportCustomerStatementPdf(
+    clientId: number,
+    params: StatementGenerationParams,
+    includeInvoice = true
+  ): Promise<Blob> {
     if (isMockEnabled()) {
-      return mockHandlers.generateStatementPDF(id)
+      return new Blob(['%PDF-1.4 mock statement pdf'], { type: 'application/pdf' })
     }
 
-    const response = await apiClient.get(`/statements/${id}/pdf`, {
+    const response = await apiClient.get<Blob>(`/accounting/clients/${clientId}/statement/export/pdf`, {
+      params: {
+        from_date: params.fromDate,
+        to_date: params.toDate,
+        include_paid: params.includePaid ?? true,
+        include_invoice: includeInvoice,
+        society_id: params.societyId,
+      },
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  /**
+   * Export customer statement in BL PDF format.
+   */
+  async exportCustomerStatementBlPdf(
+    clientId: number,
+    params: StatementGenerationParams
+  ): Promise<Blob> {
+    if (isMockEnabled()) {
+      return new Blob(['%PDF-1.4 mock statement bl pdf'], { type: 'application/pdf' })
+    }
+
+    const response = await apiClient.get<Blob>(`/accounting/clients/${clientId}/statement/export/bl-pdf`, {
+      params: {
+        from_date: params.fromDate,
+        to_date: params.toDate,
+        include_paid: params.includePaid ?? true,
+        society_id: params.societyId,
+      },
       responseType: 'blob',
     })
     return response.data

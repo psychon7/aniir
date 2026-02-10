@@ -9,6 +9,8 @@ import type {
   OrderUpdateDto,
   OrderSearchParams,
   OrderLineCreateDto,
+  OrderDiscountRequest,
+  OrderConvertToQuoteResponse,
 } from '@/types/order'
 import type { PagedResponse } from '@/types/api'
 
@@ -179,6 +181,39 @@ export const ordersApi = {
     }
 
     const response = await apiClient.post<Order>(`/orders/${id}/duplicate`)
+    return response.data
+  },
+
+  /**
+   * Convert order to quote (reverse conversion)
+   */
+  async convertToQuote(id: number): Promise<OrderConvertToQuoteResponse> {
+    const response = await apiClient.post<{
+      order_id: number
+      quote_id: number
+      quote_reference: string
+      converted_at: string
+      lines_converted: number
+    }>(`/orders/${id}/convert-to-quote`)
+
+    return {
+      orderId: response.data.order_id,
+      quoteId: response.data.quote_id,
+      quoteReference: response.data.quote_reference,
+      convertedAt: response.data.converted_at,
+      linesConverted: response.data.lines_converted,
+    }
+  },
+
+  /**
+   * Update order-level discount
+   */
+  async updateDiscount(id: number, request: OrderDiscountRequest): Promise<Order> {
+    const payload = {
+      discount_percentage: request.discountPercentage,
+      discount_amount: request.discountAmount,
+    }
+    const response = await apiClient.post<Order>(`/orders/${id}/discount`, payload)
     return response.data
   },
 

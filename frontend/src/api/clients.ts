@@ -3,6 +3,14 @@ import * as mockHandlers from '@/mocks/handlers'
 import { isMockEnabled } from '@/mocks/delay'
 import type { Client, ClientContact, ClientCreateDto, ClientUpdateDto, ClientSearchParams } from '@/types/client'
 import type { ApiResponse, PagedResponse } from '@/types/api'
+import type { ActivityResponse } from '@/types/activity'
+
+interface ClientContactPaginatedResponse {
+  items: ClientContact[]
+  total: number
+  skip: number
+  limit: number
+}
 
 /**
  * Client API methods
@@ -81,8 +89,8 @@ export const clientsApi = {
       return response.data
     }
 
-    const response = await apiClient.get<ApiResponse<ClientContact[]>>(`/clients/${clientId}/contacts`)
-    return response.data.data
+    const response = await apiClient.get<ClientContactPaginatedResponse>(`/clients/${clientId}/contacts`)
+    return response.data.items || []
   },
 
   /**
@@ -105,6 +113,21 @@ export const clientsApi = {
   },
 
   /**
+   * Update a client contact
+   */
+  async updateContact(
+    clientId: number,
+    contactId: number,
+    contact: Partial<Omit<ClientContact, 'id' | 'clientId'>>
+  ): Promise<ClientContact> {
+    const response = await apiClient.put<ClientContact>(
+      `/clients/${clientId}/contacts/${contactId}`,
+      contact
+    )
+    return response.data
+  },
+
+  /**
    * Delete a client contact
    */
   async deleteContact(clientId: number, contactId: number): Promise<void> {
@@ -114,6 +137,20 @@ export const clientsApi = {
     }
 
     await apiClient.delete(`/clients/${clientId}/contacts/${contactId}`)
+  },
+
+  /**
+   * Get activity feed for a client
+   */
+  async getActivity(
+    clientId: number,
+    params: { page?: number; pageSize?: number; entityType?: string } = {}
+  ): Promise<ActivityResponse> {
+    const response = await apiClient.get<ActivityResponse>(
+      `/clients/${clientId}/activity`,
+      { params }
+    )
+    return response.data
   },
 
   /**

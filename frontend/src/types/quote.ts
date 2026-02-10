@@ -26,6 +26,7 @@ export interface Quote {
   subtotal?: number
   taxAmount?: number
   totalAmount?: number
+  discountPercentage?: number
   discountAmount?: number
 
   lines?: QuoteLine[]

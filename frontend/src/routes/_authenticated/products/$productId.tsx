@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
@@ -10,6 +10,7 @@ import { LoadingSkeletonCard } from '@/components/ui/feedback/LoadingSkeleton'
 import { EmptyStateError } from '@/components/ui/feedback/EmptyState'
 import { DeleteConfirmDialog } from '@/components/ui/feedback/ConfirmDialog'
 import { useToast } from '@/components/ui/feedback/Toast'
+import { AttachFileButton, DocumentAttachments } from '@/components/attachments'
 import apiClient from '@/api/client'
 
 export const Route = createFileRoute('/_authenticated/products/$productId')({
@@ -27,7 +28,7 @@ function InfoItem({
   className,
 }: {
   label: string
-  value?: React.ReactNode
+  value?: ReactNode
   mono?: boolean
   className?: string
 }) {
@@ -65,6 +66,26 @@ function formatDecimal(val?: number | string | null, unit?: string): string {
   return unit ? `${num} ${unit}` : String(num)
 }
 
+type ComponentType = 'DRIVER' | 'ACCESSORY' | 'OPTION'
+
+interface ProductComponent {
+  id: number
+  productId: number
+  componentProductId: number
+  componentType: ComponentType
+  quantity?: number
+  isRequired: boolean
+  order: number
+  componentReference?: string
+  componentName?: string
+}
+
+const componentTypeLabels: Record<ComponentType, string> = {
+  DRIVER: 'Drivers',
+  ACCESSORY: 'Accessories',
+  OPTION: 'Options',
+}
+
 // ---------------------------------------------------------------------------
 // Main page
 // ---------------------------------------------------------------------------
@@ -77,6 +98,11 @@ function ProductDetailPage() {
   const { success, error: showError } = useToast()
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [componentDrafts, setComponentDrafts] = useState<Record<ComponentType, { componentProductId: string; quantity: string; isRequired: boolean }>>({
+    DRIVER: { componentProductId: '', quantity: '1', isRequired: true },
+    ACCESSORY: { componentProductId: '', quantity: '1', isRequired: false },
+    OPTION: { componentProductId: '', quantity: '1', isRequired: false },
+  })
 
   // Fetch product detail (enriched with resolved names)
   const {
@@ -101,6 +127,28 @@ function ProductDetailPage() {
     enabled: !!product,
   })
 
+  const { data: componentsData } = useQuery({
+    queryKey: ['product', productId, 'components'],
+    queryFn: async () => {
+      const response = await apiClient.get(`/products/${productId}/components`)
+      return response.data
+    },
+    enabled: !!product,
+  })
+  const components: ProductComponent[] = componentsData?.items || []
+
+  const { data: componentOptionsData } = useQuery({
+    queryKey: ['products', 'component-options', product?.societyId],
+    queryFn: async () => {
+      const response = await apiClient.get('/products', {
+        params: { page: 1, pageSize: 200, soc_id: product?.societyId || undefined },
+      })
+      return response.data
+    },
+    enabled: !!product,
+  })
+  const componentOptions = (componentOptionsData?.data || []).filter((item: any) => item.id !== Number(productId))
+
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: () => apiClient.delete(`/products/${productId}`),
@@ -114,6 +162,41 @@ function ProductDetailPage() {
     },
     onError: () => {
       showError(t('common.error', 'Error'), t('products.deleteError', 'Failed to delete product.'))
+    },
+  })
+
+  const createComponentMutation = useMutation({
+    mutationFn: async ({
+      type,
+      payload,
+    }: {
+      type: ComponentType
+      payload: { componentProductId: string; quantity: string; isRequired: boolean }
+    }) =>
+      apiClient.post(`/products/${productId}/components`, {
+        componentProductId: Number(payload.componentProductId),
+        componentType: type,
+        quantity: payload.quantity ? Number(payload.quantity) : undefined,
+        isRequired: payload.isRequired,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['product', productId, 'components'] })
+      success(t('products.componentAdded', 'Component added'), t('products.componentAddedDescription', 'Component relation created successfully.'))
+    },
+    onError: () => {
+      showError(t('common.error', 'Error'), t('products.componentAddError', 'Unable to add product component.'))
+    },
+  })
+
+  const deleteComponentMutation = useMutation({
+    mutationFn: async (componentId: number) =>
+      apiClient.delete(`/products/${productId}/components/${componentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['product', productId, 'components'] })
+      success(t('products.componentDeleted', 'Component deleted'), t('products.componentDeletedDescription', 'Component relation removed successfully.'))
+    },
+    onError: () => {
+      showError(t('common.error', 'Error'), t('products.componentDeleteError', 'Unable to delete component relation.'))
     },
   })
 
@@ -154,6 +237,29 @@ function ProductDetailPage() {
   const hasCartonDimensions =
     product.cartonLength || product.cartonWidth || product.cartonHeight || product.cartonWeight || product.quantityEachCarton
 
+  const componentTypes: ComponentType[] = ['DRIVER', 'ACCESSORY', 'OPTION']
+
+  const updateComponentDraft = (
+    type: ComponentType,
+    updates: Partial<{ componentProductId: string; quantity: string; isRequired: boolean }>
+  ) => {
+    setComponentDrafts((prev) => ({
+      ...prev,
+      [type]: { ...prev[type], ...updates },
+    }))
+  }
+
+  const handleAddComponent = async (type: ComponentType) => {
+    const draft = componentDrafts[type]
+    if (!draft.componentProductId) {
+      showError(t('common.error', 'Error'), t('products.componentSelectRequired', 'Select a product component first.'))
+      return
+    }
+
+    await createComponentMutation.mutateAsync({ type, payload: draft })
+    updateComponentDraft(type, { componentProductId: '', quantity: '1', isRequired: type === 'DRIVER' })
+  }
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -175,6 +281,11 @@ function ProductDetailPage() {
             >
               {t('common.back', 'Back')}
             </button>
+            <AttachFileButton
+              entityType="PRODUCT"
+              entityId={Number(productId)}
+              variant="outline"
+            />
             <button
               onClick={() => setIsDeleteOpen(true)}
               className="btn-secondary text-destructive hover:bg-destructive/10"
@@ -292,6 +403,118 @@ function ProductDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Product Components */}
+          <Card>
+            <CardHeader title={t('products.components', 'Product Components')} />
+            <CardContent>
+              <div className="space-y-6">
+                {componentTypes.map((type) => {
+                  const items = components.filter((item) => item.componentType === type)
+                  const draft = componentDrafts[type]
+                  return (
+                    <div key={type} className="rounded-lg border border-border p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-foreground">
+                          {componentTypeLabels[type]}
+                        </h4>
+                        <span className="text-xs text-muted-foreground">{items.length}</span>
+                      </div>
+
+                      {items.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          {t('products.noComponentsForType', 'No components linked for this type yet.')}
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-between rounded border border-border px-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">
+                                  {item.componentName || `#${item.componentProductId}`}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {item.componentReference || '-'} | Qty: {item.quantity ?? 1}
+                                  {item.isRequired ? ' | Required' : ''}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                className="text-xs text-destructive hover:underline ml-3"
+                                onClick={() => deleteComponentMutation.mutate(item.id)}
+                                disabled={deleteComponentMutation.isPending}
+                              >
+                                {t('common.delete', 'Delete')}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                        <div className="md:col-span-6">
+                          <label className="block text-xs text-muted-foreground mb-1">
+                            {t('products.componentProduct', 'Component Product')}
+                          </label>
+                          <select
+                            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                            value={draft.componentProductId}
+                            onChange={(e) => updateComponentDraft(type, { componentProductId: e.target.value })}
+                          >
+                            <option value="">
+                              {t('products.selectComponent', 'Select product')}
+                            </option>
+                            {componentOptions.map((option: any) => (
+                              <option key={option.id} value={String(option.id)}>
+                                {option.reference} - {option.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="md:col-span-2">
+                          <label className="block text-xs text-muted-foreground mb-1">
+                            {t('products.quantity', 'Qty')}
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                            value={draft.quantity}
+                            onChange={(e) => updateComponentDraft(type, { quantity: e.target.value })}
+                          />
+                        </div>
+
+                        <label className="md:col-span-2 flex items-center gap-2 text-sm text-foreground pb-2">
+                          <input
+                            type="checkbox"
+                            checked={draft.isRequired}
+                            onChange={(e) => updateComponentDraft(type, { isRequired: e.target.checked })}
+                          />
+                          {t('products.required', 'Required')}
+                        </label>
+
+                        <div className="md:col-span-2">
+                          <button
+                            type="button"
+                            className="btn-secondary w-full"
+                            onClick={() => handleAddComponent(type)}
+                            disabled={createComponentMutation.isPending}
+                          >
+                            {t('common.add', 'Add')}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* ====== Sidebar (1 col) ====== */}
@@ -377,6 +600,11 @@ function ProductDetailPage() {
               </dl>
             </CardContent>
           </Card>
+
+          <DocumentAttachments
+            entityType="PRODUCT"
+            entityId={Number(productId)}
+          />
         </div>
       </div>
 
