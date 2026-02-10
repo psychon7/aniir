@@ -3,7 +3,7 @@
  * Main entry point for 3D warehouse visualization and layout designer
  */
 
-import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { StockListItem } from '@/types/warehouse'
 import Warehouse3DCanvas, { type Warehouse3DCanvasHandle } from './Warehouse3DCanvas'
@@ -172,18 +172,21 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
     onSaveError: (error) => console.error('Failed to save layout:', error)
   })
 
-  // Generate and load default layout on mount if no saved layout
-  useEffect(() => {
-    if (!hasInitialized && !isLoadingLayout && canvasRef.current) {
+  // Handle scene ready - load default layout if no saved layout
+  const handleSceneReady = useCallback(() => {
+    if (!hasInitialized && canvasRef.current) {
       setHasInitialized(true)
-      if (!savedLayout) {
+      if (!savedLayout && !isLoadingLayout) {
         const defaultLayout = generateDefaultLayout(
           layoutConfig.numAisles,
           layoutConfig.racksPerAisle,
           layoutConfig.levelsPerRack,
           layoutConfig.baysPerLevel
         )
-        canvasRef.current.loadLayout(defaultLayout)
+        // Use setTimeout to ensure the scene is fully ready
+        setTimeout(() => {
+          canvasRef.current?.loadLayout(defaultLayout)
+        }, 100)
       }
     }
   }, [hasInitialized, isLoadingLayout, savedLayout, layoutConfig])
@@ -549,6 +552,7 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
             placementTool={placementTool}
             onObjectSelect={handleObjectSelect}
             onLayoutChange={handleLayoutChange}
+            onSceneReady={handleSceneReady}
             className="absolute inset-0"
           />
 

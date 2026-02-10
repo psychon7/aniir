@@ -32,6 +32,8 @@ export interface Warehouse3DCanvasProps {
   onObjectSelect?: (userData: Warehouse3DUserData | null) => void
   /** Called when layout changes */
   onLayoutChange?: (layout: WarehouseLayout) => void
+  /** Called when the 3D scene is ready */
+  onSceneReady?: () => void
   /** CSS class for container */
   className?: string
 }
@@ -54,6 +56,7 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       placementTool,
       onObjectSelect,
       onLayoutChange,
+      onSceneReady,
       className = ''
     } = props
 
@@ -66,7 +69,10 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       cameraRef,
       warehouseGroupRef,
       resize
-    } = useWarehouse3D({ config: sceneConfig })
+    } = useWarehouse3D({
+      config: sceneConfig,
+      onSceneReady
+    })
 
     // Warehouse objects management
     const {
@@ -78,7 +84,7 @@ const Warehouse3DCanvas = forwardRef<Warehouse3DCanvasHandle, Warehouse3DCanvasP
       clearWarehouse,
       getLayout
     } = useWarehouseObjects({
-      warehouseGroup: warehouseGroupRef.current,
+      warehouseGroupRef,
       onLayoutChange
     })
 

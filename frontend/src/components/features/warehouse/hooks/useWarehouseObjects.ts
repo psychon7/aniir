@@ -18,7 +18,7 @@ import { createRackLabel, createPalletLabel, removeLabels } from '../utils/label
 import type { StockListItem } from '@/types/warehouse'
 
 export interface UseWarehouseObjectsOptions {
-  warehouseGroup: THREE.Group | null
+  warehouseGroupRef: React.RefObject<THREE.Group | null>
   onLayoutChange?: (layout: WarehouseLayout) => void
 }
 
@@ -53,7 +53,7 @@ const DEFAULT_RACK_CONFIG: Omit<RackConfig, 'id' | 'position'> = {
 export function useWarehouseObjects(
   options: UseWarehouseObjectsOptions
 ): UseWarehouseObjectsReturn {
-  const { warehouseGroup, onLayoutChange } = options
+  const { warehouseGroupRef, onLayoutChange } = options
   
   // Maps for quick lookup
   const rackMapRef = useRef<Map<string, THREE.Group>>(new Map())
@@ -82,6 +82,7 @@ export function useWarehouseObjects(
   // Add a new rack
   const addRack = useCallback(
     (position: { x: number; z: number }, config?: Partial<RackConfig>): string | null => {
+      const warehouseGroup = warehouseGroupRef.current
       if (!warehouseGroup) return null
 
       const id = config?.id || `rack_${uuidv4().slice(0, 8)}`
@@ -107,7 +108,7 @@ export function useWarehouseObjects(
 
       const rackGroup = createRackGroup(rackConfig)
       rackGroup.position.set(position.x, 0, position.z)
-      
+
       // Add rack label
       const label = createRackLabel(id, rackConfig.levels, rackConfig.bays)
       label.position.set(
@@ -126,12 +127,13 @@ export function useWarehouseObjects(
 
       return id
     },
-    [warehouseGroup, onLayoutChange]
+    [warehouseGroupRef, onLayoutChange]
   )
 
   // Remove a rack
   const removeRack = useCallback(
     (rackId: string): boolean => {
+      const warehouseGroup = warehouseGroupRef.current
       if (!warehouseGroup) return false
 
       const rack = rackMapRef.current.get(rackId)
@@ -161,7 +163,7 @@ export function useWarehouseObjects(
 
       return true
     },
-    [warehouseGroup, onLayoutChange]
+    [warehouseGroupRef, onLayoutChange]
   )
 
   // Update rack properties - placeholder for now
@@ -175,10 +177,11 @@ export function useWarehouseObjects(
 
   // Clear all warehouse objects
   const clearWarehouse = useCallback(() => {
+    const warehouseGroup = warehouseGroupRef.current
     if (!warehouseGroup) return
 
     // Remove all racks
-    rackMapRef.current.forEach((rack, rackId) => {
+    rackMapRef.current.forEach((rack) => {
       removeLabels(rack)
       rack.traverse((child) => {
         if (child instanceof THREE.Mesh) {
@@ -198,11 +201,12 @@ export function useWarehouseObjects(
     layoutRef.current.racks = []
     layoutRef.current.aisles = []
     onLayoutChange?.(layoutRef.current)
-  }, [warehouseGroup, onLayoutChange])
+  }, [warehouseGroupRef, onLayoutChange])
 
   // Load a layout
   const loadLayout = useCallback(
     (layout: WarehouseLayout) => {
+      const warehouseGroup = warehouseGroupRef.current
       if (!warehouseGroup) return
 
       // Clear existing
@@ -231,7 +235,7 @@ export function useWarehouseObjects(
 
       onLayoutChange?.(layoutRef.current)
     },
-    [warehouseGroup, clearWarehouse, onLayoutChange]
+    [warehouseGroupRef, clearWarehouse, onLayoutChange]
   )
 
   // Sync stock data to pallets
