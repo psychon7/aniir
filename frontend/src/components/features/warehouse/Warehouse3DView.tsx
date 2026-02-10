@@ -3,7 +3,7 @@
  * Main entry point for 3D warehouse visualization and layout designer
  */
 
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { StockListItem } from '@/types/warehouse'
 import Warehouse3DCanvas, { type Warehouse3DCanvasHandle } from './Warehouse3DCanvas'
@@ -13,7 +13,11 @@ import type {
   PlacementTool,
   WarehouseLayout,
   Warehouse3DUserData,
-  WarehouseSceneConfig
+  WarehouseSceneConfig,
+  RackConfig,
+  ShelfConfig,
+  PalletSlot,
+  AisleConfig
 } from './types/warehouse3d'
 
 // Icons from lucide-react
@@ -27,7 +31,10 @@ import {
   RotateCcw,
   Maximize2,
   Grid3X3,
-  Layers
+  Layers,
+  Plus,
+  Minus,
+  Box
 } from 'lucide-react'
 
 export interface Warehouse3DViewProps {
@@ -36,20 +43,119 @@ export interface Warehouse3DViewProps {
   warehouseName?: string
 }
 
+/**
+ * Generate a default warehouse layout with aisles, racks, and pallets
+ */
+function generateDefaultLayout(
+  numAisles: number = 3,
+  racksPerAisle: number = 3,
+  levelsPerRack: number = 4,
+  baysPerLevel: number = 3
+): WarehouseLayout {
+  const racks: RackConfig[] = []
+  const aisles: AisleConfig[] = []
+
+  const rackWidth = 4
+  const rackDepth = 1.5
+  const rackHeight = levelsPerRack * 1.2
+  const aisleWidth = 3
+  const rackSpacing = 1
+
+  for (let aisleIdx = 0; aisleIdx < numAisles; aisleIdx++) {
+    const aisleId = `aisle_${String.fromCharCode(65 + aisleIdx)}` // A, B, C...
+    const aisleZ = aisleIdx * (rackDepth * 2 + aisleWidth + rackSpacing * 2) + 5
+
+    // Create aisle
+    aisles.push({
+      id: aisleId,
+      start: { x: 2, z: aisleZ + rackDepth + rackSpacing },
+      end: { x: 2 + racksPerAisle * (rackWidth + rackSpacing), z: aisleZ + rackDepth + rackSpacing },
+      width: aisleWidth
+    })
+
+    // Create racks on both sides of the aisle
+    for (let rackIdx = 0; rackIdx < racksPerAisle; rackIdx++) {
+      const rackX = 3 + rackIdx * (rackWidth + rackSpacing)
+
+      // Front rack (facing aisle)
+      const frontRackId = `rack_${aisleId.replace('aisle_', '')}-${String(rackIdx + 1).padStart(2, '0')}-F`
+      const frontShelves: ShelfConfig[] = []
+      for (let level = 0; level < levelsPerRack; level++) {
+        const pallets: PalletSlot[] = []
+        for (let bay = 0; bay < baysPerLevel; bay++) {
+          pallets.push({
+            bay,
+            binId: `${aisleId.replace('aisle_', '')}-${String(rackIdx + 1).padStart(2, '0')}-${String(level + 1).padStart(2, '0')}-${String(bay + 1).padStart(2, '0')}`
+          })
+        }
+        frontShelves.push({ level, pallets })
+      }
+      racks.push({
+        id: frontRackId,
+        position: { x: rackX, y: 0, z: aisleZ },
+        dimensions: { width: rackWidth, depth: rackDepth, height: rackHeight },
+        levels: levelsPerRack,
+        bays: baysPerLevel,
+        shelves: frontShelves
+      })
+
+      // Back rack (facing aisle from other side)
+      const backRackId = `rack_${aisleId.replace('aisle_', '')}-${String(rackIdx + 1).padStart(2, '0')}-B`
+      const backShelves: ShelfConfig[] = []
+      for (let level = 0; level < levelsPerRack; level++) {
+        const pallets: PalletSlot[] = []
+        for (let bay = 0; bay < baysPerLevel; bay++) {
+          pallets.push({
+            bay,
+            binId: `${aisleId.replace('aisle_', '')}-${String(rackIdx + 1).padStart(2, '0')}-${String(level + 1).padStart(2, '0')}-${String(bay + 1).padStart(2, '0')}B`
+          })
+        }
+        backShelves.push({ level, pallets })
+      }
+      racks.push({
+        id: backRackId,
+        position: { x: rackX, y: 0, z: aisleZ + rackDepth + aisleWidth + rackSpacing },
+        dimensions: { width: rackWidth, depth: rackDepth, height: rackHeight },
+        levels: levelsPerRack,
+        bays: baysPerLevel,
+        shelves: backShelves
+      })
+    }
+  }
+
+  return {
+    version: '1.0.0',
+    name: 'Default Warehouse Layout',
+    dimensions: { width: 50, depth: 40, height: 12 },
+    gridSize: 1,
+    racks,
+    aisles
+  }
+}
+
 export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse3DViewProps) {
   const { t } = useTranslation()
   const canvasRef = useRef<Warehouse3DCanvasHandle>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [hasInitialized, setHasInitialized] = useState(false)
 
   // State
-  const [mode, setMode] = useState<InteractionMode>('view')
+  const [mode, setMode] = useState<InteractionMode>('design') // Start in design mode
   const [placementTool, setPlacementTool] = useState<PlacementTool>('select')
   const [selectedObject, setSelectedObject] = useState<Warehouse3DUserData | null>(null)
   const [config, setConfig] = useState<Partial<WarehouseSceneConfig>>({
-    dimensions: { width: 50, depth: 30, height: 10 },
+    dimensions: { width: 50, depth: 40, height: 12 },
     gridSize: 1
   })
   const [isFullscreen, setIsFullscreen] = useState(false)
+
+  // Layout configuration state
+  const [layoutConfig, setLayoutConfig] = useState({
+    numAisles: 3,
+    racksPerAisle: 3,
+    levelsPerRack: 4,
+    baysPerLevel: 3
+  })
 
   // Layout persistence
   const {
@@ -65,6 +171,35 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
     onSaveSuccess: () => console.log('Layout saved successfully'),
     onSaveError: (error) => console.error('Failed to save layout:', error)
   })
+
+  // Generate and load default layout on mount if no saved layout
+  useEffect(() => {
+    if (!hasInitialized && !isLoadingLayout && canvasRef.current) {
+      setHasInitialized(true)
+      if (!savedLayout) {
+        const defaultLayout = generateDefaultLayout(
+          layoutConfig.numAisles,
+          layoutConfig.racksPerAisle,
+          layoutConfig.levelsPerRack,
+          layoutConfig.baysPerLevel
+        )
+        canvasRef.current.loadLayout(defaultLayout)
+      }
+    }
+  }, [hasInitialized, isLoadingLayout, savedLayout, layoutConfig])
+
+  // Handler to regenerate layout with new config
+  const handleRegenerateLayout = useCallback(() => {
+    if (canvasRef.current) {
+      const newLayout = generateDefaultLayout(
+        layoutConfig.numAisles,
+        layoutConfig.racksPerAisle,
+        layoutConfig.levelsPerRack,
+        layoutConfig.baysPerLevel
+      )
+      canvasRef.current.loadLayout(newLayout)
+    }
+  }, [layoutConfig])
 
   // Handlers
   const handleModeToggle = useCallback(() => {
@@ -275,6 +410,94 @@ export function Warehouse3DView({ items, warehouseId, warehouseName }: Warehouse
                     <option value={2}>2m</option>
                   </select>
                 </label>
+              </div>
+            </div>
+
+            {/* Layout Generator */}
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                Layout Generator
+              </h4>
+              <div className="space-y-2">
+                <label className="flex items-center justify-between text-xs">
+                  <span>Aisles:</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setLayoutConfig(prev => ({ ...prev, numAisles: Math.max(1, prev.numAisles - 1) }))}
+                      className="p-1 rounded bg-secondary hover:bg-secondary/80"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="w-6 text-center font-medium">{layoutConfig.numAisles}</span>
+                    <button
+                      onClick={() => setLayoutConfig(prev => ({ ...prev, numAisles: Math.min(10, prev.numAisles + 1) }))}
+                      className="p-1 rounded bg-secondary hover:bg-secondary/80"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </label>
+                <label className="flex items-center justify-between text-xs">
+                  <span>Racks/Aisle:</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setLayoutConfig(prev => ({ ...prev, racksPerAisle: Math.max(1, prev.racksPerAisle - 1) }))}
+                      className="p-1 rounded bg-secondary hover:bg-secondary/80"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="w-6 text-center font-medium">{layoutConfig.racksPerAisle}</span>
+                    <button
+                      onClick={() => setLayoutConfig(prev => ({ ...prev, racksPerAisle: Math.min(10, prev.racksPerAisle + 1) }))}
+                      className="p-1 rounded bg-secondary hover:bg-secondary/80"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </label>
+                <label className="flex items-center justify-between text-xs">
+                  <span>Levels:</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setLayoutConfig(prev => ({ ...prev, levelsPerRack: Math.max(1, prev.levelsPerRack - 1) }))}
+                      className="p-1 rounded bg-secondary hover:bg-secondary/80"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="w-6 text-center font-medium">{layoutConfig.levelsPerRack}</span>
+                    <button
+                      onClick={() => setLayoutConfig(prev => ({ ...prev, levelsPerRack: Math.min(8, prev.levelsPerRack + 1) }))}
+                      className="p-1 rounded bg-secondary hover:bg-secondary/80"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </label>
+                <label className="flex items-center justify-between text-xs">
+                  <span>Bays/Level:</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setLayoutConfig(prev => ({ ...prev, baysPerLevel: Math.max(1, prev.baysPerLevel - 1) }))}
+                      className="p-1 rounded bg-secondary hover:bg-secondary/80"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="w-6 text-center font-medium">{layoutConfig.baysPerLevel}</span>
+                    <button
+                      onClick={() => setLayoutConfig(prev => ({ ...prev, baysPerLevel: Math.min(6, prev.baysPerLevel + 1) }))}
+                      className="p-1 rounded bg-secondary hover:bg-secondary/80"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </label>
+                <button
+                  onClick={handleRegenerateLayout}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  <Box className="w-3.5 h-3.5" />
+                  Generate Layout
+                </button>
               </div>
             </div>
 

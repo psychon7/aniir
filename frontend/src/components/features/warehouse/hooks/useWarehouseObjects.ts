@@ -173,19 +173,207 @@ export function useWarehouseObjects(
     []
   )
 
+  // Clear all warehouse objects
+  const clearWarehouse = useCallback(() => {
+    if (!warehouseGroup) return
+
+    // Remove all racks
+    rackMapRef.current.forEach((rack, rackId) => {
+      removeLabels(rack)
+      rack.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry?.dispose()
+          if (Array.isArray(child.material)) {
+            child.material.forEach((m) => m.dispose())
+          } else {
+            child.material?.dispose()
+          }
+        }
+      })
+      warehouseGroup.remove(rack)
+    })
+
+    rackMapRef.current.clear()
+    palletMapRef.current.clear()
+    layoutRef.current.racks = []
+    layoutRef.current.aisles = []
+    onLayoutChange?.(layoutRef.current)
+  }, [warehouseGroup, onLayoutChange])
+
+  // Load a layout
+  const loadLayout = useCallback(
+    (layout: WarehouseLayout) => {
+      if (!warehouseGroup) return
+
+      // Clear existing
+      clearWarehouse()
+
+      // Update layout ref
+      layoutRef.current = { ...layout }
+
+      // Create racks from layout
+      layout.racks.forEach((rackConfig) => {
+        const rackGroup = createRackGroup(rackConfig)
+        rackGroup.position.set(rackConfig.position.x, 0, rackConfig.position.z)
+
+        // Add rack label
+        const label = createRackLabel(rackConfig.id, rackConfig.levels, rackConfig.bays)
+        label.position.set(
+          rackConfig.dimensions.width / 2,
+          rackConfig.dimensions.height + 0.5,
+          rackConfig.dimensions.depth / 2
+        )
+        rackGroup.add(label)
+
+        warehouseGroup.add(rackGroup)
+        rackMapRef.current.set(rackConfig.id, rackGroup)
+      })
+
+      onLayoutChange?.(layoutRef.current)
+    },
+    [warehouseGroup, clearWarehouse, onLayoutChange]
+  )
+
+  // Sync stock data to pallets
+  const syncStockData = useCallback(
+    (stockItems: StockListItem[]) => {
+      // Map stock items by bin location
+      const stockByBin = new Map<string, StockListItem>()
+      stockItems.forEach((item) => {
+        if (item.bin_location) {
+          stockByBin.set(item.bin_location, item)
+        }
+      })
+
+      // Update pallet materials based on stock
+      rackMapRef.current.forEach((rackGroup) => {
+        rackGroup.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            const userData = child.userData as Warehouse3DUserData
+            if (userData.type === 'pallet' && userData.binId) {
+              const stock = stockByBin.get(userData.binId)
+              if (stock) {
+                userData.stkId = stock.stk_id
+                userData.productRef = stock.product_ref
+                userData.productName = stock.product_name
+                userData.quantity = stock.stk_quantity_available || 0
+                updatePalletMaterial(child, userData.quantity)
+                palletMapRef.current.set(stock.stk_id, child)
+
+                // Add pallet label
+                const label = createPalletLabel(
+                  stock.product_ref || '',
+                  stock.product_name || '',
+                  userData.quantity,
+                  userData.binId
+                )
+                label.position.set(0, 0.3, 0)
+                child.add(label)
+              }
+            }
+          }
+        })
+      })
+    },
+    []
+  )
+
+  // Assign stock to a specific pallet
+  const assignStockToPallet = useCallback(
+    (rackId: string, level: number, bay: number, stock: StockListItem): boolean => {
+      const rack = rackMapRef.current.get(rackId)
+      if (!rack) return false
+
+      const binId = `${rackId.replace('rack_', '')}-${String(level + 1).padStart(2, '0')}-${String(bay + 1).padStart(2, '0')}`
+
+      rack.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const userData = child.userData as Warehouse3DUserData
+          if (userData.type === 'pallet' && userData.binId === binId) {
+            userData.stkId = stock.stk_id
+            userData.productRef = stock.product_ref
+            userData.productName = stock.product_name
+            userData.quantity = stock.stk_quantity_available || 0
+            updatePalletMaterial(child, userData.quantity)
+            palletMapRef.current.set(stock.stk_id, child)
+          }
+        }
+      })
+
+      // Update layout
+      const rackConfig = layoutRef.current.racks.find((r) => r.id === rackId)
+      if (rackConfig) {
+        const shelf = rackConfig.shelves.find((s) => s.level === level)
+        if (shelf) {
+          const pallet = shelf.pallets.find((p) => p.bay === bay)
+          if (pallet) {
+            pallet.stkId = stock.stk_id
+          }
+        }
+      }
+
+      onLayoutChange?.(layoutRef.current)
+      return true
+    },
+    [onLayoutChange]
+  )
+
+  // Clear a pallet
+  const clearPallet = useCallback(
+    (rackId: string, level: number, bay: number): boolean => {
+      const rack = rackMapRef.current.get(rackId)
+      if (!rack) return false
+
+      const binId = `${rackId.replace('rack_', '')}-${String(level + 1).padStart(2, '0')}-${String(bay + 1).padStart(2, '0')}`
+
+      rack.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const userData = child.userData as Warehouse3DUserData
+          if (userData.type === 'pallet' && userData.binId === binId) {
+            if (userData.stkId) {
+              palletMapRef.current.delete(userData.stkId)
+            }
+            userData.stkId = undefined
+            userData.productRef = undefined
+            userData.productName = undefined
+            userData.quantity = undefined
+            updatePalletMaterial(child, 0)
+            removeLabels(child)
+          }
+        }
+      })
+
+      // Update layout
+      const rackConfig = layoutRef.current.racks.find((r) => r.id === rackId)
+      if (rackConfig) {
+        const shelf = rackConfig.shelves.find((s) => s.level === level)
+        if (shelf) {
+          const pallet = shelf.pallets.find((p) => p.bay === bay)
+          if (pallet) {
+            pallet.stkId = undefined
+          }
+        }
+      }
+
+      onLayoutChange?.(layoutRef.current)
+      return true
+    },
+    [onLayoutChange]
+  )
+
   return {
     rackMapRef,
     palletMapRef,
     addRack,
     removeRack,
     updateRack,
-    addShelfLevel: () => false, // Will implement
-    removeShelfLevel: () => false, // Will implement
-    assignStockToPallet: () => false, // Will implement
-    clearPallet: () => false, // Will implement
-    loadLayout: () => {}, // Will implement
-    clearWarehouse: () => {}, // Will implement
-    syncStockData: () => {}, // Will implement
+    addShelfLevel: () => false, // Complex - requires geometry rebuild
+    removeShelfLevel: () => false, // Complex - requires geometry rebuild
+    assignStockToPallet,
+    clearPallet,
+    loadLayout,
+    clearWarehouse,
+    syncStockData,
     getLayout: () => layoutRef.current
   }
 }
