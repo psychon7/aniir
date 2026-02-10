@@ -5,7 +5,7 @@ import re
 from typing import Optional, List, Tuple
 from decimal import Decimal
 from datetime import datetime
-from sqlalchemy import select, func, and_, or_, delete
+from sqlalchemy import select, func, and_, or_, delete, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -619,10 +619,10 @@ class StockRepository:
             func.count(Inventory.inv_id).label("total_items"),
             func.coalesce(func.sum(Inventory.inv_quantity), 0).label("total_quantity"),
             func.sum(
-                func.case((available_expr <= 0, 1), else_=0)
+                case((available_expr <= 0, 1), else_=0)
             ).label("low_stock_count"),
             func.sum(
-                func.case((available_expr <= 0, 1), else_=0)
+                case((available_expr <= 0, 1), else_=0)
             ).label("out_of_stock_count"),
         ).select_from(Inventory)
 
