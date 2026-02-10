@@ -8,6 +8,7 @@ Provides business logic for:
 - Delivery scheduling
 - Statistics
 """
+import asyncio
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
@@ -741,7 +742,7 @@ class ShipmentService:
         if active_only:
             query = query.where(Supplier.sup_isactive == True)
         query = query.order_by(Supplier.sup_company_name.asc())
-        result = await self.db.execute(query)
+        result = await asyncio.to_thread(self.db.execute, query)
         suppliers = list(result.scalars().all())
 
         return [
@@ -755,7 +756,8 @@ class ShipmentService:
         ]
 
     async def get_carrier(self, carrier_id: int) -> CarrierResponse:
-        result = await self.db.execute(
+        result = await asyncio.to_thread(
+            self.db.execute,
             select(Supplier).where(Supplier.sup_id == carrier_id)
         )
         supplier = result.scalar_one_or_none()
