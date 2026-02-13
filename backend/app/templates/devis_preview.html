@@ -117,14 +117,17 @@
         <header class="header">
             <div class="company-section">
                 <div class="company-logo">
-                    <img src="axtech_logo.png" alt="AX TECH">
+                    {% if company.logo_path %}
+                    <img src="{{ company.logo_path }}" alt="{{ company.name }}">
+                    {% endif %}
                 </div>
                 <div class="company-contact">
-                    <div class="name">AX TECH</div>
-                    <div>8 RUE MARBEAU</div>
-                    <div>75116 PARIS</div>
-                    <div>Tel. 01 72 99 57 49</div>
-                    <div>www.ecoled-europe.com</div>
+                    <div class="name">{{ company.name or 'AX TECH' }}</div>
+                    {% for line in company.address_lines %}
+                    <div>{{ line }}</div>
+                    {% endfor %}
+                    {% if company.phone %}<div>Tel. {{ company.phone }}</div>{% endif %}
+                    {% if company.website %}<div>{{ company.website }}</div>{% endif %}
                 </div>
             </div>
             
@@ -170,38 +173,37 @@
                         <rect x="141" y="5" width="3" height="40"/>
                     </g>
                 </svg>
-                <div class="document-number-box">DEVIS N° : DV26010015</div>
+                <div class="document-number-box">DEVIS N° : {{ reference }}</div>
             </div>
         </header>
         
         <!-- Client Box -->
         <div class="client-box">
-            <div class="client-name">SAS ENERGIE</div>
-            <div class="client-dept">SERVICE COMPTABILITÉ</div>
+            <div class="client-name">{{ client.name }}</div>
+            {% if client.department %}<div class="client-dept">{{ client.department }}</div>{% endif %}
             <div class="client-address">
-                Place Salvador Allende<br>
-                <br>
-                77340 / PONTAULT-COMBAULT France
+                {% for line in client.address_lines %}{{ line }}<br>{% endfor %}
+                {{ client.postal_code }}{% if client.postal_code and client.city %} / {% endif %}{{ client.city }}{% if client.country %} {{ client.country }}{% endif %}
             </div>
         </div>
         
         <!-- Validity Banner -->
         <div class="validity-banner">
-            <div class="validity-text">✓ Devis valable 30 jours</div>
-            <div class="validity-date">Date de validité : 17-févr.-2026</div>
+            <div class="validity-text">✓ Devis valable {{ document.validity_days or 30 }} jours</div>
+            <div class="validity-date">Date de validité : {{ document.valid_until|format_date('%d/%m/%Y') }}</div>
         </div>
         
         <!-- Document Meta -->
         <div class="document-meta">
             <div class="meta-left">
-                <div class="meta-row"><span class="meta-label">Date du devis :</span> <span class="meta-value">18-janv.-2026</span></div>
-                <div class="meta-row"><span class="meta-label">Validité :</span> <span class="meta-value">30 jours</span></div>
-                <div class="meta-row"><span class="meta-label">Commercial :</span> <span class="meta-value">Jean Dupont</span></div>
+                <div class="meta-row"><span class="meta-label">Date du devis :</span> <span class="meta-value">{{ document.date|format_date('%d/%m/%Y') }}</span></div>
+                <div class="meta-row"><span class="meta-label">Validité :</span> <span class="meta-value">{{ document.validity_days or 30 }} jours</span></div>
+                <div class="meta-row"><span class="meta-label">Commercial :</span> <span class="meta-value">{{ meta.sales_rep or '-' }}</span></div>
             </div>
             <div class="meta-right">
-                <div class="meta-row"><span class="meta-label">N/Id CEE :</span> <span class="meta-value">FR86751982760</span></div>
-                <div class="meta-row"><span class="meta-label">Référence client :</span> <span class="meta-value">CLI-00245</span></div>
-                <div class="meta-row"><span class="meta-label">Nom d'Affaire :</span> <span class="meta-value">Projet LED DOWNLIGHT</span></div>
+                <div class="meta-row"><span class="meta-label">N/Id CEE :</span> <span class="meta-value">{{ meta.cee_id or '-' }}</span></div>
+                <div class="meta-row"><span class="meta-label">Référence client :</span> <span class="meta-value">{{ meta.client_reference or '-' }}</span></div>
+                <div class="meta-row"><span class="meta-label">Nom d'Affaire :</span> <span class="meta-value">{{ meta.project_name or '-' }}</span></div>
             </div>
         </div>
         
@@ -218,33 +220,23 @@
                 </tr>
             </thead>
             <tbody>
+                {% for line in lines %}
                 <tr>
-                    <td class="col-ref">X130340N22WH</td>
+                    <td class="col-ref">{{ line.reference or '-' }}</td>
                     <td class="col-desc">
-                        SLIM Round Downlight SLIM rond
-                        <div class="item-details">
-                            4000 K | 1530 LMS | NORMAL | WHITE | 18 W |<br>
-                            Diam : 220 mm |
-                        </div>
+                        {{ line.description }}
+                        {% if line.details %}<div class="item-details">{{ line.details }}</div>{% endif %}
                     </td>
-                    <td class="col-qty">20,00</td>
-                    <td class="col-price">16,67 €</td>
-                    <td class="col-price">0%</td>
-                    <td class="col-total">333,33 €</td>
+                    <td class="col-qty">{{ line.quantity|format_qty }}</td>
+                    <td class="col-price">{{ line.unit_price|format_money(currency_symbol) }}</td>
+                    <td class="col-price">{{ line.discount_percent|format_percent }}</td>
+                    <td class="col-total">{{ line.total_ht|format_money(currency_symbol) }}</td>
                 </tr>
+                {% else %}
                 <tr>
-                    <td class="col-ref">LED-DRIVER-24V</td>
-                    <td class="col-desc">
-                        Driver LED 24V constant voltage
-                        <div class="item-details">
-                            24V | 60W | IP20 | Dimmable DALI
-                        </div>
-                    </td>
-                    <td class="col-qty">5,00</td>
-                    <td class="col-price">45,00 €</td>
-                    <td class="col-price">5%</td>
-                    <td class="col-total">213,75 €</td>
+                    <td class="col-ref" colspan="6">Aucune ligne</td>
                 </tr>
+                {% endfor %}
             </tbody>
         </table>
         
@@ -261,12 +253,23 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td>547,08</td>
-                            <td>20,00</td>
-                            <td>109,42</td>
-                            <td>656,50</td>
-                        </tr>
+                        {% if vat_breakdown %}
+                            {% for vat in vat_breakdown %}
+                            <tr>
+                                <td>{{ vat.base|format_money(currency_symbol) }}</td>
+                                <td>{{ vat.rate|format_percent }}</td>
+                                <td>{{ vat.vat|format_money(currency_symbol) }}</td>
+                                <td>{{ vat.total|format_money(currency_symbol) }}</td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td>{{ totals.net_ht|format_money(currency_symbol) }}</td>
+                                <td>{{ 0|format_percent }}</td>
+                                <td>{{ totals.total_vat|format_money(currency_symbol) }}</td>
+                                <td>{{ totals.total_ttc|format_money(currency_symbol) }}</td>
+                            </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
@@ -275,23 +278,23 @@
                 <table>
                     <tr>
                         <td class="label">Total HT</td>
-                        <td class="value">547,08 €</td>
+                        <td class="value">{{ totals.subtotal|format_money(currency_symbol) }}</td>
                     </tr>
                     <tr>
                         <td class="label">Remise globale</td>
-                        <td class="value">0,00 €</td>
+                        <td class="value">{{ totals.discount|format_money(currency_symbol) }}</td>
                     </tr>
                     <tr>
                         <td class="label">Net HT</td>
-                        <td class="value">547,08 €</td>
+                        <td class="value">{{ totals.net_ht|format_money(currency_symbol) }}</td>
                     </tr>
                     <tr>
                         <td class="label">Total TVA</td>
-                        <td class="value">109,42 €</td>
+                        <td class="value">{{ totals.total_vat|format_money(currency_symbol) }}</td>
                     </tr>
                     <tr>
                         <td class="label total-row">TOTAL TTC</td>
-                        <td class="value total-row">656,50 €</td>
+                        <td class="value total-row">{{ totals.total_ttc|format_money(currency_symbol) }}</td>
                     </tr>
                 </table>
             </div>
@@ -302,11 +305,9 @@
             <div class="terms-title">Conditions du devis</div>
             <div class="terms-content">
                 <ul>
-                    <li>Ce devis est valable 30 jours à compter de sa date d'émission.</li>
-                    <li>Un acompte de 30% est demandé à la commande.</li>
-                    <li>Délai de livraison estimé : 2-3 semaines après confirmation de commande.</li>
-                    <li>Solde à régler à la livraison.</li>
-                    <li>Garantie fabricant sur tous les produits.</li>
+                    {% for term in terms %}
+                    <li>{{ term }}</li>
+                    {% endfor %}
                 </ul>
             </div>
         </div>
@@ -314,29 +315,26 @@
         <!-- Bank Section -->
         <div class="bank-section">
             <div class="company-legal">
-                <p><strong>Siret N° 751 982 760 00041</strong></p>
-                <p><strong>RCS PARIS : 751 982 760 00041</strong></p>
-                <p><strong>TVA N° FR86751982760</strong></p>
+                <p><strong>Siret N° {{ company.siret or '-' }}</strong></p>
+                <p><strong>RCS PARIS : {{ company.rcs or '-' }}</strong></p>
+                <p><strong>TVA N° {{ company.vat_number or '-' }}</strong></p>
                 <br>
-                <p><strong>AX TECH</strong></p>
-                <p>ecoledeurope@gmail.com</p>
-                <p>01 72 99 57 49</p>
+                <p><strong>{{ company.name or 'AX TECH' }}</strong></p>
+                {% if company.email %}<p>{{ company.email }}</p>{% endif %}
+                {% if company.phone %}<p>{{ company.phone }}</p>{% endif %}
             </div>
             
             <div class="bank-info">
                 <div class="bank-header">
                     <div class="bank-header-left">
                         <div class="bank-header-title">Titulaire du compte (Account Owner)</div>
-                        <div>AX TECH</div>
-                        <div>29 RUE DE LAGNY</div>
-                        <div>77181 LE PIN</div>
+                        <div>{{ company.bank.owner_name or company.name }}</div>
+                        {% for line in company.bank.owner_address_lines %}<div>{{ line }}</div>{% endfor %}
                     </div>
                     <div class="bank-header-right">
                         <div class="bank-header-title">Domiciliation</div>
-                        <div>CREDIT INDUSTRIEL ET COMMERCIAL</div>
-                        <div>CIC GRAND PARIS EST ENTREPRISES</div>
-                        <div>1 RUE MONGE</div>
-                        <div>93160 NOISY LE GRAND</div>
+                        <div>{{ company.bank.bank_name or '-' }}</div>
+                        {% for line in company.bank.bank_address_lines %}<div>{{ line }}</div>{% endfor %}
                     </div>
                 </div>
                 
@@ -354,25 +352,25 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td>30066</td>
-                                <td>10900</td>
-                                <td>00020368201</td>
-                                <td>72</td>
-                                <td>CREDIT INDUSTRIEL ET COMMERCIAL</td>
+                                <td>{{ company.bank.bank_code or '-' }}</td>
+                                <td>{{ company.bank.agency_code or '-' }}</td>
+                                <td>{{ company.bank.account_number or '-' }}</td>
+                                <td>{{ company.bank.key or '-' }}</td>
+                                <td>{{ company.bank.domiciliation or '-' }}</td>
                             </tr>
                         </tbody>
                     </table>
                     <div class="iban-row">
-                        <span class="label">IBAN:</span><span>FR76 3006 6109 0000 0203 6820 172</span>
-                        <span style="margin-left: 20px;" class="label">BIC:</span><span>CMCIFRPP</span>
+                        <span class="label">IBAN:</span><span>{{ company.bank.iban or '-' }}</span>
+                        <span style="margin-left: 20px;" class="label">BIC:</span><span>{{ company.bank.bic or '-' }}</span>
                     </div>
                 </div>
             </div>
         </div>
         
         <!-- Page Number -->
-        <div class="doc-reference">AX TECH - Siret 75198276000041 - RCS PARIS - TVA FR86751982760</div>
-        <div class="page-number">DV26010015 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1/1</div>
+        <div class="doc-reference">{{ company.name or 'AX TECH' }} - Siret {{ company.siret or '-' }} - RCS {{ company.rcs or '-' }} - TVA {{ company.vat_number or '-' }}</div>
+        <div class="page-number">{{ reference }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1/1</div>
     </div>
 </body>
 </html>

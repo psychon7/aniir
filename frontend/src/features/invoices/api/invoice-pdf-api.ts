@@ -19,7 +19,7 @@ export interface PDFDownloadURLResponse {
 const invoicePdfApi = {
   generatePdf: async (invoiceId: number, store: boolean = true): Promise<PDFGenerateResponse> => {
     const response = await apiClient.post<PDFGenerateResponse>(
-      `/invoices/${invoiceId}/pdf/generate`,
+      `/invoice-pdf/${invoiceId}/pdf/generate`,
       null,
       { params: { store } }
     );
@@ -27,14 +27,14 @@ const invoicePdfApi = {
   },
 
   downloadPdf: async (invoiceId: number): Promise<Blob> => {
-    const response = await apiClient.get(`/invoices/${invoiceId}/pdf/download`, {
+    const response = await apiClient.get(`/invoice-pdf/${invoiceId}/pdf/download`, {
       responseType: 'blob',
     });
     return response.data;
   },
 
   previewPdf: async (invoiceId: number): Promise<Blob> => {
-    const response = await apiClient.get(`/invoices/${invoiceId}/pdf/preview`, {
+    const response = await apiClient.get(`/invoice-pdf/${invoiceId}/pdf/preview`, {
       responseType: 'blob',
     });
     return response.data;
@@ -42,7 +42,7 @@ const invoicePdfApi = {
 
   getPdfUrl: async (invoiceId: number, expiration: number = 3600): Promise<PDFDownloadURLResponse> => {
     const response = await apiClient.get<PDFDownloadURLResponse>(
-      `/invoices/${invoiceId}/pdf/url`,
+      `/invoice-pdf/${invoiceId}/pdf/url`,
       { params: { expiration } }
     );
     return response.data;

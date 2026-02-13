@@ -78,17 +78,8 @@
         
         /* Observations Section */
         .observations-section { border: 1px solid #ea580c; border-radius: 4px; padding: 15px; margin-bottom: 20px; }
-        .observations-title { font-weight: bold; color: #ea580c; margin-bottom: 10px; font-size: 9pt; }
-        .observations-content { min-height: 50px; border: 1px dashed #ccc; background: #fafafa; padding: 10px; font-size: 8pt; color: #666; }
-        
-        /* Company Info Footer */
-        .company-footer { display: flex; gap: 20px; margin-top: 20px; font-size: 7pt; border-top: 1px solid #ccc; padding-top: 15px; }
-        
-        .company-legal { flex: 1; }
-        .company-legal p { margin-bottom: 2px; }
-        
-        .contact-info { flex: 1; text-align: right; }
-        .contact-info p { margin-bottom: 2px; }
+        .observations-title { font-weight: bold; color: #ea580c; margin-bottom: 8px; font-size: 9pt; }
+        .observations-box { height: 60px; border: 1px dashed #ccc; background: #fafafa; }
         
         /* Footer */
         .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 6pt; color: #666; line-height: 1.5; }
@@ -108,91 +99,50 @@
         <header class="header">
             <div class="company-section">
                 <div class="company-logo">
-                    <img src="axtech_logo.png" alt="AX TECH">
+                    {% if company.logo_path %}
+                    <img src="{{ company.logo_path }}" alt="{{ company.name }}">
+                    {% endif %}
                 </div>
                 <div class="company-contact">
-                    <div class="name">AX TECH</div>
-                    <div>8 RUE MARBEAU</div>
-                    <div>75116 PARIS</div>
-                    <div>Tel. 01 72 99 57 49</div>
-                    <div>www.ecoled-europe.com</div>
+                    <div class="name">{{ company.name or 'AX TECH' }}</div>
+                    {% for line in company.address_lines %}
+                    <div>{{ line }}</div>
+                    {% endfor %}
+                    {% if company.phone %}<div>Tel. {{ company.phone }}</div>{% endif %}
+                    {% if company.website %}<div>{{ company.website }}</div>{% endif %}
                 </div>
             </div>
             
             <div class="barcode-section">
-                <!-- Barcode -->
-                <svg width="200" height="50" viewBox="0 0 200 50">
-                    <rect x="0" y="0" width="200" height="50" fill="white"/>
-                    <g fill="#ea580c">
-                        <rect x="10" y="5" width="2" height="40"/>
-                        <rect x="14" y="5" width="1" height="40"/>
-                        <rect x="17" y="5" width="3" height="40"/>
-                        <rect x="22" y="5" width="1" height="40"/>
-                        <rect x="25" y="5" width="2" height="40"/>
-                        <rect x="29" y="5" width="1" height="40"/>
-                        <rect x="32" y="5" width="3" height="40"/>
-                        <rect x="37" y="5" width="2" height="40"/>
-                        <rect x="41" y="5" width="1" height="40"/>
-                        <rect x="44" y="5" width="2" height="40"/>
-                        <rect x="48" y="5" width="3" height="40"/>
-                        <rect x="53" y="5" width="1" height="40"/>
-                        <rect x="56" y="5" width="2" height="40"/>
-                        <rect x="60" y="5" width="1" height="40"/>
-                        <rect x="63" y="5" width="3" height="40"/>
-                        <rect x="68" y="5" width="2" height="40"/>
-                        <rect x="72" y="5" width="1" height="40"/>
-                        <rect x="75" y="5" width="2" height="40"/>
-                        <rect x="79" y="5" width="3" height="40"/>
-                        <rect x="84" y="5" width="1" height="40"/>
-                        <rect x="87" y="5" width="2" height="40"/>
-                        <rect x="91" y="5" width="1" height="40"/>
-                        <rect x="94" y="5" width="3" height="40"/>
-                        <rect x="99" y="5" width="2" height="40"/>
-                        <rect x="103" y="5" width="1" height="40"/>
-                        <rect x="106" y="5" width="2" height="40"/>
-                        <rect x="110" y="5" width="3" height="40"/>
-                        <rect x="115" y="5" width="1" height="40"/>
-                        <rect x="118" y="5" width="2" height="40"/>
-                        <rect x="122" y="5" width="1" height="40"/>
-                        <rect x="125" y="5" width="3" height="40"/>
-                        <rect x="130" y="5" width="2" height="40"/>
-                        <rect x="134" y="5" width="1" height="40"/>
-                        <rect x="137" y="5" width="2" height="40"/>
-                        <rect x="141" y="5" width="3" height="40"/>
-                    </g>
-                </svg>
-                <div class="document-number-box">BON DE LIVRAISON N° : BL26010012</div>
+                <div class="document-number-box">BON DE LIVRAISON N° : {{ reference }}</div>
             </div>
         </header>
         
         <!-- Client Box -->
         <div class="client-box">
-            <div class="client-name">SAS ENERGIE</div>
-            <div class="client-dept">RÉCEPTION MARCHANDISES</div>
+            <div class="client-name">{{ client.name }}</div>
+            {% if client.department %}<div class="client-dept">{{ client.department }}</div>{% endif %}
             <div class="client-address">
-                Place Salvador Allende<br>
-                <br>
-                77340 / PONTAULT-COMBAULT France
+                {% for line in client.address_lines %}{{ line }}<br>{% endfor %}
+                {{ client.postal_code }}{% if client.postal_code and client.city %} / {% endif %}{{ client.city }}{% if client.country %} {{ client.country }}{% endif %}
             </div>
         </div>
         
         <!-- Delivery Banner -->
         <div class="delivery-banner">
-            <div class="delivery-text">🚚 Livraison en cours</div>
-            <div class="delivery-date">Date de livraison : 10-févr.-2026</div>
+            <div class="delivery-text">Livraison en cours</div>
+            <div class="delivery-date">Date de livraison : {{ document.delivery_date|format_date('%d/%m/%Y') }}</div>
         </div>
         
         <!-- Document Meta -->
         <div class="document-meta">
             <div class="meta-left">
-                <div class="meta-row"><span class="meta-label">Date du bon :</span> <span class="meta-value">10-févr.-2026</span></div>
-                <div class="meta-row"><span class="meta-label">N° Commande :</span> <span class="meta-value">BC26010008</span></div>
-                <div class="meta-row"><span class="meta-label">Transporteur :</span> <span class="meta-value">CHRONOPOST</span></div>
+                <div class="meta-row"><span class="meta-label">Date de livraison :</span> <span class="meta-value">{{ document.delivery_date|format_date('%d/%m/%Y') }}</span></div>
+                <div class="meta-row"><span class="meta-label">Référence commande :</span> <span class="meta-value">{{ document.order_reference or '-' }}</span></div>
             </div>
             <div class="meta-right">
-                <div class="meta-row"><span class="meta-label">N° Colis :</span> <span class="meta-value">2</span></div>
-                <div class="meta-row"><span class="meta-label">Poids total :</span> <span class="meta-value">15.5 kg</span></div>
-                <div class="meta-row"><span class="meta-label">Référence client :</span> <span class="meta-value">CLI-00245</span></div>
+                <div class="meta-row"><span class="meta-label">Référence client :</span> <span class="meta-value">{{ meta.client_reference or '-' }}</span></div>
+                <div class="meta-row"><span class="meta-label">Nom d'Affaire :</span> <span class="meta-value">{{ meta.project_name or '-' }}</span></div>
             </div>
         </div>
         
@@ -203,116 +153,82 @@
                     <th class="col-ref">RÉFÉRENCE</th>
                     <th class="col-desc">DÉSIGNATION</th>
                     <th class="col-qty-cmd">QTÉ CMD</th>
-                    <th class="col-qty">QTÉ LIVRÉE</th>
+                    <th class="col-qty">QTÉ LIV</th>
                     <th class="col-reste">RESTE</th>
-                    <th class="col-check">CONTRÔLE</th>
+                    <th class="col-check">OK</th>
                 </tr>
             </thead>
             <tbody>
+                {% for line in lines %}
                 <tr>
-                    <td class="col-ref">X130340N22WH</td>
+                    <td class="col-ref">{{ line.reference or '-' }}</td>
                     <td class="col-desc">
-                        SLIM Round Downlight SLIM rond
-                        <div class="item-details">
-                            4000 K | 1530 LMS | NORMAL | WHITE | 18 W |<br>
-                            Diam : 220 mm |
-                        </div>
+                        {{ line.description }}
+                        {% if line.details %}<div class="item-details">{{ line.details }}</div>{% endif %}
                     </td>
-                    <td class="col-qty-cmd">20,00</td>
-                    <td class="col-qty">20,00</td>
-                    <td class="col-reste">0,00</td>
-                    <td class="col-check"><div class="check-box"></div></td>
+                    <td class="col-qty-cmd">{{ line.ordered_quantity|format_qty }}</td>
+                    <td class="col-qty">{{ line.delivered_quantity|format_qty }}</td>
+                    <td class="col-reste">{{ line.remaining_quantity|format_qty }}</td>
+                    <td class="col-check"><span class="check-box"></span></td>
                 </tr>
+                {% else %}
                 <tr>
-                    <td class="col-ref">LED-DRIVER-24V</td>
-                    <td class="col-desc">
-                        Driver LED 24V constant voltage
-                        <div class="item-details">
-                            24V | 60W | IP20 | Dimmable DALI
-                        </div>
-                    </td>
-                    <td class="col-qty-cmd">5,00</td>
-                    <td class="col-qty">5,00</td>
-                    <td class="col-reste">0,00</td>
-                    <td class="col-check"><div class="check-box"></div></td>
+                    <td class="col-ref" colspan="6">Aucune ligne</td>
                 </tr>
+                {% endfor %}
             </tbody>
         </table>
         
         <!-- Summary Section -->
         <div class="summary-section">
             <div class="summary-box">
-                <div class="summary-box-title">Total articles commandés</div>
-                <div class="summary-box-value">25</div>
-                <div class="summary-box-subtitle">2 références</div>
+                <div class="summary-box-title">LIGNES</div>
+                <div class="summary-box-value">{{ summary.total_lines }}</div>
+                <div class="summary-box-subtitle">Total lignes livrées</div>
             </div>
             <div class="summary-box">
-                <div class="summary-box-title">Total articles livrés</div>
-                <div class="summary-box-value">25</div>
-                <div class="summary-box-subtitle">Livraison complète</div>
+                <div class="summary-box-title">QTÉ LIVRÉE</div>
+                <div class="summary-box-value">{{ summary.total_delivered|format_qty }}</div>
+                <div class="summary-box-subtitle">Total livrée</div>
             </div>
             <div class="summary-box">
-                <div class="summary-box-title">Nombre de colis</div>
-                <div class="summary-box-value">2</div>
-                <div class="summary-box-subtitle">15.5 kg</div>
+                <div class="summary-box-title">RESTE</div>
+                <div class="summary-box-value">{{ summary.total_remaining|format_qty }}</div>
+                <div class="summary-box-subtitle">À livrer</div>
             </div>
         </div>
         
-        <!-- Reception Section -->
+        <!-- Delivery/Reception Section -->
         <div class="reception-section">
             <div class="reception-box">
-                <div class="reception-box-title">📍 Adresse de livraison</div>
+                <div class="reception-box-title">Chauffeur / Transporteur</div>
                 <div class="reception-box-content">
-                    <p><strong>SAS ENERGIE</strong></p>
-                    <p>Place Salvador Allende</p>
-                    <p>77340 PONTAULT-COMBAULT</p>
-                    <p>France</p>
-                    <br>
-                    <p><strong>Contact :</strong> M. Martin</p>
-                    <p><strong>Téléphone :</strong> 01 XX XX XX XX</p>
+                    <p>Nom : ________________________</p>
+                    <p>Transporteur : __________________</p>
+                    <p>Immatriculation : ________________</p>
                 </div>
+                <div class="signature-area">Signature</div>
             </div>
-            
             <div class="reception-box">
-                <div class="reception-box-title">✍ Signature du réceptionnaire</div>
+                <div class="reception-box-title">Réception Client</div>
                 <div class="reception-box-content">
-                    <p><strong>Nom :</strong> ________________________________</p>
-                    <p><strong>Date :</strong> ________________________________</p>
-                    <p><strong>Heure :</strong> ________________________________</p>
-                    <div class="signature-area">Signature et cachet</div>
+                    <p>Nom : ________________________</p>
+                    <p>Fonction : _____________________</p>
+                    <p>Date : ________________________</p>
                 </div>
+                <div class="signature-area">Signature & Cachet</div>
             </div>
         </div>
         
         <!-- Observations Section -->
         <div class="observations-section">
-            <div class="observations-title">📝 Observations / Réserves</div>
-            <div class="observations-content">
-                (Indiquez ici toute anomalie constatée lors de la réception : colis endommagé, articles manquants, etc.)
-            </div>
-        </div>
-        
-        <!-- Company Footer -->
-        <div class="company-footer">
-            <div class="company-legal">
-                <p><strong>AX TECH</strong></p>
-                <p>8 RUE MARBEAU - 75116 PARIS</p>
-                <p><strong>Siret N° 751 982 760 00041</strong></p>
-                <p><strong>RCS PARIS : 751 982 760 00041</strong></p>
-                <p><strong>TVA N° FR86751982760</strong></p>
-            </div>
-            
-            <div class="contact-info">
-                <p><strong>Contact</strong></p>
-                <p>ecoledeurope@gmail.com</p>
-                <p>01 72 99 57 49</p>
-                <p>www.ecoled-europe.com</p>
-            </div>
+            <div class="observations-title">Observations</div>
+            <div class="observations-box"></div>
         </div>
         
         <!-- Page Number -->
-        <div class="doc-reference">AX TECH - Siret 75198276000041 - RCS PARIS - TVA FR86751982760</div>
-        <div class="page-number">BL26010012 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1/1</div>
+        <div class="doc-reference">{{ company.name or 'AX TECH' }} - Siret {{ company.siret or '-' }} - RCS {{ company.rcs or '-' }} - TVA {{ company.vat_number or '-' }}</div>
+        <div class="page-number">{{ reference }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1/1</div>
     </div>
 </body>
 </html>

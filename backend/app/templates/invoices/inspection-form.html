@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inspection Form - {{ reference }}</title>
+    <style>
+        @page { size: A4; margin: 15mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10pt; line-height: 1.4; color: #333; }
+        .container { max-width: 210mm; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; margin-bottom: 15px; }
+        .title { font-size: 18pt; font-weight: bold; color: #1e3a8a; }
+        .meta { font-size: 9pt; color: #555; }
+        .section { margin-top: 15px; }
+        .section h3 { font-size: 11pt; color: #1e3a8a; border-bottom: 1px solid #d1d5db; margin-bottom: 8px; padding-bottom: 4px; }
+        .table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+        .table th, .table td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+        .table th { background: #e0e7ff; }
+        .check-box { width: 16px; height: 16px; border: 2px solid #1e3a8a; display: inline-block; }
+        .footer { margin-top: 20px; font-size: 8pt; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <div class="title">Inspection Form</div>
+                <div class="meta">Invoice: {{ reference }}</div>
+                <div class="meta">Client: {{ client_name }}</div>
+            </div>
+            <div class="meta">Date: {{ invoice_date }}</div>
+        </div>
+
+        <div class="section">
+            <h3>Inspection Lines</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Reference</th>
+                        <th>Description</th>
+                        <th>Qty</th>
+                        <th>Check</th>
+                        <th>Comments</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in lines %}
+                    <tr>
+                        <td>{{ line.productReference or line.reference or '-' }}</td>
+                        <td>{{ line.productName or line.description or '-' }}</td>
+                        <td>{{ line.quantity or line.deliveredQuantity or line.orderedQuantity or 0 }}</td>
+                        <td><span class="check-box"></span></td>
+                        <td></td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5">No inspection lines available.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            Please complete the inspection and return this form to the warehouse team.
+        </div>
+    </div>
+</body>
+</html>

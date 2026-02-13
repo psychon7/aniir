@@ -22,6 +22,7 @@ from app.services.cache_service import cache_service, CacheTTL, CacheKeys
 from app.models.costplan import CostPlan, CostPlanLine
 from app.models.client import Client
 from app.models.cost_plan_status import CostPlanStatus
+from app.models.society import Society
 from app.schemas.document import SendDocumentRequest, SendDocumentResponse
 from app.services.quote_service import (
     QuoteService,
@@ -138,6 +139,7 @@ def _sync_list_quotes(
             CostPlan.cpl_id,
             CostPlan.cpl_code,
             CostPlan.cli_id,
+            CostPlan.soc_id,
             CostPlan.cpl_d_creation,
             CostPlan.cpl_d_validity,
             CostPlan.cst_id,
@@ -490,6 +492,7 @@ def _sync_get_quote_detail(db: Session, quote_id: int):
         "reference": row.cpl_code or "",
         "name": row.cpl_name or "",
         "clientId": row.cli_id,
+        "societyId": row.soc_id,
         "clientName": row.cli_company_name or "",
         "quoteDate": row.cpl_d_creation.isoformat() if row.cpl_d_creation else None,
         "validUntil": row.cpl_d_validity.isoformat() if row.cpl_d_validity else None,
@@ -509,6 +512,19 @@ def _sync_get_quote_detail(db: Session, quote_id: int):
         "deliveryContactSnapshot": delivery_snapshot,
         "lines": lines,
     }
+
+
+def _sync_get_society(db: Session, society_id: Optional[int]):
+    """Fetch society details for PDF rendering."""
+    if society_id:
+        return db.get(Society, society_id)
+    return (
+        db.execute(
+            select(Society).where(Society.soc_is_actived == True).order_by(Society.soc_id)
+        )
+        .scalars()
+        .first()
+    )
 
 
 def _sync_get_quotes_by_project(db: Session, project_id: int):
@@ -1275,11 +1291,12 @@ async def download_quote_pdf(
     reference = quote_data.get("reference", f"quote-{quote_id}")
     filename = f"{reference}.pdf"
 
-    # Generate PDF using template service
+    society = await asyncio.to_thread(_sync_get_society, db, quote_data.get("societyId"))
     template_pdf = TemplatePDFService()
+    company_context = TemplatePDFService.build_company_context(society)
     pdf_content = template_pdf.generate_pdf(
-        template_name="quotes/quote.html",
-        context=quote_data,
+        template_name="quote",
+        context={**quote_data, "company": company_context},
     )
 
     return StreamingResponse(

@@ -22,6 +22,7 @@ from app.services.cache_service import cache_service, CacheTTL, CacheKeys
 from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.models.client import Client
 from app.models.order import ClientOrder, ClientOrderLine
+from app.models.society import Society
 from app.schemas.document import SendDocumentRequest, SendDocumentResponse
 from app.services.delivery_service import (
     DeliveryService,
@@ -203,6 +204,7 @@ def _sync_list_deliveries(
             DeliveryForm.dfo_code,
             DeliveryForm.cli_id,
             DeliveryForm.cod_id,
+            DeliveryForm.soc_id,
             DeliveryForm.dfo_d_creation,
             DeliveryForm.dfo_d_update,
             DeliveryForm.dfo_d_delivery,
@@ -577,6 +579,7 @@ def _sync_get_delivery_detail(db: Session, delivery_id: int):
         "id": row.dfo_id,
         "reference": row.dfo_code or "",
         "clientId": row.cli_id,
+        "societyId": row.soc_id,
         "clientName": row.cli_company_name or "",
         "orderId": row.cod_id,
         "orderReference": row.order_code or "",
@@ -599,6 +602,19 @@ def _sync_get_delivery_detail(db: Session, delivery_id: int):
         "footerText": row.dfo_footer_text or "",
         "lines": lines,
     }
+
+
+def _sync_get_society(db: Session, society_id: Optional[int]):
+    """Fetch society details for PDF rendering."""
+    if society_id:
+        return db.get(Society, society_id)
+    return (
+        db.execute(
+            select(Society).where(Society.soc_is_actived == True).order_by(Society.soc_id)
+        )
+        .scalars()
+        .first()
+    )
 
 
 @router.get(
@@ -724,11 +740,12 @@ async def download_delivery_pdf(
     reference = delivery_data.get("reference", f"delivery-{delivery_id}")
     filename = f"{reference}.pdf"
 
-    # Generate PDF using template service
+    society = await asyncio.to_thread(_sync_get_society, db, delivery_data.get("societyId"))
     template_pdf = TemplatePDFService()
+    company_context = TemplatePDFService.build_company_context(society)
     pdf_content = template_pdf.generate_pdf(
-        template_name="deliveries/delivery.html",
-        context=delivery_data,
+        template_name="delivery",
+        context={**delivery_data, "company": company_context},
     )
 
     return StreamingResponse(

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Sheet - {{ product.reference or product.prd_ref }}</title>
+    <style>
+        @page { size: A4; margin: 15mm; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10pt; line-height: 1.4; color: #333; }
+        .sheet { max-width: 210mm; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0f766e; padding-bottom: 10px; margin-bottom: 15px; }
+        .title { font-size: 18pt; font-weight: bold; color: #0f766e; }
+        .subtitle { font-size: 10pt; color: #666; }
+        .section { margin-top: 15px; }
+        .section h3 { font-size: 11pt; color: #0f766e; border-bottom: 1px solid #d1d5db; margin-bottom: 8px; padding-bottom: 4px; }
+        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
+        .meta-item { font-size: 9pt; }
+        .meta-label { color: #666; font-weight: bold; }
+        .table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+        .table th, .table td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+        .table th { background: #ecfeff; }
+        .footer { margin-top: 20px; font-size: 8pt; color: #888; text-align: right; }
+    </style>
+</head>
+<body>
+    <div class="sheet">
+        <div class="header">
+            <div>
+                <div class="title">Technical Sheet</div>
+                <div class="subtitle">{{ product.reference or product.prd_ref }} - {{ product.name or product.prd_name }}</div>
+            </div>
+            <div class="subtitle">Generated: {{ generated_at }}</div>
+        </div>
+
+        <div class="section">
+            <h3>Product Information</h3>
+            <div class="meta-grid">
+                <div class="meta-item"><span class="meta-label">Reference:</span> {{ product.reference or product.prd_ref }}</div>
+                <div class="meta-item"><span class="meta-label">Name:</span> {{ product.name or product.prd_name }}</div>
+                <div class="meta-item"><span class="meta-label">Category:</span> {{ product.categoryName or product.productTypeName or '-' }}</div>
+                <div class="meta-item"><span class="meta-label">Code:</span> {{ product.code or product.prd_code or '-' }}</div>
+                <div class="meta-item"><span class="meta-label">Price:</span> {{ product.price or product.prd_price or '-' }}</div>
+                <div class="meta-item"><span class="meta-label">Purchase Price:</span> {{ product.purchasePrice or product.prd_purchase_price or '-' }}</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>Description</h3>
+            <div class="meta-item">{{ product.description or product.prd_description or 'No description available.' }}</div>
+        </div>
+
+        <div class="section">
+            <h3>Dimensions</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Attribute</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Length</td><td>{{ product.length or product.prd_length or '-' }}</td></tr>
+                    <tr><td>Width</td><td>{{ product.width or product.prd_width or '-' }}</td></tr>
+                    <tr><td>Height</td><td>{{ product.height or product.prd_height or '-' }}</td></tr>
+                    <tr><td>Depth</td><td>{{ product.depth or product.prd_depth or '-' }}</td></tr>
+                    <tr><td>Weight</td><td>{{ product.weight or product.prd_weight or '-' }}</td></tr>
+                    <tr><td>Outside Diameter</td><td>{{ product.outsideDiameter or product.prd_outside_diameter or '-' }}</td></tr>
+                    <tr><td>Opening Diameter</td><td>{{ product.openingDiameter or product.prd_opening_diameter or '-' }}</td></tr>
+                    <tr><td>Thickness</td><td>{{ product.thickness or product.prd_thickness or '-' }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>Packaging</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Attribute</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Quantity/Carton</td><td>{{ product.quantityEachCarton or product.prd_quantity_each_carton or '-' }}</td></tr>
+                    <tr><td>Carton Length</td><td>{{ product.cartonLength or product.prd_carton_length or '-' }}</td></tr>
+                    <tr><td>Carton Width</td><td>{{ product.cartonWidth or product.prd_carton_width or '-' }}</td></tr>
+                    <tr><td>Carton Height</td><td>{{ product.cartonHeight or product.prd_carton_height or '-' }}</td></tr>
+                    <tr><td>Carton Weight</td><td>{{ product.cartonWeight or product.prd_carton_weight or '-' }}</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            {{ product.reference or product.prd_ref }} | {{ product.name or product.prd_name }}
+        </div>
+    </div>
+</body>
+</html>

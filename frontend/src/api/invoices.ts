@@ -254,7 +254,7 @@ export const invoicesApi = {
    * Get invoice PDF preview HTML
    */
   async getPdfPreview(id: number): Promise<string> {
-    const response = await apiClient.get(`/invoices/${id}/pdf-preview`, {
+    const response = await apiClient.get(`/invoices/${id}/preview`, {
       headers: { Accept: 'text/html' },
     })
     return response.data

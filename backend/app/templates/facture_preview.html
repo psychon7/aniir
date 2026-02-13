@@ -16,7 +16,6 @@
         .company-logo { display: flex; align-items: center; gap: 10px; }
         .company-logo img { max-width: 120px; max-height: 50px; }
         .company-logo .logo-text { font-size: 24pt; font-weight: bold; color: #333; }
-        .company-logo .logo-icon { font-size: 28pt; color: #666; }
         
         .company-contact { font-size: 8pt; color: #333; line-height: 1.4; }
         .company-contact .name { font-weight: bold; font-size: 10pt; }
@@ -96,22 +95,10 @@
         
         /* Footer */
         .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 6pt; color: #666; line-height: 1.5; }
-        .footer p { margin-bottom: 3px; }
         
         .page-number { position: absolute; bottom: 10mm; right: 10mm; font-size: 8pt; }
         .doc-reference { position: absolute; bottom: 10mm; left: 10mm; font-size: 8pt; }
         
-        /* Barcode CSS - Code 39 simulation */
-        .barcode-container { display: flex; justify-content: flex-end; margin-bottom: 5px; }
-        .barcode-bars { display: flex; height: 40px; }
-        .barcode-bars span { display: inline-block; height: 100%; }
-        .barcode-bars .b { background: #000; }
-        .barcode-bars .w { background: #fff; }
-        .barcode-bars .n { width: 1px; }
-        .barcode-bars .m { width: 2px; }
-        .barcode-bars .l { width: 3px; }
-        
-        /* Print optimization */
         @media print {
             .invoice-container { padding: 0; }
             body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -124,105 +111,52 @@
         <header class="header">
             <div class="company-section">
                 <div class="company-logo">
-                    <img src="axtech_logo.png" alt="AX TECH" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                    <div class="logo-icon" style="display:none;">◎ <span class="logo-text">axtech</span></div>
+                    {% if company.logo_path %}
+                    <img src="{{ company.logo_path }}" alt="{{ company.name }}">
+                    {% endif %}
                 </div>
                 <div class="company-contact">
-                    <div class="name">AX TECH</div>
-                    <div>8 RUE MARBEAU</div>
-                    <div>75116 PARIS</div>
-                    <div>Tel. 01 72 99 57 49</div>
-                    <div>www.ecoled-europe.com</div>
+                    <div class="name">{{ company.name or 'AX TECH' }}</div>
+                    {% for line in company.address_lines %}
+                    <div>{{ line }}</div>
+                    {% endfor %}
+                    {% if company.phone %}<div>Tel. {{ company.phone }}</div>{% endif %}
+                    {% if company.website %}<div>{{ company.website }}</div>{% endif %}
                 </div>
             </div>
             
             <div class="barcode-section">
-                <!-- Barcode representation -->
-                <div class="barcode-container">
-                    <svg width="200" height="50" viewBox="0 0 200 50">
-                        <!-- Simulated Code 128 barcode -->
-                        <rect x="0" y="0" width="200" height="50" fill="white"/>
-                        <g fill="black">
-                            <rect x="10" y="5" width="2" height="40"/>
-                            <rect x="14" y="5" width="1" height="40"/>
-                            <rect x="17" y="5" width="3" height="40"/>
-                            <rect x="22" y="5" width="1" height="40"/>
-                            <rect x="25" y="5" width="2" height="40"/>
-                            <rect x="29" y="5" width="1" height="40"/>
-                            <rect x="32" y="5" width="3" height="40"/>
-                            <rect x="37" y="5" width="2" height="40"/>
-                            <rect x="41" y="5" width="1" height="40"/>
-                            <rect x="44" y="5" width="2" height="40"/>
-                            <rect x="48" y="5" width="3" height="40"/>
-                            <rect x="53" y="5" width="1" height="40"/>
-                            <rect x="56" y="5" width="2" height="40"/>
-                            <rect x="60" y="5" width="1" height="40"/>
-                            <rect x="63" y="5" width="3" height="40"/>
-                            <rect x="68" y="5" width="2" height="40"/>
-                            <rect x="72" y="5" width="1" height="40"/>
-                            <rect x="75" y="5" width="2" height="40"/>
-                            <rect x="79" y="5" width="3" height="40"/>
-                            <rect x="84" y="5" width="1" height="40"/>
-                            <rect x="87" y="5" width="2" height="40"/>
-                            <rect x="91" y="5" width="1" height="40"/>
-                            <rect x="94" y="5" width="3" height="40"/>
-                            <rect x="99" y="5" width="2" height="40"/>
-                            <rect x="103" y="5" width="1" height="40"/>
-                            <rect x="106" y="5" width="2" height="40"/>
-                            <rect x="110" y="5" width="3" height="40"/>
-                            <rect x="115" y="5" width="1" height="40"/>
-                            <rect x="118" y="5" width="2" height="40"/>
-                            <rect x="122" y="5" width="1" height="40"/>
-                            <rect x="125" y="5" width="3" height="40"/>
-                            <rect x="130" y="5" width="2" height="40"/>
-                            <rect x="134" y="5" width="1" height="40"/>
-                            <rect x="137" y="5" width="2" height="40"/>
-                            <rect x="141" y="5" width="3" height="40"/>
-                            <rect x="146" y="5" width="1" height="40"/>
-                            <rect x="149" y="5" width="2" height="40"/>
-                            <rect x="153" y="5" width="1" height="40"/>
-                            <rect x="156" y="5" width="3" height="40"/>
-                            <rect x="161" y="5" width="2" height="40"/>
-                            <rect x="165" y="5" width="1" height="40"/>
-                            <rect x="168" y="5" width="2" height="40"/>
-                            <rect x="172" y="5" width="3" height="40"/>
-                            <rect x="177" y="5" width="1" height="40"/>
-                            <rect x="180" y="5" width="2" height="40"/>
-                            <rect x="184" y="5" width="1" height="40"/>
-                            <rect x="187" y="5" width="3" height="40"/>
-                        </g>
-                    </svg>
-                </div>
-                <div class="invoice-number-box">FACTURE N° : FA26010021</div>
+                <div class="invoice-number-box">FACTURE N° {{ reference }}</div>
             </div>
         </header>
         
         <!-- Client Box -->
         <div class="client-box">
-            <div class="client-name">SAS ENERGIE</div>
-            <div class="client-dept">SERVICE COMPTABILITÉ</div>
+            <div class="client-name">{{ client.name }}</div>
+            {% if client.department %}<div class="client-dept">{{ client.department }}</div>{% endif %}
             <div class="client-address">
-                Place Salvador Allende<br>
-                <br>
-                77340 / PONTAULT-COMBAULT France
+                {% for line in client.address_lines %}{{ line }}<br>{% endfor %}
+                {{ client.postal_code }}{% if client.postal_code and client.city %} / {% endif %}{{ client.city }}{% if client.country %} {{ client.country }}{% endif %}
             </div>
         </div>
         
         <!-- Invoice Meta -->
         <div class="invoice-meta">
             <div class="meta-left">
-                <div class="meta-row"><span class="meta-label">Date de facture :</span> <span class="meta-value">18-janv.-2026</span></div>
-                <div class="meta-row"><span class="meta-label">Date d'échéance :</span> <span class="meta-value">18-janv.-2026</span></div>
-                <div class="meta-row"><span class="meta-label">Condition de règlement :</span> <span class="meta-value">Comptant</span></div>
-                <div class="meta-row"><span class="meta-label">Mode de règlement :</span> <span class="meta-value">Virement</span></div>
+                <div class="meta-row"><span class="meta-label">Date de facture :</span> <span class="meta-value">{{ document.date|format_date('%d/%m/%Y') }}</span></div>
+                <div class="meta-row"><span class="meta-label">Date d'échéance :</span> <span class="meta-value">{{ document.required_date|format_date('%d/%m/%Y') }}</span></div>
+                <div class="meta-row"><span class="meta-label">Référence commande :</span> <span class="meta-value">{{ document.order_reference or '-' }}</span></div>
             </div>
             <div class="meta-right">
-                <div class="meta-row"><span class="meta-label">N/Id CEE :</span> <span class="meta-value">FR86751982760</span></div>
-                <div class="meta-row"><span class="meta-label">V/Id CEE :</span> <span class="meta-value"></span></div>
-                <div class="meta-row"><span class="meta-label">Nom d'Affaire :</span> <span class="meta-value">Affaire Devis pour LED DOWNLIGHT</span></div>
+                <div class="meta-row"><span class="meta-label">Référence client :</span> <span class="meta-value">{{ meta.client_reference or '-' }}</span></div>
+                <div class="meta-row"><span class="meta-label">Nom d'Affaire :</span> <span class="meta-value">{{ meta.project_name or '-' }}</span></div>
             </div>
         </div>
         
+        {% if document.order_reference %}
+        <div class="delivery-ref"><span>Référence commande :</span> {{ document.order_reference }}</div>
+        {% endif %}
+
         <!-- Items Table -->
         <table class="items-table">
             <thead>
@@ -230,34 +164,31 @@
                     <th class="col-ref">RÉFÉRENCE</th>
                     <th class="col-desc">DÉSIGNATION</th>
                     <th class="col-qty">QTÉ</th>
-                    <th class="col-price">P. PUB</th>
-                    <th class="col-price">P. REMISÉ</th>
+                    <th class="col-price">P. UNIT. HT</th>
+                    <th class="col-price">REMISE</th>
                     <th class="col-total">MNT HT</th>
                 </tr>
             </thead>
             <tbody>
+                {% for line in lines %}
                 <tr>
-                    <td class="col-ref">X130340N22WH</td>
+                    <td class="col-ref">{{ line.reference or '-' }}</td>
                     <td class="col-desc">
-                        SLIM Round Downlight SLIM rond
-                        <div class="item-details">
-                            4000 K | 1530 LMS | NORMAL | WHITE | 18 W |<br>
-                            Diam : 220 mm |
-                        </div>
+                        {{ line.description }}
+                        {% if line.details %}<div class="item-details">{{ line.details }}</div>{% endif %}
                     </td>
-                    <td class="col-qty">20,00</td>
-                    <td class="col-price">16,67</td>
-                    <td class="col-price">16,67</td>
-                    <td class="col-total">333,33 €</td>
+                    <td class="col-qty">{{ line.quantity|format_qty }}</td>
+                    <td class="col-price">{{ line.unit_price|format_money(currency_symbol) }}</td>
+                    <td class="col-price">{{ line.discount_percent|format_percent }}</td>
+                    <td class="col-total">{{ line.total_ht|format_money(currency_symbol) }}</td>
                 </tr>
+                {% else %}
+                <tr>
+                    <td class="col-ref" colspan="6">Aucune ligne</td>
+                </tr>
+                {% endfor %}
             </tbody>
         </table>
-        
-        <!-- Delivery Reference -->
-        <div class="delivery-ref">
-            Bon de livraison :<br>
-            <span>BL26010021</span>
-        </div>
         
         <!-- VAT and Totals Section -->
         <div class="vat-totals-section">
@@ -272,12 +203,14 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% for vat in vat_breakdown %}
                         <tr>
-                            <td>333,33</td>
-                            <td>20,00</td>
-                            <td>66,67</td>
-                            <td>400,00</td>
+                            <td>{{ vat.base|format_money(currency_symbol) }}</td>
+                            <td>{{ vat.rate|format_percent }}</td>
+                            <td>{{ vat.vat|format_money(currency_symbol) }}</td>
+                            <td>{{ vat.total|format_money(currency_symbol) }}</td>
                         </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             </div>
@@ -286,23 +219,23 @@
                 <table>
                     <tr>
                         <td class="label">Total HT</td>
-                        <td class="value">333,33 €</td>
+                        <td class="value">{{ totals.subtotal|format_money(currency_symbol) }}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Remise globale</td>
+                        <td class="value">{{ totals.discount|format_money(currency_symbol) }}</td>
                     </tr>
                     <tr>
                         <td class="label">Net HT</td>
-                        <td class="value">333,33 €</td>
+                        <td class="value">{{ totals.net_ht|format_money(currency_symbol) }}</td>
                     </tr>
                     <tr>
                         <td class="label">Total TVA</td>
-                        <td class="value">66,67 €</td>
+                        <td class="value">{{ totals.total_vat|format_money(currency_symbol) }}</td>
                     </tr>
                     <tr>
-                        <td class="label">Total TTC</td>
-                        <td class="value">400,00 €</td>
-                    </tr>
-                    <tr>
-                        <td class="label net-a-payer">NET À PAYER</td>
-                        <td class="value net-a-payer">400,00 €</td>
+                        <td class="label net-a-payer">NET A PAYER</td>
+                        <td class="value net-a-payer">{{ totals.total_ttc|format_money(currency_symbol) }}</td>
                     </tr>
                 </table>
             </div>
@@ -311,29 +244,26 @@
         <!-- Bank Section -->
         <div class="bank-section">
             <div class="company-legal">
-                <p><strong>Siret N° 751 982 760 00041</strong></p>
-                <p><strong>RCS PARIS : 751 982 760 00041</strong></p>
-                <p><strong>TVA N° FR86751982760</strong></p>
+                <p><strong>Siret N° {{ company.siret or '-' }}</strong></p>
+                <p><strong>RCS PARIS : {{ company.rcs or '-' }}</strong></p>
+                <p><strong>TVA N° {{ company.vat_number or '-' }}</strong></p>
                 <br>
-                <p><strong>AX TECH</strong></p>
-                <p>ecoledeurope@gmail.com</p>
-                <p>01 72 99 57 49</p>
+                <p><strong>{{ company.name or 'AX TECH' }}</strong></p>
+                {% if company.email %}<p>{{ company.email }}</p>{% endif %}
+                {% if company.phone %}<p>{{ company.phone }}</p>{% endif %}
             </div>
             
             <div class="bank-info">
                 <div class="bank-header">
                     <div class="bank-header-left">
                         <div class="bank-header-title">Titulaire du compte (Account Owner)</div>
-                        <div>AX TECH</div>
-                        <div>29 RUE DE LAGNY</div>
-                        <div>77181 LE PIN</div>
+                        <div>{{ company.bank.owner_name or company.name }}</div>
+                        {% for line in company.bank.owner_address_lines %}<div>{{ line }}</div>{% endfor %}
                     </div>
                     <div class="bank-header-right">
                         <div class="bank-header-title">Domiciliation</div>
-                        <div>CREDIT INDUSTRIEL ET COMMERCIAL</div>
-                        <div>CIC GRAND PARIS EST ENTREPRISES</div>
-                        <div>1 RUE MONGE</div>
-                        <div>93160 NOISY LE GRAND</div>
+                        <div>{{ company.bank.bank_name or '-' }}</div>
+                        {% for line in company.bank.bank_address_lines %}<div>{{ line }}</div>{% endfor %}
                     </div>
                 </div>
                 
@@ -351,33 +281,25 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td>30066</td>
-                                <td>10900</td>
-                                <td>00020368201</td>
-                                <td>72</td>
-                                <td>CREDIT INDUSTRIEL ET COMMERCIAL</td>
+                                <td>{{ company.bank.bank_code or '-' }}</td>
+                                <td>{{ company.bank.agency_code or '-' }}</td>
+                                <td>{{ company.bank.account_number or '-' }}</td>
+                                <td>{{ company.bank.key or '-' }}</td>
+                                <td>{{ company.bank.domiciliation or '-' }}</td>
                             </tr>
                         </tbody>
                     </table>
                     <div class="iban-row">
-                        <span class="label">IBAN:</span><span>FR76 3006 6109 0000 0203 6820 172</span>
-                        <span style="margin-left: 20px;" class="label">BIC:</span><span>CMCIFRPP</span>
+                        <span class="label">IBAN:</span><span>{{ company.bank.iban or '-' }}</span>
+                        <span style="margin-left: 20px;" class="label">BIC:</span><span>{{ company.bank.bic or '-' }}</span>
                     </div>
                 </div>
             </div>
         </div>
         
-        <!-- Footer -->
-        <div class="footer">
-            <p>Nos factures sont payables sans escompte à 30 jours.</p>
-            <p>Toute somme non payée à sa date d'exigibilité, produira de plein droit et sans mise en demeure préalable des intérêts de retard équivalents au taux d'intérêt appliqué par la Banque Centrale Européenne à son opération de refinancement la plus récente majoré de 10 points de pourcentage et entraînera de plein droit le paiement d'une indemnité forfaitaire de 40 (quarante) euros par facture due au titre des frais de recouvrement, outre 15% à titre d'indemnité complémentaire (article L.441-6 alinéa 12 du Code de Commerce). - Escompte pour paiement anticipé (taux mensuel) : 1,50%</p>
-            <p>RÉSERVE DE PROPRIÉTÉ : Nous nous réservons la propriété des marchandises jusqu'au complet paiement du prix par l'acheteur.</p>
-            <p>Notre droit de revendication porte sur les marchandises en nature.</p>
-        </div>
-        
         <!-- Page Number -->
-        <div class="doc-reference">AX TECH - Siret 75198276000041 - RCS PARIS - TVA FR86751982760</div>
-        <div class="page-number">FA26010021 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1/1</div>
+        <div class="doc-reference">{{ company.name or 'AX TECH' }} - Siret {{ company.siret or '-' }} - RCS {{ company.rcs or '-' }} - TVA {{ company.vat_number or '-' }}</div>
+        <div class="page-number">{{ reference }} &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1/1</div>
     </div>
 </body>
 </html>

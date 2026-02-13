@@ -1066,6 +1066,7 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
             ClientInvoice.cin_name,
             ClientInvoice.cli_id,
             ClientInvoice.cod_id,
+            ClientInvoice.soc_id,
             ClientInvoice.cin_d_creation,
             ClientInvoice.cin_d_update,
             ClientInvoice.cin_d_invoice,
@@ -1181,6 +1182,7 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
         "reference": row.cin_code or "",
         "name": row.cin_name or "",
         "clientId": row.cli_id,
+        "societyId": row.soc_id,
         "clientName": row.cli_company_name or "",
         "invoiceDate": row.cin_d_invoice.isoformat() if row.cin_d_invoice else None,
         "dueDate": row.cin_d_term.isoformat() if row.cin_d_term else None,
@@ -1202,6 +1204,19 @@ def _sync_get_invoice_detail(db: Session, invoice_id: int):
         "invoicingContactSnapshot": invoicing_snapshot,
         "lines": lines,
     }
+
+
+def _sync_get_society(db: Session, society_id: Optional[int]):
+    """Fetch society details for PDF rendering."""
+    if society_id:
+        return db.get(Society, society_id)
+    return (
+        db.execute(
+            select(Society).where(Society.soc_is_actived == True).order_by(Society.soc_id)
+        )
+        .scalars()
+        .first()
+    )
 
 
 def _sync_reorder_invoice_lines(
@@ -1346,6 +1361,7 @@ def _sync_get_invoice_inspection_payload(db: Session, invoice_id: int):
         "reference": invoice_data.get("reference"),
         "clientName": invoice_data.get("clientName"),
         "invoiceDate": invoice_data.get("invoiceDate"),
+        "societyId": invoice_data.get("societyId"),
         "lines": inspection_lines,
     }
 
@@ -1693,9 +1709,11 @@ async def download_invoice_inspection_form_pdf(
     filename = f"{reference}-inspection-form.pdf"
 
     template_pdf = TemplatePDFService()
+    society = await asyncio.to_thread(_sync_get_society, db, payload.get("societyId"))
+    company_context = TemplatePDFService.build_company_context(society)
     pdf_content = template_pdf.generate_pdf(
-        template_name="invoices/inspection-form.html",
-        context=payload,
+        template_name="inspection-form",
+        context={**payload, "company": company_context},
     )
 
     return StreamingResponse(

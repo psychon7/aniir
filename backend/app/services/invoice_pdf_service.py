@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.services.pdf_service import pdf_service
+from app.services.pdf_service import pdf_service, TemplatePDFService
 
 # Optional import - storage_service may not be available
 try:
@@ -37,7 +37,7 @@ class InvoicePDFService:
     def _get_invoice_with_relations(self, invoice_id: int) -> Optional[ClientInvoice]:
         """Fetch invoice with all related data."""
         invoice = self.db.query(ClientInvoice).filter(
-            ClientInvoice.inv_id == invoice_id
+            ClientInvoice.cin_id == invoice_id
         ).first()
         
         return invoice
@@ -45,8 +45,8 @@ class InvoicePDFService:
     def _get_invoice_lines(self, invoice_id: int) -> list[ClientInvoiceLine]:
         """Fetch invoice lines."""
         return self.db.query(ClientInvoiceLine).filter(
-            ClientInvoiceLine.inl_invoice_id == invoice_id
-        ).order_by(ClientInvoiceLine.inl_line_number).all()
+            ClientInvoiceLine.cin_id == invoice_id
+        ).order_by(ClientInvoiceLine.cii_level1, ClientInvoiceLine.cii_id).all()
     
     def _get_client(self, client_id: int) -> Optional[Client]:
         """Fetch client details."""
@@ -69,75 +69,86 @@ class InvoicePDFService:
     def _build_context(self, invoice: ClientInvoice) -> dict:
         """Build the template context for the invoice."""
         # Get related entities
-        client = self._get_client(invoice.inv_client_id)
-        society = self._get_society(invoice.inv_society_id) if hasattr(invoice, 'inv_society_id') else None
-        status = self._get_status(invoice.inv_status_id) if invoice.inv_status_id else None
-        lines = self._get_invoice_lines(invoice.inv_id)
+        client = self._get_client(invoice.cli_id)
+        society = self._get_society(invoice.soc_id) if getattr(invoice, "soc_id", None) else None
+        status = None
+        if invoice.cin_is_full_paid:
+            status = "Paid"
+        elif invoice.cin_invoiced:
+            status = "Sent"
+        elif invoice.cin_isinvoice:
+            status = "Draft"
+        else:
+            status = "Credit Note"
+        lines = self._get_invoice_lines(invoice.cin_id)
         
         # Build line items with calculations
         line_items = []
         for line in lines:
-            line_total = (line.inl_quantity or 0) * (line.inl_unit_price or 0)
-            if line.inl_discount_percent:
-                line_total = line_total * (1 - line.inl_discount_percent / 100)
+            line_total = (line.cii_quantity or 0) * (line.cii_unit_price or 0)
+            if line.cii_discount_percentage:
+                line_total = line_total * (1 - line.cii_discount_percentage / 100)
             
             line_items.append({
-                'line_number': line.inl_line_number,
-                'reference': line.inl_product_reference or '',
-                'description': line.inl_description or '',
-                'quantity': line.inl_quantity or 0,
-                'unit': line.inl_unit or 'PCS',
-                'unit_price': float(line.inl_unit_price or 0),
-                'discount_percent': float(line.inl_discount_percent or 0),
-                'vat_rate': float(line.inl_vat_rate or 0),
+                'line_number': line.cii_level1 or line.cii_id,
+                'reference': line.cii_ref or '',
+                'description': line.cii_prd_name or line.cii_description or '',
+                'quantity': line.cii_quantity or 0,
+                'unit': 'PCS',
+                'unit_price': float(line.cii_unit_price or 0),
+                'discount_percent': float(line.cii_discount_percentage or 0),
+                'vat_rate': 0,
                 'total_ht': float(line_total),
             })
         
         # Calculate totals
-        total_ht = float(invoice.inv_total_ht or 0)
-        total_vat = float(invoice.inv_total_vat or 0)
-        total_ttc = float(invoice.inv_total_ttc or 0)
+        total_ht = sum(item["total_ht"] for item in line_items)
+        discount_amount = float(invoice.cin_discount_amount or 0)
+        total_vat = 0.0
+        total_ttc = total_ht - discount_amount
         
         # Build context
         context = {
             'invoice': {
-                'id': invoice.inv_id,
-                'reference': invoice.inv_reference,
-                'date': invoice.inv_date,
-                'due_date': invoice.inv_due_date,
-                'status': status.sta_name if status else 'Unknown',
-                'status_color': status.sta_color_hex if status else '#6B7280',
-                'notes': getattr(invoice, 'inv_notes', ''),
-                'payment_terms': getattr(invoice, 'inv_payment_terms', ''),
+                'id': invoice.cin_id,
+                'reference': invoice.cin_code,
+                'date': invoice.cin_d_invoice,
+                'due_date': invoice.cin_d_term,
+                'status': status or 'Unknown',
+                'notes': getattr(invoice, 'cin_client_comment', ''),
+                'payment_terms': '',
+                'header_text': invoice.cin_header_text,
+                'footer_text': invoice.cin_footer_text,
             },
             'client': {
-                'name': client.cli_name if client else 'Unknown Client',
-                'reference': client.cli_reference if client else '',
-                'address': client.cli_address if client else '',
-                'postal_code': client.cli_postal_code if client else '',
-                'city': client.cli_city if client else '',
+                'name': client.cli_company_name if client else 'Unknown Client',
+                'reference': client.cli_ref if client else '',
+                'address': getattr(client, 'cli_address1', '') if client else '',
+                'postal_code': getattr(client, 'cli_postcode', '') if client else '',
+                'city': getattr(client, 'cli_city', '') if client else '',
                 'country': client.cli_country if client else '',
-                'vat_number': getattr(client, 'cli_vat_number', '') if client else '',
+                'vat_number': getattr(client, 'cli_vat_intra', '') if client else '',
                 'email': client.cli_email if client else '',
-                'phone': client.cli_phone if client else '',
+                'phone': getattr(client, 'cli_tel1', '') if client else '',
             },
             'company': {
-                'name': society.soc_name if society else 'ECOLED',
-                'address': society.soc_address if society else '',
-                'postal_code': society.soc_postal_code if society else '',
-                'city': society.soc_city if society else '',
-                'country': society.soc_country if society else '',
-                'vat_number': society.soc_vat_number if society else '',
-                'siret': society.soc_siret if society else '',
-                'phone': society.soc_phone if society else '',
-                'email': society.soc_email if society else '',
-                'logo_url': society.soc_logo_url if society else '/static/logo.png',
+                'soc_society_name': society.soc_society_name if society else 'ECOLED',
+                'soc_address1': society.soc_address1 if society else '',
+                'soc_address2': society.soc_address2 if society else '',
+                'soc_postcode': society.soc_postcode if society else '',
+                'soc_city': society.soc_city if society else '',
+                'soc_county': society.soc_county if society else '',
+                'soc_tva_intra': society.soc_tva_intra if society else '',
+                'soc_siret': society.soc_siret if society else '',
+                'soc_tel': society.soc_tel if society else '',
+                'soc_email': society.soc_email if society else '',
             },
             'lines': line_items,
             'totals': {
                 'total_ht': total_ht,
                 'total_vat': total_vat,
                 'total_ttc': total_ttc,
+                'discount': discount_amount,
             },
             'currency': {
                 'code': 'EUR',
@@ -161,49 +172,18 @@ class InvoicePDFService:
         Raises:
             ValueError: If invoice not found
         """
-        from app.services.pdf_generator import InvoicePDFGenerator
-        
         invoice = self._get_invoice_with_relations(invoice_id)
         if not invoice:
             raise ValueError(f"Invoice with ID {invoice_id} not found")
         
         context = self._build_context(invoice)
+        template_pdf = TemplatePDFService()
+        pdf_content = template_pdf.generate_pdf(
+            template_name="invoice",
+            context=context,
+        )
         
-        # Convert context to format expected by InvoicePDFGenerator
-        invoice_data = {
-            'reference': context['invoice']['reference'],
-            'invoice_date': context['invoice']['date'],
-            'due_date': context['invoice']['due_date'],
-            'payment_terms': context['invoice'].get('payment_terms', 'Net 30 jours'),
-            'order_reference': context['invoice'].get('order_reference', ''),
-            'society': {
-                'name': context['company']['name'],
-                'address': context['company']['address'],
-                'postal_code': context['company']['postal_code'],
-                'city': context['company']['city'],
-                'country': context['company']['country'],
-                'vat_number': context['company']['vat_number'],
-                'siret': context['company']['siret'],
-            },
-            'client': {
-                'name': context['client']['name'],
-                'address': context['client']['address'],
-                'postal_code': context['client']['postal_code'],
-                'city': context['client']['city'],
-                'country': context['client']['country'],
-                'vat_number': context['client']['vat_number'],
-            },
-            'lines': context['lines'],
-            'total_ht': context['totals']['total_ht'],
-            'total_vat': context['totals']['total_vat'],
-            'total_ttc': context['totals']['total_ttc'],
-        }
-        
-        # Use real PDF generator
-        generator = InvoicePDFGenerator()
-        pdf_content = generator.generate(invoice_data)
-        
-        logger.info(f"Generated PDF for invoice {invoice.inv_reference}")
+        logger.info(f"Generated PDF for invoice {invoice.cin_code}")
         return pdf_content
     
     def generate_and_store_pdf(self, invoice_id: int) -> tuple[bytes, str]:
@@ -227,8 +207,8 @@ class InvoicePDFService:
         pdf_content = self.generate_pdf(invoice_id)
         
         # Build storage path
-        year = invoice.inv_date.year if invoice.inv_date else datetime.now().year
-        filename = f"{invoice.inv_reference}.pdf"
+        year = invoice.cin_d_invoice.year if invoice.cin_d_invoice else datetime.now().year
+        filename = f"{invoice.cin_code}.pdf"
         storage_path = f"{self.STORAGE_PREFIX}/{year}/{filename}"
         
         # Store PDF
@@ -238,12 +218,12 @@ class InvoicePDFService:
             content_type='application/pdf',
             metadata={
                 'invoice_id': str(invoice_id),
-                'invoice_reference': invoice.inv_reference,
+                'invoice_reference': invoice.cin_code,
                 'generated_at': datetime.now().isoformat(),
             }
         )
         
-        logger.info(f"Stored PDF for invoice {invoice.inv_reference} at {storage_path}")
+        logger.info(f"Stored PDF for invoice {invoice.cin_code} at {storage_path}")
         return pdf_content, storage_path
     
     def get_download_url(self, invoice_id: int, expiration: int = 3600) -> Optional[str]:
@@ -261,8 +241,8 @@ class InvoicePDFService:
         if not invoice:
             return None
         
-        year = invoice.inv_date.year if invoice.inv_date else datetime.now().year
-        filename = f"{invoice.inv_reference}.pdf"
+        year = invoice.cin_d_invoice.year if invoice.cin_d_invoice else datetime.now().year
+        filename = f"{invoice.cin_code}.pdf"
         storage_path = f"{self.STORAGE_PREFIX}/{year}/{filename}"
         
         if not storage_service.file_exists(storage_path):

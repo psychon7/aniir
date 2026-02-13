@@ -21,6 +21,7 @@ from app.models.order import ClientOrder, ClientOrderLine
 from app.models.delivery_form import DeliveryFormLine
 from app.models.client import Client
 from app.models.costplan import CostPlan, CostPlanLine
+from app.models.society import Society
 from app.dependencies import get_current_user
 from app.schemas.document import SendDocumentRequest, SendDocumentResponse
 from app.services.order_service import (
@@ -605,6 +606,7 @@ def _sync_list_orders(
             ClientOrder.cod_id,
             ClientOrder.cod_code,
             ClientOrder.cli_id,
+            ClientOrder.soc_id,
             ClientOrder.cod_d_creation,
             ClientOrder.cod_d_update,
             ClientOrder.cod_d_pre_delivery_from,
@@ -930,6 +932,7 @@ def _sync_get_order_detail(db: Session, order_id: int):
         "reference": row.cod_code or "",
         "name": row.cod_name or "",
         "clientId": row.cli_id,
+        "societyId": row.soc_id,
         "clientName": row.cli_company_name or "",
         "orderDate": row.cod_d_creation.isoformat() if row.cod_d_creation else None,
         "requiredDate": row.cod_d_pre_delivery_from.isoformat() if row.cod_d_pre_delivery_from else None,
@@ -952,6 +955,19 @@ def _sync_get_order_detail(db: Session, order_id: int):
         "deliveryContactSnapshot": delivery_snapshot,
         "lines": lines,
     }
+
+
+def _sync_get_society(db: Session, society_id: Optional[int]):
+    """Fetch society details for PDF rendering."""
+    if society_id:
+        return db.get(Society, society_id)
+    return (
+        db.execute(
+            select(Society).where(Society.soc_is_actived == True).order_by(Society.soc_id)
+        )
+        .scalars()
+        .first()
+    )
 
 
 def _sync_get_orders_by_quote(db: Session, quote_id: int):
@@ -1569,11 +1585,12 @@ async def download_order_pdf(
     reference = order_data.get("reference", f"order-{order_id}")
     filename = f"{reference}.pdf"
 
-    # Generate PDF using template service
+    society = await asyncio.to_thread(_sync_get_society, db, order_data.get("societyId"))
     template_pdf = TemplatePDFService()
+    company_context = TemplatePDFService.build_company_context(society)
     pdf_content = template_pdf.generate_pdf(
-        template_name="orders/order.html",
-        context=order_data,
+        template_name="order",
+        context={**order_data, "company": company_context},
     )
 
     return StreamingResponse(

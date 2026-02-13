@@ -36,6 +36,7 @@ from app.models.order import ClientOrder, ClientOrderLine
 from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.models.invoice import ClientInvoice
 from app.models.logistics import Logistic
+from app.models.society import Society
 from app.services.statement_service import (
     StatementService,
     StatementServiceError,
@@ -502,12 +503,26 @@ def _sync_export_customer_statement_pdf(
         society_id=society_id,
     )
 
+    society = None
+    if society_id:
+        society = service.db.get(Society, society_id)
+    if not society:
+        society = (
+            service.db.execute(
+                select(Society).where(Society.soc_is_actived == True).order_by(Society.soc_id)
+            )
+            .scalars()
+            .first()
+        )
+
+    company_context = pdf_service.build_company_context(society)
     pdf_bytes = pdf_service.generate_pdf(
         template_name="customer_statement",
         context={
             "statement": statement,
             "include_invoice_pages": include_invoice_pages,
             "bl_mode": bl_mode,
+            "company": company_context,
         },
     )
 

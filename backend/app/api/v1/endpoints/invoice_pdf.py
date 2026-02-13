@@ -101,7 +101,7 @@ async def download_invoice_pdf(
         
         # Get invoice reference for filename
         invoice = pdf_service._get_invoice_with_relations(invoice_id)
-        filename = f"{invoice.inv_reference}.pdf" if invoice else f"invoice-{invoice_id}.pdf"
+        filename = f"{invoice.cin_code}.pdf" if invoice else f"invoice-{invoice_id}.pdf"
         
         # Return as streaming response
         return StreamingResponse(
@@ -140,7 +140,7 @@ async def preview_invoice_pdf(
         pdf_content = pdf_service.generate_pdf(invoice_id)
         
         invoice = pdf_service._get_invoice_with_relations(invoice_id)
-        filename = f"{invoice.inv_reference}.pdf" if invoice else f"invoice-{invoice_id}.pdf"
+        filename = f"{invoice.cin_code}.pdf" if invoice else f"invoice-{invoice_id}.pdf"
         
         return StreamingResponse(
             io.BytesIO(pdf_content),

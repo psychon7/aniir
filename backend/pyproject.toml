@@ -65,6 +65,7 @@ dependencies = [
     
     # PDF Generation
     "reportlab>=4.0.0,<5.0.0",
+    "weasyprint>=61.0,<62.0.0",
 ]
 
 [project.optional-dependencies]

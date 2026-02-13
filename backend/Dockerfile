@@ -9,6 +9,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     freetds-dev \
     freetds-bin \
+    libcairo2 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libgdk-pixbuf-2.0-0 \
+    libharfbuzz0b \
+    libffi8 \
+    shared-mime-info \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files
