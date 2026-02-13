@@ -4,23 +4,89 @@
 
 **Project Name:** ERP2025 (ECOLED EUROPE ERP System)  
 **Company:** ECOLED EUROPE (LED Lighting Products)  
-**Technology Stack:** ASP.NET WebForms, C#, SQL Server, Entity Framework, jQuery, Bootstrap  
-**Database:** ERP_ECOLED (SQL Server)  
+**Technology Stack (Current):** FastAPI (Python), React (Vite), Tailwind CSS, Socket.IO  
+**Technology Stack (Legacy):** ASP.NET WebForms, C#, SQL Server, Entity Framework, jQuery, Bootstrap  
+**Database:** ERP_ECOLED (SQL Server 2008)  
 **Version:** 1.0.0.1+
 
 ---
 
 ## Table of Contents
 
-1. [System Architecture](#system-architecture)
-2. [Database Schema](#database-schema)
-3. [Core Modules & Features](#core-modules--features)
-4. [Project Structure](#project-structure)
-5. [Technology Stack Details](#technology-stack-details)
-6. [User Interface Components](#user-interface-components)
-7. [API & Services](#api--services)
+1. [Current Implementation (2025/2026)](#current-implementation-20252026)
+2. [Legacy System Reference](#legacy-system-reference)
+3. [System Architecture](#system-architecture)
+4. [Database Schema](#database-schema)
+5. [Core Modules & Features](#core-modules--features)
+6. [Project Structure](#project-structure)
+7. [Technology Stack Details](#technology-stack-details)
+8. [User Interface Components](#user-interface-components)
+9. [API & Services](#api--services)
 
 ---
+
+## Current Implementation (2025/2026)
+
+### Architecture (Current)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Presentation Layer                        │
+│                    React SPA (Vite)                          │
+│                Tailwind CSS + i18n                           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────────────────────────────────────┐
+│                    API Layer                                 │
+│           FastAPI (REST) + Socket.IO                         │
+│        Migrations on startup (new tables only)               │
+└─────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────────────────────────────────────┐
+│                    Database Layer                            │
+│                SQL Server 2008 (ERP_ECOLED)                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Module Support Matrix
+
+| Module | Legacy Tables | Current Status |
+| --- | --- | --- |
+| Clients & Contacts | `TM_CLI_CLient`, `TM_CCO_Client_Contact`, `TR_CTY_Client_Type`, `TR_CDL_Client_Delegate` | Implemented in API/UI; see column diffs in `DOCUMENTATION/db_schema_report.md`. |
+| Suppliers | `TM_SUP_Supplier`, `TM_SCO_Supplier_Contact`, `TR_STY_Supplier_Type`, `TR_SPR_Supplier_Product` | Partial: supplier type and pricing tables are not modeled yet. |
+| Products & Categories | `TM_PRD_Product`, `TM_PIT_Product_Instance`, `TM_PTY_Product_Type`, `TM_CAT_Category`, `TR_PCA_Product_Category`, `TI_PIM_Product_Image`, `TI_PTI_Product_Instance_Image` | Partial: image/category link tables not modeled; new attribute tables are app-only. |
+| Projects | `TM_PRJ_Project` | Implemented. |
+| Quotes (Devis) | `TM_CPL_Cost_Plan`, `TM_CLN_CostPlan_Lines`, `TR_CST_CostPlan_Statut` | Implemented using CostPlan; `TM_QUO_Quote` is disabled (no DB table). |
+| Orders | `TM_COD_Client_Order`, `TM_COL_ClientOrder_Lines` | Implemented. |
+| Deliveries | `TM_DFO_Delivery_Form`, `TM_DFL_DevlieryForm_Line` | Implemented. |
+| Invoices & Payments | `TM_CIN_Client_Invoice`, `TM_CII_ClientInvoice_Line`, `TM_CPY_ClientInvoice_Payment` | Implemented (see column diffs). |
+| Purchase Intents | `TM_PIN_Purchase_Intent`, `TM_PIL_PurchaseIntent_Lines` | Implemented. |
+| Supplier Orders/Invoices | `TM_SOD_Supplier_Order`, `TM_SOL_SupplierOrder_Lines`, `TM_SIN_Supplier_Invoice`, `TM_SIL_SupplierInvoice_Lines` | Implemented. |
+| Logistics | `TM_LGS_Logistic`, `TM_LGL_Logistic_Lines`, `TR_LSI_Logistic_SupplierInvoice` | Models exist, but API router is disabled; UI exists. Not wired to legacy DB. |
+| Warehouse/Inventory | `TM_WHS_WareHouse`, `TM_SHE_Shelves`, `TM_INV_Inventory`, `TR_PSH_Product_Shelves`, `TI_INVR_INV_Record` | Not aligned: current API uses `TM_STK_*` tables which are not in legacy DB. |
+| Users/RBAC | `TM_USR_User`, `TR_ROL_Role`, `TR_RIT_Right`, `TR_SCR_Screen` | Users implemented; RBAC tables not modeled/used. |
+| Calendar/Messaging | `TM_CLD_Calendar`, `TI_MSG_Message`, `TH_U*` | Not implemented; new chat tables are app-only. |
+| Site/E-commerce | `TS_*` tables | Not implemented in current app. |
+| Drive/Files | (none in legacy DB) | New app tables `TM_DRV_*` (app-only). |
+| Integrations (Shopify/X3) | (none in legacy DB) | New app tables `TM_INT_*`, `TR_SHP_*` (app-only). |
+| Landed Cost/Supply Lots/Tasks | (none in legacy DB) | New app tables `TM_LC*`, `TM_LOT_*`, `TM_TSK_*` (app-only). |
+
+### DB Alignment Summary
+
+- Source of truth: `backend/db_schema.json` (SQL Server extract).
+- DB tables: 105; app models: 82.
+- DB tables missing in models: 51; app tables missing in DB: 28.
+- Column mismatches exist across 20 shared tables.
+- Full detail: `DOCUMENTATION/db_schema_report.md` and `DOCUMENTATION/DATABASE_SCHEMA.md`.
+
+### Known Gaps (Impacting Legacy Parity)
+
+- Logistics API is disabled and does not use legacy logistics tables.
+- Warehouse/stock APIs use new `TM_STK_*` tables, not legacy inventory tables.
+- RBAC tables (`TR_RIT_Right`, `TR_SCR_Screen`) are not modeled or enforced.
+- Site/e-commerce (`TS_*`) and messaging/calendar (`TI_MSG_*`, `TM_CLD_Calendar`, `TH_U*`) are not implemented.
+
+## Legacy System Reference
 
 ## System Architecture
 
@@ -1362,5 +1428,4 @@ TR_SOC_Society (Company)
 **Document Version:** 1.0
 **Last Updated:** 2026-01-31
 **Prepared For:** ERP System UI Revamp Project
-
 

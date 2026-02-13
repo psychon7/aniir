@@ -1,5 +1,28 @@
 # ERP System - Visual Diagrams & Flowcharts
 
+## Current Implementation Coverage
+
+This section describes what the **current FastAPI + React app** supports vs. what is still legacy-only.
+
+### Supported (Current App)
+
+- Clients, suppliers, products, projects
+- Quotes (mapped to `TM_CPL_Cost_Plan` and `TM_CLN_CostPlan_Lines`)
+- Orders (`TM_COD_Client_Order`, `TM_COL_ClientOrder_Lines`)
+- Deliveries (`TM_DFO_Delivery_Form`, `TM_DFL_DevlieryForm_Line`)
+- Invoices and payments (`TM_CIN_Client_Invoice`, `TM_CII_ClientInvoice_Line`, `TM_CPY_ClientInvoice_Payment`)
+- Purchase intents and supplier orders/invoices
+- Drive/file management (app-only tables)
+
+### Partial or Not Wired
+
+- Logistics: models exist (`TM_LGS_Logistic`, `TM_LGL_Logistic_Lines`) but API is disabled in `backend/app/api/v1/router.py`.
+- Warehouse/stock: current API uses `TM_STK_*` which are not in legacy DB; legacy tables are `TM_INV_Inventory`, `TI_INVR_INV_Record`, `TR_PSH_Product_Shelves`.
+- RBAC: legacy rights/screens tables exist (`TR_RIT_Right`, `TR_SCR_Screen`) but are not enforced.
+- Calendar/Messaging, Site (TS_*), and legacy albums/images are not implemented.
+
+Source of truth for schema alignment: `DOCUMENTATION/DATABASE_SCHEMA.md` and `DOCUMENTATION/db_schema_report.md`.
+
 ## System Architecture Diagram
 
 ```
@@ -291,5 +314,4 @@
                  │Line      │
                  └──────────┘
 ```
-
 

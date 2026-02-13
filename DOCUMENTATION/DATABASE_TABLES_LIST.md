@@ -1,189 +1,173 @@
-# Complete Database Tables List
+# Database Tables List (Aligned with SQL Server 2008)
 
-## Reference Tables (TR_) - 26 Tables
+Source of truth: `backend/db_schema.json` (SQL Server extract).
+App model coverage: SQLAlchemy metadata from `backend/app/models`.
 
-| # | Table Name | Purpose |
-|---|------------|---------|
-| 1 | TR_LNG_Language | Languages |
-| 2 | TR_CUR_Currency | Currencies |
-| 3 | TR_MCU_Main_Currency | Currency exchange rates |
-| 4 | TR_SOC_Society | Companies/Organizations |
-| 5 | TR_ROL_Role | User roles |
-| 6 | TR_SCR_Screen | Application screens |
-| 7 | TR_RIT_Right | Role permissions |
-| 8 | TR_CIV_Civility | Titles (Mr., Mrs., etc.) |
-| 9 | TR_PMO_Payment_Mode | Payment methods |
-| 10 | TR_PCO_Payment_Condition | Payment terms |
-| 11 | TR_VAT_Vat | VAT/Tax rates |
-| 12 | TR_CTY_Client_Type | Client types |
-| 13 | TR_ACT_Activity | Business activities |
-| 14 | TR_COU_Country | Countries |
-| 15 | TR_REG_Region | Regions/States |
-| 16 | TR_DEP_Department | Departments |
-| 17 | TR_CMU_Commune | Cities/Communes |
-| 18 | TR_POS_Position | Job positions |
-| 19 | TR_CST_CostPlan_Statut | Quotation status |
-| 20 | TR_LTP_Line_Type | Document line types |
-| 21 | TR_ALB_Album | Photo albums |
-| 22 | TR_PAL_Photo_Album | Album photos |
-| 23 | TR_BAC_Bank_Account | Bank accounts |
-| 24 | TR_STY_Supplier_Type | Supplier types |
-| 25 | TR_DTP_Document_Type | Document types |
-| 26 | TR_FRE_File_Recycle | Deleted files |
-| 27 | TR_THF_Text_Header_Footer | Document templates |
-| 28 | TR_SPR_Supplier_Product | Supplier product pricing |
+## Summary
+- Total tables: 105
+- TR_ reference tables: 47
+- TM_ master tables: 35
+- TI_ intermediate tables: 8
+- TS_ site tables: 13
+- TH_ history/audit tables: 2
+- DB tables represented in app models: 54
+- DB tables missing in app models: 51
 
----
+## Tables by Prefix
 
-## Master Tables (TM_) - 35 Tables
+### TH_ Tables (2)
+| Table | In App Models |
+| --- | --- |
+| TH_UCT_User_Comment | No |
+| TH_UFL_User_Flag | No |
 
-### User & Authentication
-| # | Table Name | Purpose |
-|---|------------|---------|
-| 1 | TM_USR_User | System users |
+### TI_ Tables (8)
+| Table | In App Models |
+| --- | --- |
+| TI_DOC_Document | No |
+| TI_INVR_INV_Record | Yes |
+| TI_MSG_Message | No |
+| TI_PIM_Product_Image | No |
+| TI_PIVR_PIN_Record | No |
+| TI_PIV_PRE_INV_Inventory | Yes |
+| TI_PSR_PRE_Shipping_Receiving_Line | No |
+| TI_PTI_Product_Instance_Image | No |
 
-### Client Management
-| # | Table Name | Purpose |
-|---|------------|---------|
-| 2 | TM_CLI_Client | Clients/Customers |
-| 3 | TM_CCO_Client_Contact | Client contacts |
+### TM_ Tables (35)
+| Table | In App Models |
+| --- | --- |
+| TM_CAT_Category | Yes |
+| TM_CCO_Client_Contact | Yes |
+| TM_CII_ClientInvoice_Line | Yes |
+| TM_CIN_Client_Invoice | Yes |
+| TM_CLD_Calendar | No |
+| TM_CLI_CLient | Yes |
+| TM_CLN_CostPlan_Lines | Yes |
+| TM_COD_Client_Order | Yes |
+| TM_COL_ClientOrder_Lines | Yes |
+| TM_CON_CONSIGNEE | Yes |
+| TM_CPL_Cost_Plan | Yes |
+| TM_CPY_ClientInvoice_Payment | Yes |
+| TM_DFL_DevlieryForm_Line | Yes |
+| TM_DFO_Delivery_Form | Yes |
+| TM_INV_Inventory | Yes |
+| TM_LGL_Logistic_Lines | Yes |
+| TM_LGS_Logistic | Yes |
+| TM_PIL_PurchaseIntent_Lines | Yes |
+| TM_PIN_Purchase_Intent | Yes |
+| TM_PIT_Product_Instance | Yes |
+| TM_PRD_Product | Yes |
+| TM_PRJ_Project | Yes |
+| TM_PTM_Product_Type_Matrix | No |
+| TM_PTY_Product_Type | Yes |
+| TM_SCO_Supplier_Contact | Yes |
+| TM_SHE_Shelves | Yes |
+| TM_SIL_SupplierInvoice_Lines | Yes |
+| TM_SIN_Supplier_Invoice | Yes |
+| TM_SOD_Supplier_Order | Yes |
+| TM_SOL_SupplierOrder_Lines | Yes |
+| TM_SRL_Shipping_Receiving_Line | Yes |
+| TM_SRV_Shipping_Receiving | Yes |
+| TM_SUP_Supplier | Yes |
+| TM_USR_User | Yes |
+| TM_WHS_WareHouse | Yes |
 
-### Supplier Management
-| # | Table Name | Purpose |
-|---|------------|---------|
-| 4 | TM_SUP_Supplier | Suppliers |
-| 5 | TM_SCO_Supplier_Contact | Supplier contacts |
+### TR_ Tables (47)
+| Table | In App Models |
+| --- | --- |
+| TR_ACT_Activity | Yes |
+| TR_ALB_Album | No |
+| TR_BAC_Bank_Account | No |
+| TR_CDL_Client_Delegate | Yes |
+| TR_CGS_CIN_LGS | No |
+| TR_CIV_Civility | Yes |
+| TR_CMU_Commune | No |
+| TR_COR_Color | No |
+| TR_COU_Country | Yes |
+| TR_CSO_ClientInvoice_SupplierOrder | No |
+| TR_CST_CostPlan_Statut | Yes |
+| TR_CTA_Comment_TAG | No |
+| TR_CTL_ClientTYPE_LIST | No |
+| TR_CTY_Client_Type | Yes |
+| TR_CUR_Currency | Yes |
+| TR_DCI_DeliveryForm_ClientInvoice | No |
+| TR_DEP_Department | No |
+| TR_DTP_Document_Type | No |
+| TR_FRE_File_Recycle | No |
+| TR_LNG_Language | Yes |
+| TR_LSI_Logistic_SupplierInvoice | Yes |
+| TR_LTP_Line_Type | No |
+| TR_MCU_Main_Currency | Yes |
+| TR_PAL_Photo_Album | No |
+| TR_PCA_Product_Category | No |
+| TR_PCO_Payment_Condition | Yes |
+| TR_PDA_Product_Driver_Accessory | No |
+| TR_PMO_Payment_Mode | Yes |
+| TR_POS_Position | No |
+| TR_PSH_Product_Shelves | Yes |
+| TR_REG_Region | No |
+| TR_RIT_Right | No |
+| TR_RMP_Recommended_Product | No |
+| TR_ROL_Role | Yes |
+| TR_SCR_Screen | No |
+| TR_SDC_Supplier_Order_Document | No |
+| TR_SOC_Society | Yes |
+| TR_SPR_SupplierOrder_Payment_Record | Yes |
+| TR_SPR_Supplier_Product | Yes |
+| TR_STT_Status | Yes |
+| TR_STY_Supplier_Type | No |
+| TR_THF_Text_Header_Footer | No |
+| TR_TTE_TRADE_TERMS | No |
+| TR_UCL_User_Calendar | No |
+| TR_UPD_User_Password | No |
+| TR_URS_User_Relationship | No |
+| TR_VAT_Vat | Yes |
 
-### Product Management
-| # | Table Name | Purpose |
-|---|------------|---------|
-| 6 | TM_PTY_Product_Type | Product types |
-| 7 | TM_PTM_Product_Type_Matrix | Product attribute matrix |
-| 8 | TM_PRD_Product | Products |
-| 9 | TM_PIT_Product_Instance | Product variants |
-| 10 | TM_PCT_Product_Catelogue | Product categories |
+### TS_ Tables (13)
+| Table | In App Models |
+| --- | --- |
+| TS_CPW_Client_Password | No |
+| TS_Mgr_Message_Record | No |
+| TS_PIG_Project_Image | No |
+| TS_PPD_Project_Product | No |
+| TS_PRJ_Project | No |
+| TS_PTG_Project_Tag | No |
+| TS_SCLN_Shopping_Cart_Line | No |
+| TS_SCL_Site_Client | No |
+| TS_SCT_Shopping_Cart | No |
+| TS_TAG_Tags | No |
+| TS_ULG_User_Log | No |
+| TS_WLL_Wishlist_line | No |
+| TS_WLS_Wishlist | No |
 
-### Project & Sales
-| # | Table Name | Purpose |
-|---|------------|---------|
-| 11 | TM_PRJ_Project | Projects |
-| 12 | TM_CPL_Cost_Plan | Quotations/Devis |
-| 13 | TM_CLN_CostPlan_Lines | Quotation lines |
-| 14 | TM_COD_Client_Order | Client orders |
-| 15 | TM_COL_ClientOrder_Lines | Order lines |
-| 16 | TM_DFO_Delivery_Form | Delivery forms |
-| 17 | TM_DFL_DevlieryForm_Line | Delivery lines |
-| 18 | TM_CIN_Client_Invoice | Client invoices |
-| 19 | TM_CII_ClientInvoice_Line | Invoice lines |
-| 20 | TM_CPY_ClientInvoice_Payment | Invoice payments |
+## App Tables Not Present in Legacy DB
+These tables exist in the new app models/migrations but are not in the legacy DB extract.
 
-### Purchase Management
-| # | Table Name | Purpose |
-|---|------------|---------|
-| 21 | TM_PIN_Purchase_Intent | Purchase intents |
-| 22 | TM_PIL_PurchaseIntent_Lines | Purchase intent lines |
-| 23 | TM_SOD_Supplier_Order | Supplier orders |
-| 24 | TM_SOL_SupplierOrder_Lines | Supplier order lines |
-| 25 | TM_SIN_Supplier_Invoice | Supplier invoices |
-| 26 | TM_SIL_SupplierInvoice_Lines | Supplier invoice lines |
-
-### Logistics & Warehouse
-| # | Table Name | Purpose |
-|---|------------|---------|
-| 27 | TM_LGS_Logistic | Logistics/Shipments |
-| 28 | TM_LGL_Logistic_Lines | Logistics lines |
-| 29 | TM_WHS_WareHouse | Warehouses |
-| 30 | TM_SHE_Shelves | Warehouse shelves |
-| 31 | TR_PIW_Product_In_WareHouse | Warehouse inventory (deprecated) |
-
----
-
-## Intermediate Tables (TI_) - 5 Tables
-
-| # | Table Name | Purpose |
-|---|------------|---------|
-| 1 | TI_PIC_Product_In_Catelogue | Product-Category mapping |
-| 2 | TI_PIM_Product_Image | Product images |
-| 3 | TI_PTI_Product_Instance_Image | Product variant images |
-| 4 | TI_DOC_Document | Documents |
-
----
-
-## Site Tables (TS_) - 4+ Tables
-
-| # | Table Name | Purpose |
-|---|------------|---------|
-| 1 | TS_PRJ_Project | Site projects/realizations |
-| 2 | TS_PIG_Project_Image | Project images |
-| 3 | TS_PPD_Project_Product | Project products |
-| 4 | TS_TAG_Tags | Tags |
-| 5+ | Shopping cart & wishlist tables | E-commerce functionality |
-
----
-
-## Total Table Count
-
-- **Reference Tables (TR_):** 28 tables
-- **Master Tables (TM_):** 31 tables
-- **Intermediate Tables (TI_):** 4 tables
-- **Site Tables (TS_):** 4+ tables
-
-**Grand Total:** ~67+ tables
-
----
-
-## Table Relationships Summary
-
-### One-to-Many Relationships
-- Society → Users, Clients, Suppliers, Products, Projects
-- Client → Contacts, Projects, Orders, Invoices
-- Supplier → Contacts, Orders, Invoices
-- Product Type → Products
-- Product → Product Instances, Images
-- Project → Quotations, Orders, Invoices
-- Quotation → Quotation Lines
-- Order → Order Lines, Delivery Forms
-- Delivery Form → Delivery Lines, Invoices
-- Invoice → Invoice Lines, Payments
-
-### Many-to-Many Relationships
-- Products ↔ Categories (via TI_PIC_Product_In_Catelogue)
-- Products ↔ Suppliers (via TR_SPR_Supplier_Product)
-- Projects ↔ Products (via TS_PPD_Project_Product)
-
-### Self-Referencing Relationships
-- TM_USR_User.usr_creator_id → TM_USR_User.usr_id
-- TM_PCT_Product_Catelogue.pct_parent_id → TM_PCT_Product_Catelogue.pct_id
-- TM_CIN_Client_Invoice.cin_avoir_id → TM_CIN_Client_Invoice.cin_id
-
----
-
-## Key Foreign Key Patterns
-
-### Standard References
-- `soc_id` → TR_SOC_Society (in most tables)
-- `usr_creator_id` → TM_USR_User (in most master tables)
-- `vat_id` → TR_VAT_Vat (in financial tables)
-- `cur_id` → TR_CUR_Currency (in financial tables)
-- `pco_id` → TR_PCO_Payment_Condition (in documents)
-- `pmo_id` → TR_PMO_Payment_Mode (in documents)
-
-### Entity References
-- `cli_id` → TM_CLI_Client
-- `sup_id` → TM_SUP_Supplier
-- `prd_id` → TM_PRD_Product
-- `pit_id` → TM_PIT_Product_Instance
-- `prj_id` → TM_PRJ_Project
-
-### Document Chain
-- `cpl_id` → TM_CPL_Cost_Plan (Quotation)
-- `cod_id` → TM_COD_Client_Order (Order)
-- `dfo_id` → TM_DFO_Delivery_Form (Delivery)
-- `cin_id` → TM_CIN_Client_Invoice (Invoice)
-
----
-
-**Document Version:** 1.0  
-**Last Updated:** 2026-01-31
-
-
+- TI_PRC_ProductComponent
+- TM_CHAT_Message
+- TM_CHAT_Room
+- TM_CHAT_RoomMember
+- TM_CHT_Message
+- TM_CHT_Participant
+- TM_CHT_ReadReceipt
+- TM_CHT_Thread
+- TM_CPP_Client_Product_Price
+- TM_DOC_DocumentAttachment
+- TM_DRV_File
+- TM_DRV_Folder
+- TM_FRC_FreightCost
+- TM_LCH_LandedCostHistory
+- TM_LCL_LandedCostLog
+- TM_LOT_SupplyLot
+- TM_LOT_SupplyLotItem
+- TM_PAT_ProductAttribute
+- TM_PAV_ProductAttributeValue
+- TM_PLC_ProductLandedCost
+- TM_SET_EmailLog
+- TM_SPP_Supplier_Product_Price
+- TM_TSK_Task
+- TR_BRA_Brand
+- TR_BU_BusinessUnit
+- TR_LCC_LandedCostComponent
+- TR_LCP_LandedCostProfile
+- TR_UOM_UnitOfMeasure
