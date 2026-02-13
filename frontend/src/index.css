@@ -119,6 +119,29 @@
   *:focus-visible {
     @apply outline-none ring-2 ring-primary/30 ring-offset-2 ring-offset-background;
   }
+
+  /* Default form fields */
+  input[type='text'],
+  input[type='number'],
+  input[type='email'],
+  input[type='password'],
+  input[type='search'],
+  input[type='date'],
+  input[type='tel'],
+  input[type='url'],
+  select,
+  textarea {
+    @apply bg-background text-foreground border border-input rounded-lg
+           placeholder:text-muted-foreground/60
+           transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary;
+  }
+
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    @apply bg-muted text-muted-foreground cursor-not-allowed opacity-70;
+  }
 }
 
 @layer components {
@@ -185,6 +208,15 @@
 
   .input-refined:focus {
     @apply border-primary/50 ring-4 ring-primary/10;
+  }
+
+  /* Base input class used across forms */
+  .input {
+    @apply w-full px-3 py-2 bg-background text-foreground border border-input rounded-lg
+           placeholder:text-muted-foreground/60
+           transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
+           disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-70;
   }
 
   /* Subtle divider */
