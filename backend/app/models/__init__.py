@@ -55,7 +55,15 @@ from app.models.costplan import CostPlan, CostPlanLine
 from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.models.shipment import ShippingReceiving, ShippingReceivingLine
 from app.models.logistics import Logistic, LogisticLine, LogisticSupplierInvoice
-from app.models.inventory import Inventory, InventoryRecord, PreInventory, ProductShelves, Shelf
+from app.models.inventory import (
+    Inventory,
+    InventoryRecord,
+    PreInventory,
+    PreInventoryRecord,
+    ProductShelves,
+    Shelf,
+    PreShippingReceivingLine,
+)
 from app.models.purchase_intent import PurchaseIntent, PurchaseIntentLine
 from app.models.supplier_order import SupplierOrder, SupplierOrderLine
 from app.models.supplier_invoice import SupplierInvoice, SupplierInvoiceLine
@@ -179,8 +187,10 @@ __all__ = [
     "Inventory",
     "InventoryRecord",
     "PreInventory",
+    "PreInventoryRecord",
     "ProductShelves",
     "Shelf",
+    "PreShippingReceivingLine",
     "DocumentAttachment",
     "SupplierOrderPaymentRecord",
     "PurchaseIntent",

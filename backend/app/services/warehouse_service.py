@@ -655,6 +655,7 @@ class StockService:
         warehouse_code = None
         whs_id = None
         location = None
+        shelf_link = None
         if stock.product_shelves:
             shelf_link = stock.product_shelves[0]
             whs_id = shelf_link.whs_id
@@ -679,6 +680,7 @@ class StockService:
             stk_quantity=quantity,
             stk_quantity_reserved=reserved,
             stk_quantity_available=available,
+            stk_quantity_shelf=shelf_link.psh_quantity if shelf_link else None,
             stk_min_quantity=None,
             stk_max_quantity=None,
             stk_reorder_quantity=None,

@@ -99,6 +99,13 @@ function LogisticsPage() {
         cell: (row) => <span className="font-medium">{row.carrier_name || '-'}</span>,
       },
       {
+        id: 'consignee_name',
+        header: t('consignees.title'),
+        accessorKey: 'consignee_name',
+        sortable: false,
+        cell: (row) => row.consignee_name || '-',
+      },
+      {
         id: 'shp_tracking_number',
         header: t('logistics.tracking'),
         accessorKey: 'shp_tracking_number',

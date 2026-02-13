@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { PageContainer } from '@/components/ui/layout/PageContainer'
 import { PageHeader } from '@/components/ui/layout/PageHeader'
 import { Card, CardContent, CardHeader } from '@/components/ui/layout/Card'
-import { useCreateShipment, useCarriers } from '@/hooks/useLogistics'
+import { useCreateShipment, useCarriers, useConsignees } from '@/hooks/useLogistics'
 import type { ShipmentCreateDto } from '@/types/logistics'
 
 export const Route = createFileRoute('/_authenticated/logistics/new')({
@@ -16,11 +16,14 @@ function NewShipmentPage() {
   const navigate = useNavigate()
   const createShipment = useCreateShipment()
   const { data: carriers } = useCarriers(true)
+  const { data: consignees } = useConsignees(true)
 
   const [formData, setFormData] = useState<ShipmentCreateDto>({
     shp_car_id: 0,
     shp_sta_id: 1, // Pending
     shp_tracking_number: '',
+    shp_con_id: undefined,
+    shp_is_purchase: true,
     // Origin
     shp_origin_address: '',
     shp_origin_city: '',
@@ -40,9 +43,25 @@ function NewShipmentPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type } = e.target
+    if (type === 'number') {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value === '' ? undefined : Number(value),
+      }))
+      return
+    }
+
+    if (name === 'shp_con_id') {
+      setFormData((prev) => ({
+        ...prev,
+        shp_con_id: value === '' ? undefined : Number(value),
+      }))
+      return
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: type === 'number' ? (value === '' ? undefined : Number(value)) : value,
+      [name]: value,
     }))
   }
 
@@ -96,6 +115,23 @@ function NewShipmentPage() {
               </div>
 
               <div className="form-group">
+                <label className="form-label">{t('logistics.destinationAddress')}</label>
+                <select
+                  name="shp_con_id"
+                  value={formData.shp_con_id || ''}
+                  onChange={handleInputChange}
+                  className="form-input"
+                >
+                  <option value="">{t('common.select')}...</option>
+                  {consignees?.map((consignee) => (
+                    <option key={consignee.con_id} value={consignee.con_id}>
+                      {consignee.con_company_name || `${consignee.con_firstname || ''} ${consignee.con_lastname || ''}`.trim()}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
                 <label className="form-label">{t('logistics.tracking')}</label>
                 <input
                   type="text"
@@ -104,6 +140,17 @@ function NewShipmentPage() {
                   onChange={handleInputChange}
                   className="form-input"
                   placeholder="1Z999AA10123456784"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">{t('logistics.originAddress')}</label>
+                <input
+                  type="text"
+                  value={carriers?.find((carrier) => carrier.car_id === formData.shp_car_id)?.car_city || ''}
+                  readOnly
+                  className="form-input"
+                  placeholder={t('common.city')}
                 />
               </div>
 
@@ -171,9 +218,8 @@ function NewShipmentPage() {
                   <label className="form-label">{t('common.address')}</label>
                   <input
                     type="text"
-                    name="shp_origin_address"
-                    value={formData.shp_origin_address || ''}
-                    onChange={handleInputChange}
+                    value={carriers?.find((carrier) => carrier.car_id === formData.shp_car_id)?.car_address1 || ''}
+                    readOnly
                     className="form-input"
                     placeholder={t('common.address')}
                   />
@@ -182,9 +228,8 @@ function NewShipmentPage() {
                   <label className="form-label">{t('common.city')}</label>
                   <input
                     type="text"
-                    name="shp_origin_city"
-                    value={formData.shp_origin_city || ''}
-                    onChange={handleInputChange}
+                    value={carriers?.find((carrier) => carrier.car_id === formData.shp_car_id)?.car_city || ''}
+                    readOnly
                     className="form-input"
                     placeholder={t('common.city')}
                   />
@@ -201,9 +246,8 @@ function NewShipmentPage() {
                   <label className="form-label">{t('common.address')}</label>
                   <input
                     type="text"
-                    name="shp_destination_address"
-                    value={formData.shp_destination_address || ''}
-                    onChange={handleInputChange}
+                    value={consignees?.find((consignee) => consignee.con_id === formData.shp_con_id)?.con_address1 || ''}
+                    readOnly
                     className="form-input"
                     placeholder={t('common.address')}
                   />
@@ -212,9 +256,8 @@ function NewShipmentPage() {
                   <label className="form-label">{t('common.city')}</label>
                   <input
                     type="text"
-                    name="shp_destination_city"
-                    value={formData.shp_destination_city || ''}
-                    onChange={handleInputChange}
+                    value={consignees?.find((consignee) => consignee.con_id === formData.shp_con_id)?.con_city || ''}
+                    readOnly
                     className="form-input"
                     placeholder={t('common.city')}
                   />

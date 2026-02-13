@@ -42,6 +42,9 @@ class ShipmentBase(BaseModel):
     shp_car_id: int = Field(..., description="Carrier ID")
     shp_tracking_number: Optional[str] = Field(default=None, max_length=100)
     shp_sta_id: int = Field(..., description="Status ID")
+    shp_con_id: Optional[int] = Field(default=None, description="Consignee ID")
+    shp_sod_id: Optional[int] = Field(default=None, description="Supplier order ID")
+    shp_is_purchase: Optional[bool] = Field(default=None, description="Purchase shipment flag")
 
     # Origin address
     shp_origin_address: Optional[str] = Field(default=None, max_length=200)
@@ -84,6 +87,9 @@ class ShipmentUpdate(BaseModel):
     shp_car_id: Optional[int] = None
     shp_tracking_number: Optional[str] = Field(default=None, max_length=100)
     shp_sta_id: Optional[int] = None
+    shp_con_id: Optional[int] = None
+    shp_sod_id: Optional[int] = None
+    shp_is_purchase: Optional[bool] = None
 
     # Origin address
     shp_origin_address: Optional[str] = Field(default=None, max_length=200)
@@ -121,6 +127,9 @@ class ShipmentResponse(BaseModel):
     shp_car_id: int
     shp_tracking_number: Optional[str] = None
     shp_sta_id: int
+    shp_con_id: Optional[int] = None
+    shp_sod_id: Optional[int] = None
+    shp_is_purchase: Optional[bool] = None
 
     # Origin address
     shp_origin_address: Optional[str] = None
@@ -155,6 +164,7 @@ class ShipmentResponse(BaseModel):
 class ShipmentListItemResponse(ShipmentResponse):
     """Schema for shipment list items with related display fields."""
     carrier_name: Optional[str] = None
+    consignee_name: Optional[str] = None
     status_name: Optional[str] = None
     is_delivered: bool = False
 
@@ -163,6 +173,7 @@ class ShipmentDetailResponse(ShipmentResponse):
     """Schema for shipment detail response with related entities."""
     # Related entity names (populated from joins)
     carrier_name: Optional[str] = None
+    consignee_name: Optional[str] = None
     status_name: Optional[str] = None
     currency_code: Optional[str] = None
     origin_country_name: Optional[str] = None
@@ -186,6 +197,8 @@ class ShipmentSearchParams(BaseModel):
     carrier_id: Optional[int] = None
     status_id: Optional[int] = None
     delivery_form_id: Optional[int] = None
+    consignee_id: Optional[int] = None
+    supplier_order_id: Optional[int] = None
     tracking_number: Optional[str] = None
     origin_city: Optional[str] = None
     destination_city: Optional[str] = None
@@ -272,6 +285,11 @@ class CarrierListItemResponse(BaseModel):
     car_name: str
     car_code: Optional[str] = None
     car_is_active: bool
+    car_address1: Optional[str] = None
+    car_address2: Optional[str] = None
+    car_postcode: Optional[str] = None
+    car_city: Optional[str] = None
+    car_country: Optional[str] = None
 
 
 class CarrierResponse(CarrierListItemResponse):

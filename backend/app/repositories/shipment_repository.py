@@ -57,7 +57,7 @@ class ShipmentRepository:
             soc_id=supplier.soc_id if supplier else 1,
             lgs_file=None,
             lgs_guid=None,
-            lgs_is_purchase=False,
+            lgs_is_purchase=bool(data.shp_is_purchase) if data.shp_is_purchase is not None else False,
             lgs_tracking_number=data.shp_tracking_number,
             usr_id_creator=supplier.usr_created_by if supplier else 1,
             lgs_d_creation=now,
@@ -65,8 +65,8 @@ class ShipmentRepository:
             lgs_is_received=is_received,
             lgs_is_stockin=is_stockin,
             lgs_d_stockin=arrive_date,
-            con_id=None,
-            sod_id=None,
+            con_id=data.shp_con_id,
+            sod_id=data.shp_sod_id,
         )
 
         self.db.add(logistic)
@@ -143,6 +143,15 @@ class ShipmentRepository:
         if "shp_tracking_number" in update_data:
             shipment.lgs_tracking_number = update_data["shp_tracking_number"]
 
+        if "shp_con_id" in update_data:
+            shipment.con_id = update_data["shp_con_id"]
+
+        if "shp_sod_id" in update_data:
+            shipment.sod_id = update_data["shp_sod_id"]
+
+        if "shp_is_purchase" in update_data:
+            shipment.lgs_is_purchase = bool(update_data["shp_is_purchase"])
+
         if "shp_estimated_delivery" in update_data:
             shipment.lgs_d_arrive_pre = update_data["shp_estimated_delivery"]
 
@@ -199,6 +208,10 @@ class ShipmentRepository:
         # ID filters
         if params.carrier_id:
             conditions.append(Logistic.sup_id == params.carrier_id)
+        if params.consignee_id:
+            conditions.append(Logistic.con_id == params.consignee_id)
+        if params.supplier_order_id:
+            conditions.append(Logistic.sod_id == params.supplier_order_id)
         if params.status_id:
             status_condition = self._status_condition(params.status_id)
             conditions.append(status_condition)

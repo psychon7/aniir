@@ -263,6 +263,7 @@ class StockRepository:
                 ProductShelves.inv_id.label("inv_id"),
                 func.min(ProductShelves.whs_id).label("whs_id"),
                 func.min(ProductShelves.she_id).label("she_id"),
+                func.coalesce(func.sum(ProductShelves.psh_quantity), 0).label("shelf_quantity"),
             )
             .group_by(ProductShelves.inv_id)
             .subquery()
@@ -306,6 +307,7 @@ class StockRepository:
             if shelf:
                 product_shelf = ProductShelves(
                     inv_id=inventory.inv_id,
+                    psh_quantity=data.stk_quantity,
                     whs_id=data.whs_id,
                     she_id=shelf.she_id,
                 )
@@ -397,6 +399,11 @@ class StockRepository:
         if reason:
             inventory.inv_description = reason
 
+        if inventory.product_shelves:
+            shelf_link = inventory.product_shelves[0]
+            shelf_qty = shelf_link.psh_quantity or Decimal("0")
+            shelf_link.psh_quantity = shelf_qty + adjustment
+
         record = InventoryRecord(
             inv_id=inventory.inv_id,
             invr_d_record=datetime.utcnow(),
@@ -487,6 +494,7 @@ class StockRepository:
             func.coalesce(Inventory.inv_quantity, 0).label("stk_quantity"),
             func.coalesce(reserved_subq.c.reserved, 0).label("stk_quantity_reserved"),
             available_expr.label("stk_quantity_available"),
+            shelf_subq.c.shelf_quantity.label("shelf_quantity"),
             shelf_subq.c.whs_id.label("whs_id"),
             Warehouse.whs_name.label("warehouse_name"),
             Warehouse.whs_code.label("warehouse_code"),
@@ -547,7 +555,7 @@ class StockRepository:
                 "stk_id": row.stk_id,
                 "prd_id": row.prd_id or 0,
                 "whs_id": row.whs_id,
-                "stk_quantity": row.stk_quantity or Decimal("0"),
+                "stk_quantity": row.shelf_quantity if row.whs_id else (row.stk_quantity or Decimal("0")),
                 "stk_quantity_reserved": row.stk_quantity_reserved or Decimal("0"),
                 "stk_quantity_available": row.stk_quantity_available or Decimal("0"),
                 "stk_is_active": True,

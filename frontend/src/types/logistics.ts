@@ -39,6 +39,9 @@ export interface Shipment {
   shp_car_id: number
   shp_tracking_number: string | null
   shp_sta_id: number
+  shp_con_id: number | null
+  shp_sod_id: number | null
+  shp_is_purchase: boolean | null
   // Origin address
   shp_origin_address: string | null
   shp_origin_city: string | null
@@ -68,6 +71,7 @@ export interface Shipment {
  */
 export interface ShipmentDetail extends Shipment {
   carrier_name: string | null
+  consignee_name: string | null
   status_name: string | null
   currency_code: string | null
   origin_country_name: string | null
@@ -91,6 +95,7 @@ export interface ShipmentListItem {
   shp_estimated_delivery: string | null
   shp_actual_delivery: string | null
   carrier_name: string | null
+  consignee_name: string | null
   status_name: string | null
   is_delivered: boolean
 }
@@ -104,6 +109,9 @@ export interface ShipmentCreateDto {
   shp_car_id: number
   shp_tracking_number?: string
   shp_sta_id: number
+  shp_con_id?: number
+  shp_sod_id?: number
+  shp_is_purchase?: boolean
   // Origin address
   shp_origin_address?: string
   shp_origin_city?: string
@@ -135,6 +143,9 @@ export interface ShipmentUpdateDto {
   shp_car_id?: number
   shp_tracking_number?: string
   shp_sta_id?: number
+  shp_con_id?: number
+  shp_sod_id?: number
+  shp_is_purchase?: boolean
   // Origin address
   shp_origin_address?: string
   shp_origin_city?: string
@@ -164,6 +175,8 @@ export interface ShipmentSearchParams {
   carrier_id?: number
   status_id?: number
   delivery_form_id?: number
+  consignee_id?: number
+  supplier_order_id?: number
   tracking_number?: string
   origin_city?: string
   destination_city?: string
@@ -251,6 +264,11 @@ export interface Carrier {
   car_code: string | null
   car_tracking_url: string | null
   car_is_active: boolean
+  car_address1?: string | null
+  car_address2?: string | null
+  car_postcode?: string | null
+  car_city?: string | null
+  car_country?: string | null
 }
 
 export interface CarrierListItem {
@@ -258,4 +276,29 @@ export interface CarrierListItem {
   car_name: string
   car_code: string | null
   car_is_active: boolean
+  car_address1?: string | null
+  car_address2?: string | null
+  car_postcode?: string | null
+  car_city?: string | null
+  car_country?: string | null
+}
+
+// =============================================================================
+// Consignee Types (Logistics)
+// =============================================================================
+
+export interface LogisticsConsignee {
+  con_id: number
+  con_company_name?: string | null
+  con_firstname?: string | null
+  con_lastname?: string | null
+  con_address1?: string | null
+  con_address2?: string | null
+  con_address3?: string | null
+  con_postcode?: string | null
+  con_city?: string | null
+  con_country?: string | null
+  con_tel1?: string | null
+  con_tel2?: string | null
+  con_email?: string | null
 }

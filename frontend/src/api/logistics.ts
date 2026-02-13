@@ -12,6 +12,7 @@ import type {
   BulkStatusUpdateResponse,
   Carrier,
   CarrierListItem,
+  LogisticsConsignee,
 } from '@/types/logistics'
 
 /**
@@ -130,6 +131,16 @@ export const logisticsApi = {
    */
   async getCarriers(activeOnly = true): Promise<CarrierListItem[]> {
     const response = await apiClient.get<CarrierListItem[]>('/logistics/carriers', {
+      params: { active_only: activeOnly }
+    })
+    return response.data
+  },
+
+  /**
+   * Get list of consignees for logistics
+   */
+  async getConsignees(activeOnly = true): Promise<LogisticsConsignee[]> {
+    const response = await apiClient.get<LogisticsConsignee[]>('/logistics/consignees', {
       params: { active_only: activeOnly }
     })
     return response.data

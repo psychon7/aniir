@@ -19,6 +19,7 @@ from fastapi import Depends
 
 from app.database import get_db
 from app.models.logistics import Logistic
+from app.models.consignee import Consignee
 from app.models.supplier import Supplier
 from app.repositories.shipment_repository import ShipmentRepository
 from app.schemas.shipment import (
@@ -211,6 +212,9 @@ class ShipmentService:
             "shp_car_id": shipment.sup_id or 0,
             "shp_tracking_number": shipment.lgs_tracking_number,
             "shp_sta_id": status_id,
+            "shp_con_id": shipment.con_id,
+            "shp_sod_id": shipment.sod_id,
+            "shp_is_purchase": shipment.lgs_is_purchase,
             "shp_origin_address": origin_address,
             "shp_origin_city": origin_city,
             "shp_origin_country_id": None,
@@ -236,9 +240,11 @@ class ShipmentService:
     def _to_list_item(self, shipment: Logistic) -> ShipmentListItemResponse:
         payload, status_id, status_name, _, _ = self._base_payload(shipment)
         supplier = shipment.supplier
+        consignee = shipment.consignee
         return ShipmentListItemResponse(
             **payload,
             carrier_name=supplier.sup_company_name if supplier else None,
+            consignee_name=consignee.con_company_name if consignee else None,
             status_name=status_name,
             is_delivered=status_id == self.STATUS_DELIVERED,
         )
@@ -246,6 +252,7 @@ class ShipmentService:
     def _to_detail_response(self, shipment: Logistic) -> ShipmentDetailResponse:
         payload, status_id, status_name, origin_country_name, destination_country_name = self._base_payload(shipment)
         supplier = shipment.supplier
+        consignee = shipment.consignee
 
         full_origin_address = self._format_full_address(
             payload.get("shp_origin_address"),
@@ -266,6 +273,7 @@ class ShipmentService:
         return ShipmentDetailResponse(
             **payload,
             carrier_name=supplier.sup_company_name if supplier else None,
+            consignee_name=consignee.con_company_name if consignee else None,
             status_name=status_name,
             currency_code=None,
             origin_country_name=origin_country_name,
@@ -751,6 +759,11 @@ class ShipmentService:
                 car_name=supplier.sup_company_name,
                 car_code=supplier.sup_ref,
                 car_is_active=bool(supplier.sup_isactive),
+                car_address1=supplier.sup_address1,
+                car_address2=supplier.sup_address2,
+                car_postcode=supplier.sup_postcode,
+                car_city=supplier.sup_city,
+                car_country=supplier.sup_country,
             )
             for supplier in suppliers
         ]
@@ -770,7 +783,39 @@ class ShipmentService:
             car_code=supplier.sup_ref,
             car_is_active=bool(supplier.sup_isactive),
             car_tracking_url=None,
+            car_address1=supplier.sup_address1,
+            car_address2=supplier.sup_address2,
+            car_postcode=supplier.sup_postcode,
+            car_city=supplier.sup_city,
+            car_country=supplier.sup_country,
         )
+
+    async def get_consignees(self, active_only: bool = True) -> List[dict]:
+        query = select(Consignee)
+        if active_only:
+            query = query.where(Consignee.con_is_delivery_adr == True)
+        query = query.order_by(Consignee.con_company_name.asc())
+        result = await asyncio.to_thread(self.db.execute, query)
+        consignees = list(result.scalars().all())
+
+        return [
+            {
+                "con_id": consignee.con_id,
+                "con_company_name": consignee.con_company_name,
+                "con_firstname": consignee.con_firstname,
+                "con_lastname": consignee.con_lastname,
+                "con_address1": consignee.con_address1,
+                "con_address2": consignee.con_address2,
+                "con_address3": consignee.con_address3,
+                "con_postcode": consignee.con_postcode,
+                "con_city": consignee.con_city,
+                "con_country": consignee.con_country,
+                "con_tel1": consignee.con_tel1,
+                "con_tel2": consignee.con_tel2,
+                "con_email": consignee.con_email,
+            }
+            for consignee in consignees
+        ]
 
 
 def get_shipment_service(db: AsyncSession = Depends(get_db)) -> ShipmentService:

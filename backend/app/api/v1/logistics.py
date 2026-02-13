@@ -721,3 +721,21 @@ async def get_carrier(
 ):
     service = get_shipment_service(db)
     return await service.get_carrier(carrier_id)
+
+
+# ======================================================================
+# Consignee Endpoints
+# ======================================================================
+
+@router.get(
+    "/consignees",
+    response_model=List[dict],
+    summary="Get consignees",
+    description="Get consignees for dropdown selection."
+)
+async def get_consignees(
+    active_only: bool = Query(True, description="Only return delivery consignees"),
+    db: AsyncSession = Depends(get_db)
+):
+    service = get_shipment_service(db)
+    return await service.get_consignees(active_only)

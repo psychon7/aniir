@@ -117,6 +117,12 @@ function ShipmentDetailPage() {
           </CardContent>
         </Card>
         <Card>
+          <CardHeader title={t('consignees.title')} />
+          <CardContent>
+            <p className="text-lg font-medium">{shipment.consignee_name || '-'}</p>
+          </CardContent>
+        </Card>
+        <Card>
           <CardHeader title={t('logistics.tracking')} />
           <CardContent>
             <p className="font-mono text-lg">

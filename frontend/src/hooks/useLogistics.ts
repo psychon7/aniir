@@ -20,6 +20,7 @@ export const logisticsKeys = {
   tracking: (trackingNumber: string) => [...logisticsKeys.all, 'tracking', trackingNumber] as const,
   trackingByShipment: (shipmentId: number) => [...logisticsKeys.all, 'tracking', 'shipment', shipmentId] as const,
   carriers: () => [...logisticsKeys.all, 'carriers'] as const,
+  consignees: () => [...logisticsKeys.all, 'consignees'] as const,
   carrierDetail: (id: number) => [...logisticsKeys.carriers(), 'detail', id] as const,
   statistics: (params?: { from_date?: string; to_date?: string }) => [...logisticsKeys.all, 'statistics', params] as const,
 }
@@ -97,6 +98,16 @@ export function useCarriers(activeOnly = true) {
   return useQuery({
     queryKey: logisticsKeys.carriers(),
     queryFn: () => logisticsApi.getCarriers(activeOnly),
+  })
+}
+
+/**
+ * Fetch list of consignees
+ */
+export function useConsignees(activeOnly = true) {
+  return useQuery({
+    queryKey: logisticsKeys.consignees(),
+    queryFn: () => logisticsApi.getConsignees(activeOnly),
   })
 }
 

@@ -5,6 +5,8 @@ Tables:
   TM_INV_Inventory
   TI_INVR_INV_Record
   TI_PIV_PRE_INV_Inventory
+  TI_PIVR_PIN_Record
+  TI_PSR_PRE_Shipping_Receiving_Line
   TR_PSH_Product_Shelves
   TM_SHE_Shelves
 """
@@ -12,7 +14,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, TYPE_CHECKING
 
-from sqlalchemy import Integer, String, DateTime, Numeric, ForeignKey
+from sqlalchemy import Integer, String, DateTime, Numeric, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -114,6 +116,25 @@ class PreInventory(Base):
         return f"<PreInventory(piv_id={self.piv_id}, inv_id={self.inv_id})>"
 
 
+class PreInventoryRecord(Base):
+    """Pre-inventory record history."""
+
+    __tablename__ = "TI_PIVR_PIN_Record"
+
+    pivr_id: Mapped[int] = mapped_column("pivr_id", Integer, primary_key=True, autoincrement=True)
+    piv_id: Mapped[int] = mapped_column(
+        "piv_id",
+        Integer,
+        ForeignKey("TI_PIV_PRE_INV_Inventory.piv_id"),
+        nullable=False,
+    )
+    pivr_d_record: Mapped[datetime] = mapped_column("pivr_d_record", DateTime, nullable=False)
+    pivr_quantity: Mapped[Optional[Decimal]] = mapped_column("pivr_quantity", Numeric(18, 4), nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<PreInventoryRecord(pivr_id={self.pivr_id}, piv_id={self.piv_id})>"
+
+
 class ProductShelves(Base):
     """Join between inventory and warehouse/shelf locations."""
 
@@ -126,6 +147,7 @@ class ProductShelves(Base):
         ForeignKey("TM_INV_Inventory.inv_id"),
         nullable=False,
     )
+    psh_quantity: Mapped[Optional[Decimal]] = mapped_column("psh_quantity", Numeric(18, 4), nullable=True)
     whs_id: Mapped[int] = mapped_column(
         "whs_id",
         Integer,
@@ -172,3 +194,20 @@ class Shelf(Base):
 
     def __repr__(self) -> str:
         return f"<Shelf(she_id={self.she_id}, whs_id={self.whs_id})>"
+
+
+class PreShippingReceivingLine(Base):
+    """Pre-shipping/receiving line (legacy pre-inventory workflow)."""
+
+    __tablename__ = "TI_PSR_PRE_Shipping_Receiving_Line"
+
+    psr_id: Mapped[int] = mapped_column("psr_id", Integer, primary_key=True, autoincrement=True)
+    col_id: Mapped[Optional[int]] = mapped_column("col_id", Integer, nullable=True)
+    lgl_id: Mapped[Optional[int]] = mapped_column("lgl_id", Integer, nullable=True)
+    psr_time: Mapped[datetime] = mapped_column("psr_time", DateTime, nullable=False)
+    psr_quantity: Mapped[Optional[Decimal]] = mapped_column("psr_quantity", Numeric(18, 4), nullable=True)
+    psr_is_done: Mapped[bool] = mapped_column("psr_is_done", Boolean, nullable=False, default=False)
+    psr_time_done: Mapped[Optional[datetime]] = mapped_column("psr_time_done", DateTime, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<PreShippingReceivingLine(psr_id={self.psr_id})>"

@@ -388,6 +388,7 @@ class StockResponse(BaseModel):
     stk_quantity: Decimal = Field(default=Decimal("0"), description="Quantity on hand")
     stk_quantity_reserved: Decimal = Field(default=Decimal("0"), description="Reserved quantity")
     stk_quantity_available: Decimal = Field(default=Decimal("0"), description="Available quantity")
+    stk_quantity_shelf: Optional[Decimal] = Field(None, description="Quantity assigned to shelf")
     stk_min_quantity: Optional[Decimal] = Field(None, description="Minimum quantity threshold")
     stk_max_quantity: Optional[Decimal] = Field(None, description="Maximum quantity threshold")
     stk_reorder_quantity: Optional[Decimal] = Field(None, description="Reorder quantity")
@@ -432,6 +433,7 @@ class StockListResponse(BaseModel):
     stk_quantity: Decimal = Field(..., description="Quantity on hand")
     stk_quantity_available: Decimal = Field(..., description="Available quantity")
     stk_quantity_reserved: Decimal = Field(..., description="Reserved quantity")
+    stk_quantity_shelf: Optional[Decimal] = Field(None, description="Quantity assigned to shelf")
     stk_is_active: bool = Field(default=True, description="Is active")
 
     # Denormalized for display
