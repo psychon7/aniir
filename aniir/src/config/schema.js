@@ -2,6 +2,13 @@ export function withConfigDefaults(input) {
   const config = input ?? {};
   return {
     ...config,
+    ai: {
+      mode: config.ai?.mode ?? "codex_cloud_subscription",
+      model: config.ai?.model ?? "gpt-5-codex",
+      openai: {
+        api_key_env: config.ai?.openai?.api_key_env ?? "OPENAI_API_KEY"
+      }
+    },
     webhooks: {
       secrets: {
         sentry: config.webhooks?.secrets?.sentry ?? config.sentrySecret ?? "",
@@ -36,6 +43,9 @@ export function validateConfig(config) {
   }
   if (!["full", "fix_only"].includes(config.verification.mode)) {
     throw new Error("verification.mode must be 'full' or 'fix_only'");
+  }
+  if (!["codex_cloud_subscription", "codex_local_subscription", "openai_api"].includes(config.ai?.mode)) {
+    throw new Error("ai.mode must be 'codex_cloud_subscription', 'codex_local_subscription', or 'openai_api'");
   }
   if (typeof config.notifications?.slack?.enabled !== "boolean") {
     throw new Error("notifications.slack.enabled must be boolean");

@@ -3,6 +3,12 @@ repo:
   id: "axtech/erp2025"
   default_branch: "main"
 
+ai:
+  mode: "codex_cloud_subscription" # codex_cloud_subscription | codex_local_subscription | openai_api
+  model: "gpt-5-codex"
+  openai:
+    api_key_env: "OPENAI_API_KEY"
+
 sentry:
   project: "erp2025-prod"
   severity_threshold: "error"
