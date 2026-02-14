@@ -362,6 +362,7 @@ def _sync_get_quote_detail(db: Session, quote_id: int):
             CostPlan.cpl_id,
             CostPlan.cpl_code,
             CostPlan.cli_id,
+            CostPlan.soc_id,
             CostPlan.cpl_d_creation,
             CostPlan.cpl_d_validity,
             CostPlan.cst_id,
