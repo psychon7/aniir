@@ -7,6 +7,16 @@ sentry:
   project: "erp2025-prod"
   severity_threshold: "error"
 
+webhooks:
+  secrets:
+    sentry: "replace-with-sentry-secret"
+    pagerduty: "replace-with-pagerduty-secret"
+    datadog: "replace-with-datadog-secret"
+    grafana: "replace-with-grafana-secret"
+    opsgenie: "replace-with-opsgenie-secret"
+    incidentio: "replace-with-incidentio-secret"
+    signoz: "replace-with-signoz-secret"
+
 memory:
   path: ".aniir/known-issues.json"
   state_branch: "aniir-state"
@@ -31,3 +41,8 @@ pr:
   labels:
     - aniir
     - auto-fix
+
+notifications:
+  slack:
+    enabled: true
+    channel: "#engineering-alerts"
