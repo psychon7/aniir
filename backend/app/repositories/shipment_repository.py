@@ -467,7 +467,8 @@ class ShipmentRepository:
         )
 
     def _in_transit_condition(self, delivered_condition=None):
-        delivered_condition = delivered_condition or self._delivered_condition()
+        if delivered_condition is None:
+            delivered_condition = self._delivered_condition()
         return and_(
             Logistic.lgs_is_send.is_(True),
             ~delivered_condition,
