@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     MINIO_ENDPOINT: str = "localhost:9010"
     MINIO_ACCESS_KEY: Optional[str] = None
     MINIO_SECRET_KEY: Optional[str] = None
+    MINIO_SECURE: bool = False
+    MINIO_BUCKET_NAME: str = "erp-documents"
+    MINIO_PUBLIC_URL: str = "http://localhost:9010"
 
     # Sage X3 Integration (optional)
     X3_API_BASE_URL: Optional[str] = None

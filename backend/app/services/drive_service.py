@@ -4,6 +4,7 @@ Drive service for file management business logic.
 Provides async methods for file and folder CRUD operations,
 entity attachment, search, and storage statistics.
 Uses asyncio.to_thread() for DB calls (pymssql compatibility).
+Supports MinIO/S3 storage with fallback to local API routes.
 """
 import asyncio
 import json
@@ -16,6 +17,15 @@ from fastapi import Depends
 from app.database import get_db
 from app.models.drive import DriveFile, DriveFolder
 from app.schemas.drive import DriveFileCreate, DriveFileUpdate, EntityType
+from app.core.logging import get_logger
+
+# Try to import storage service for MinIO support
+try:
+    from app.services.storage_service import storage_service
+except ImportError:
+    storage_service = None
+
+logger = get_logger(__name__)
 
 
 # =============================================================================
@@ -316,8 +326,21 @@ class DriveService:
             status="pending",
         )
 
-        # In production, generate a real presigned URL here
+        # Generate upload URL - use MinIO presigned URL when available
         upload_url = f"/api/v1/drive/files/{db_file.Id}/upload"
+        
+        if storage_service is not None:
+            try:
+                # Generate presigned PUT URL for direct upload to MinIO
+                from datetime import timedelta
+                upload_url = storage_service.client.presigned_put_object(
+                    storage_service.bucket_name,
+                    storage_key,
+                    expires=timedelta(hours=1),
+                )
+                logger.info(f"Generated MinIO presigned upload URL for {storage_key}")
+            except Exception as e:
+                logger.warning(f"Failed to generate MinIO presigned URL, using API fallback: {e}")
 
         return {
             "upload_url": upload_url,
@@ -347,7 +370,7 @@ class DriveService:
     ) -> str:
         """
         Get a download URL for a file.
-        In production, this would generate a presigned S3 URL.
+        Uses MinIO presigned URL when available, falls back to API route.
         """
         db_file = self._get_file_by_id(file_id)
         if not db_file:
@@ -355,7 +378,15 @@ class DriveService:
 
         self._increment_download_count(file_id)
 
-        # In production, generate a real presigned URL
+        # Generate presigned URL for MinIO when available
+        if storage_service is not None and db_file.StorageKey:
+            try:
+                expires_hours = expires_in // 3600 if expires_in >= 3600 else 1
+                return storage_service.get_presigned_url(db_file.StorageKey, expires_hours)
+            except Exception as e:
+                logger.warning(f"Failed to generate MinIO presigned URL, using API fallback: {e}")
+        
+        # Fallback to API route
         return f"/api/v1/drive/files/{file_id}/content"
 
     # =========================================================================

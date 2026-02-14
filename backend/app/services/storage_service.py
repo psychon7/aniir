@@ -137,3 +137,30 @@ class StorageService:
                 return False
             logger.error(f"Error deleting file: {e}")
             raise
+
+
+# =============================================================================
+# Singleton Instance
+# =============================================================================
+
+_storage_service: Optional[StorageService] = None
+
+
+def get_storage_service() -> StorageService:
+    """Get or create the storage service singleton."""
+    global _storage_service
+    if _storage_service is None:
+        _storage_service = StorageService()
+    return _storage_service
+
+
+# Lazy singleton - only instantiated when imported and credentials are available
+try:
+    if settings.MINIO_ACCESS_KEY and settings.MINIO_SECRET_KEY:
+        storage_service = get_storage_service()
+    else:
+        storage_service = None
+        logger.warning("MinIO credentials not configured, storage_service unavailable")
+except Exception as e:
+    storage_service = None
+    logger.warning(f"Failed to initialize storage_service: {e}")

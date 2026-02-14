@@ -10,3 +10,6 @@ python-multipart>=0.0.6
 
 # PDF Generation
 reportlab>=4.0.0
+
+# Object Storage (MinIO/S3)
+minio>=7.2.0
