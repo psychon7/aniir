@@ -81,6 +81,7 @@ export interface ShipmentDetail extends Shipment {
   is_on_time: boolean | null
   full_origin_address: string
   full_destination_address: string
+  lines: ShipmentLine[]
 }
 
 /**
@@ -171,6 +172,7 @@ export interface ShipmentUpdateDto {
  * Shipment search parameters
  */
 export interface ShipmentSearchParams {
+  society_id?: number
   reference?: string
   carrier_id?: number
   status_id?: number
@@ -269,6 +271,19 @@ export interface Carrier {
   car_postcode?: string | null
   car_city?: string | null
   car_country?: string | null
+}
+
+export interface ShipmentLine {
+  lgl_id: number
+  lgs_quantity: number | null
+  lgs_unit_price: number | null
+  lgs_total_price: number | null
+  lgs_prd_name: string | null
+  lgs_prd_ref: string | null
+  lgs_description: string | null
+  sol_id: number | null
+  sil_id: number | null
+  cii_id: number | null
 }
 
 export interface CarrierListItem {

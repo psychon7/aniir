@@ -169,6 +169,20 @@ class ShipmentListItemResponse(ShipmentResponse):
     is_delivered: bool = False
 
 
+class ShipmentLineResponse(BaseModel):
+    """Schema for shipment line details mapped from logistics lines."""
+    lgl_id: int
+    lgs_quantity: Optional[Decimal] = None
+    lgs_unit_price: Optional[Decimal] = None
+    lgs_total_price: Optional[Decimal] = None
+    lgs_prd_name: Optional[str] = None
+    lgs_prd_ref: Optional[str] = None
+    lgs_description: Optional[str] = None
+    sol_id: Optional[int] = None
+    sil_id: Optional[int] = None
+    cii_id: Optional[int] = None
+
+
 class ShipmentDetailResponse(ShipmentResponse):
     """Schema for shipment detail response with related entities."""
     # Related entity names (populated from joins)
@@ -185,6 +199,7 @@ class ShipmentDetailResponse(ShipmentResponse):
     is_on_time: Optional[bool] = None
     full_origin_address: str = ""
     full_destination_address: str = ""
+    lines: List[ShipmentLineResponse] = Field(default_factory=list)
 
 
 # ==========================================================================
@@ -193,6 +208,7 @@ class ShipmentDetailResponse(ShipmentResponse):
 
 class ShipmentSearchParams(BaseModel):
     """Schema for shipment search/filter parameters."""
+    society_id: Optional[int] = None
     reference: Optional[str] = None
     carrier_id: Optional[int] = None
     status_id: Optional[int] = None

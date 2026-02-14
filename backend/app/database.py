@@ -80,6 +80,10 @@ class AsyncSessionWrapper:
         """Refresh an instance asynchronously."""
         return await asyncio.to_thread(self._session.refresh, instance, *args, **kwargs)
 
+    async def flush(self):
+        """Flush pending changes asynchronously."""
+        return await asyncio.to_thread(self._session.flush)
+
     async def close(self):
         """Close the session."""
         return await asyncio.to_thread(self._session.close)
@@ -122,3 +126,13 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+async def get_async_db():
+    """Dependency for getting async-compatible wrapped database sessions."""
+    db = SessionLocal()
+    wrapper = AsyncSessionWrapper(db)
+    try:
+        yield wrapper
+    finally:
+        await wrapper.close()

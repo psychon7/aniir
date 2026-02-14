@@ -84,9 +84,6 @@ function ShipmentDetailPage() {
                 {markDelivered.isPending ? '...' : t('logistics.markDelivered')}
               </button>
             )}
-            <Link to="/logistics/$shipmentId/edit" params={{ shipmentId }} className="btn-secondary">
-              {t('common.edit')}
-            </Link>
             <button
               onClick={handleDelete}
               disabled={deleteShipment.isPending}
@@ -226,6 +223,45 @@ function ShipmentDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mb-6">
+        <CardHeader
+          title={t('logistics.lineItems', { defaultValue: 'Line Items' })}
+          description={t('logistics.lineItemsDescription', { defaultValue: 'Products included in this shipment' })}
+        />
+        <CardContent>
+          {shipment.lines && shipment.lines.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="table-refined w-full">
+                <thead>
+                  <tr>
+                    <th>{t('common.reference', { defaultValue: 'Reference' })}</th>
+                    <th>{t('common.description', { defaultValue: 'Description' })}</th>
+                    <th>{t('common.quantity', { defaultValue: 'Qty' })}</th>
+                    <th>{t('common.unitPrice', { defaultValue: 'Unit Price' })}</th>
+                    <th>{t('common.total', { defaultValue: 'Total' })}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shipment.lines.map((line) => (
+                    <tr key={line.lgl_id}>
+                      <td className="font-mono text-sm">{line.lgs_prd_ref || '-'}</td>
+                      <td>{line.lgs_description || line.lgs_prd_name || '-'}</td>
+                      <td>{line.lgs_quantity ?? '-'}</td>
+                      <td>{line.lgs_unit_price ?? '-'}</td>
+                      <td>{line.lgs_total_price ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">
+              {t('logistics.noLineItems', { defaultValue: 'No shipment line items found.' })}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {shipment.shp_notes && (
         <Card>

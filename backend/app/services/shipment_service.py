@@ -8,16 +8,14 @@ Provides business logic for:
 - Delivery scheduling
 - Statistics
 """
-import asyncio
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import Depends
 
-from app.database import get_db
+from app.database import AsyncSessionWrapper, get_async_db
 from app.models.logistics import Logistic
 from app.models.consignee import Consignee
 from app.models.supplier import Supplier
@@ -25,6 +23,7 @@ from app.repositories.shipment_repository import ShipmentRepository
 from app.schemas.shipment import (
     ShipmentCreate, ShipmentUpdate, ShipmentSearchParams,
     ShipmentResponse, ShipmentDetailResponse, ShipmentListResponse, ShipmentListItemResponse,
+    ShipmentLineResponse,
     BulkStatusUpdateRequest, BulkStatusUpdateResponse,
     TrackingEvent, TrackingResponse,
     CarrierListItemResponse, CarrierResponse,
@@ -135,7 +134,7 @@ class ShipmentService:
         STATUS_CANCELLED: "cancelled",
     }
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSessionWrapper):
         self.db = db
         self.repository = ShipmentRepository(db)
 
@@ -253,6 +252,21 @@ class ShipmentService:
         payload, status_id, status_name, origin_country_name, destination_country_name = self._base_payload(shipment)
         supplier = shipment.supplier
         consignee = shipment.consignee
+        line_items = [
+            ShipmentLineResponse(
+                lgl_id=line.lgl_id,
+                lgs_quantity=line.lgs_quantity,
+                lgs_unit_price=line.lgs_unit_price,
+                lgs_total_price=line.lgs_total_price,
+                lgs_prd_name=line.lgs_prd_name,
+                lgs_prd_ref=line.lgs_prd_ref,
+                lgs_description=line.lgs_description,
+                sol_id=line.sol_id,
+                sil_id=line.sil_id,
+                cii_id=line.cii_id,
+            )
+            for line in sorted(shipment.lines or [], key=lambda item: item.lgl_id)
+        ]
 
         full_origin_address = self._format_full_address(
             payload.get("shp_origin_address"),
@@ -283,6 +297,7 @@ class ShipmentService:
             is_on_time=is_on_time,
             full_origin_address=full_origin_address,
             full_destination_address=full_destination_address,
+            lines=line_items,
         )
 
     # ==========================================================================
@@ -305,23 +320,23 @@ class ShipmentService:
         await self.db.commit()
         return shipment
 
-    async def get_shipment(self, shipment_id: int) -> Logistic:
+    async def get_shipment(self, shipment_id: int, society_id: Optional[int] = None) -> Logistic:
         """Get shipment by ID."""
-        shipment = await self.repository.get_shipment(shipment_id)
+        shipment = await self.repository.get_shipment(shipment_id, society_id=society_id)
         if not shipment:
             raise ShipmentNotFoundError(shipment_id)
         return shipment
 
-    async def get_shipment_by_reference(self, reference: str) -> Logistic:
+    async def get_shipment_by_reference(self, reference: str, society_id: Optional[int] = None) -> Logistic:
         """Get shipment by reference."""
-        shipment = await self.repository.get_shipment_by_reference(reference)
+        shipment = await self.repository.get_shipment_by_reference(reference, society_id=society_id)
         if not shipment:
             raise ShipmentReferenceNotFoundError(reference)
         return shipment
 
-    async def get_shipment_by_tracking(self, tracking_number: str) -> Logistic:
+    async def get_shipment_by_tracking(self, tracking_number: str, society_id: Optional[int] = None) -> Logistic:
         """Get shipment by tracking number."""
-        shipment = await self.repository.get_shipment_by_tracking(tracking_number)
+        shipment = await self.repository.get_shipment_by_tracking(tracking_number, society_id=society_id)
         if not shipment:
             raise ShipmentTrackingNotFoundError(tracking_number)
         return shipment
@@ -607,9 +622,9 @@ class ShipmentService:
     # Tracking Operations
     # ==========================================================================
 
-    async def get_tracking_info(self, shipment_id: int) -> TrackingResponse:
+    async def get_tracking_info(self, shipment_id: int, society_id: Optional[int] = None) -> TrackingResponse:
         """Get tracking information for a shipment."""
-        shipment = await self.get_shipment(shipment_id)
+        shipment = await self.get_shipment(shipment_id, society_id=society_id)
 
         payload, _, status_name, origin_country_name, destination_country_name = self._base_payload(shipment)
         supplier = shipment.supplier
@@ -659,10 +674,10 @@ class ShipmentService:
             events=events
         )
 
-    async def track_by_tracking_number(self, tracking_number: str) -> TrackingResponse:
+    async def track_by_tracking_number(self, tracking_number: str, society_id: Optional[int] = None) -> TrackingResponse:
         """Get tracking information by tracking number."""
-        shipment = await self.get_shipment_by_tracking(tracking_number)
-        return await self.get_tracking_info(shipment.lgs_id)
+        shipment = await self.get_shipment_by_tracking(tracking_number, society_id=society_id)
+        return await self.get_tracking_info(shipment.lgs_id, society_id=society_id)
 
     # ==========================================================================
     # Delivery Scheduling
@@ -702,10 +717,11 @@ class ShipmentService:
     async def get_statistics(
         self,
         start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
+        end_date: Optional[datetime] = None,
+        society_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Get shipment statistics."""
-        return await self.repository.get_shipment_statistics(start_date, end_date)
+        return await self.repository.get_shipment_statistics(start_date, end_date, society_id=society_id)
 
     async def get_carrier_statistics(
         self,
@@ -750,7 +766,7 @@ class ShipmentService:
         if active_only:
             query = query.where(Supplier.sup_isactive == True)
         query = query.order_by(Supplier.sup_company_name.asc())
-        result = await asyncio.to_thread(self.db.execute, query)
+        result = await self.db.execute(query)
         suppliers = list(result.scalars().all())
 
         return [
@@ -769,8 +785,7 @@ class ShipmentService:
         ]
 
     async def get_carrier(self, carrier_id: int) -> CarrierResponse:
-        result = await asyncio.to_thread(
-            self.db.execute,
+        result = await self.db.execute(
             select(Supplier).where(Supplier.sup_id == carrier_id)
         )
         supplier = result.scalar_one_or_none()
@@ -795,7 +810,7 @@ class ShipmentService:
         if active_only:
             query = query.where(Consignee.con_is_delivery_adr == True)
         query = query.order_by(Consignee.con_company_name.asc())
-        result = await asyncio.to_thread(self.db.execute, query)
+        result = await self.db.execute(query)
         consignees = list(result.scalars().all())
 
         return [
@@ -818,6 +833,6 @@ class ShipmentService:
         ]
 
 
-def get_shipment_service(db: AsyncSession = Depends(get_db)) -> ShipmentService:
+def get_shipment_service(db: AsyncSessionWrapper = Depends(get_async_db)) -> ShipmentService:
     """Dependency to get ShipmentService instance."""
     return ShipmentService(db)

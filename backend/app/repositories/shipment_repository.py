@@ -6,10 +6,10 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import select, func, and_, or_, update, delete
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.expression import false
 
+from app.database import AsyncSessionWrapper
 from app.models.logistics import Logistic
 from app.models.supplier import Supplier
 from app.models.consignee import Consignee
@@ -22,7 +22,7 @@ from app.schemas.shipment import (
 class ShipmentRepository:
     """Repository for shipment-related data operations mapped to legacy logistics tables."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSessionWrapper):
         self.db = db
 
     # =====================
@@ -74,8 +74,12 @@ class ShipmentRepository:
         await self.db.refresh(logistic)
         return logistic
 
-    async def get_shipment(self, shipment_id: int) -> Optional[Logistic]:
+    async def get_shipment(self, shipment_id: int, society_id: Optional[int] = None) -> Optional[Logistic]:
         """Get a shipment by ID."""
+        conditions = [Logistic.lgs_id == shipment_id]
+        if society_id is not None:
+            conditions.append(Logistic.soc_id == society_id)
+
         result = await self.db.execute(
             select(Logistic)
             .options(
@@ -83,12 +87,16 @@ class ShipmentRepository:
                 selectinload(Logistic.consignee),
                 selectinload(Logistic.lines),
             )
-            .where(Logistic.lgs_id == shipment_id)
+            .where(and_(*conditions))
         )
         return result.scalar_one_or_none()
 
-    async def get_shipment_by_reference(self, reference: str) -> Optional[Logistic]:
+    async def get_shipment_by_reference(self, reference: str, society_id: Optional[int] = None) -> Optional[Logistic]:
         """Get a shipment by reference."""
+        conditions = [Logistic.lgs_code == reference]
+        if society_id is not None:
+            conditions.append(Logistic.soc_id == society_id)
+
         result = await self.db.execute(
             select(Logistic)
             .options(
@@ -96,12 +104,16 @@ class ShipmentRepository:
                 selectinload(Logistic.consignee),
                 selectinload(Logistic.lines),
             )
-            .where(Logistic.lgs_code == reference)
+            .where(and_(*conditions))
         )
         return result.scalar_one_or_none()
 
-    async def get_shipment_by_tracking(self, tracking_number: str) -> Optional[Logistic]:
+    async def get_shipment_by_tracking(self, tracking_number: str, society_id: Optional[int] = None) -> Optional[Logistic]:
         """Get a shipment by tracking number."""
+        conditions = [Logistic.lgs_tracking_number == tracking_number]
+        if society_id is not None:
+            conditions.append(Logistic.soc_id == society_id)
+
         result = await self.db.execute(
             select(Logistic)
             .options(
@@ -109,7 +121,7 @@ class ShipmentRepository:
                 selectinload(Logistic.consignee),
                 selectinload(Logistic.lines),
             )
-            .where(Logistic.lgs_tracking_number == tracking_number)
+            .where(and_(*conditions))
         )
         return result.scalar_one_or_none()
 
@@ -192,6 +204,8 @@ class ShipmentRepository:
         conditions = []
 
         # Text filters
+        if params.society_id is not None:
+            conditions.append(Logistic.soc_id == params.society_id)
         if params.reference:
             conditions.append(Logistic.lgs_code.ilike(f"%{params.reference}%"))
         if params.tracking_number:
@@ -379,11 +393,14 @@ class ShipmentRepository:
     async def get_shipment_statistics(
         self,
         start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
+        end_date: Optional[datetime] = None,
+        society_id: Optional[int] = None,
     ) -> dict:
         """Get shipment statistics."""
         conditions = []
 
+        if society_id is not None:
+            conditions.append(Logistic.soc_id == society_id)
         if start_date:
             conditions.append(Logistic.lgs_d_creation >= start_date)
         if end_date:

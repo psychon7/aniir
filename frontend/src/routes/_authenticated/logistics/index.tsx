@@ -45,7 +45,7 @@ function LogisticsPage() {
   }
 
   // Use the new hooks
-  const { data: shipmentsData, isLoading } = useShipments(apiParams)
+  const { data: shipmentsData, isLoading, isError, error } = useShipments(apiParams)
   const { data: statsData } = useShipmentStatistics()
 
   const handleSearch = (search: string) => {
@@ -194,6 +194,19 @@ function LogisticsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {isError && (
+        <div className="card-elevated p-4 border-destructive/40 mb-6">
+          <p className="text-destructive">
+            {t('logistics.loadError', {
+              defaultValue: 'Failed to load logistics data. Please refresh and try again.'
+            })}
+          </p>
+          {error instanceof Error && (
+            <p className="text-sm text-muted-foreground mt-1">{error.message}</p>
+          )}
+        </div>
+      )}
 
       <DataTable
         columns={columns}
