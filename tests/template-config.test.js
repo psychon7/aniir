@@ -10,4 +10,6 @@ test("template config includes verification mode docs", async () => {
   const template = await readFile(join(root, "templates", "aniir.config.yaml"), "utf8");
   assert.match(template, /verification:/);
   assert.match(template, /mode:\s*full/);
+  assert.match(template, /ai:/);
+  assert.match(template, /codex_cloud_subscription/);
 });

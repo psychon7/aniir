@@ -54,6 +54,7 @@ cp aniir/templates/aniir.config.yaml aniir.config.yaml
 
 2. Edit repo-specific values:
 - `repo.id`
+- `ai.mode` (`codex_cloud_subscription`, `codex_local_subscription`, `openai_api`)
 - `sentry.project`
 - `commands.test`
 - `playwright.command`
@@ -61,3 +62,9 @@ cp aniir/templates/aniir.config.yaml aniir.config.yaml
 - `notifications.slack.channel`
 
 3. Keep `verification.mode: full` unless you explicitly want `fix_only`.
+
+## AI Runtime Modes
+
+- `codex_cloud_subscription` (default): best for unattended runs with ChatGPT/Codex subscription limits.
+- `codex_local_subscription`: local interactive Codex session style.
+- `openai_api`: explicit API-key mode for production service accounts (`OPENAI_API_KEY` by default).
