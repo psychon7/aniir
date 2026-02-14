@@ -6,9 +6,10 @@ from minio import Minio
 from minio.error import S3Error
 
 from app.core.config import settings
-from app.core.logging import get_logger
 
-logger = get_logger(__name__)
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class StorageService:

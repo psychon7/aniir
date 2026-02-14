@@ -21,7 +21,8 @@ from app.schemas.document_attachment import (
     DocumentAttachmentResponse,
     EntityType
 )
-from app.core.logging import get_logger
+
+import logging
 
 # Try to import storage service for MinIO support
 try:
@@ -29,7 +30,7 @@ try:
 except ImportError:
     storage_service = None
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # Configure upload directory

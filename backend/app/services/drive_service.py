@@ -17,7 +17,8 @@ from fastapi import Depends
 from app.database import get_db
 from app.models.drive import DriveFile, DriveFolder
 from app.schemas.drive import DriveFileCreate, DriveFileUpdate, EntityType
-from app.core.logging import get_logger
+
+import logging
 
 # Try to import storage service for MinIO support
 try:
@@ -25,7 +26,7 @@ try:
 except ImportError:
     storage_service = None
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # =============================================================================
