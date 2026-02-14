@@ -15,7 +15,7 @@ try:
 except ImportError:
     storage_service = None  # Storage not available
 from app.models.invoice import ClientInvoice
-from app.models.invoice_line import ClientInvoiceLine
+from app.models.client_invoice_line import ClientInvoiceLine
 from app.models.client import Client
 from app.models.society import Society
 from app.models.status import Status

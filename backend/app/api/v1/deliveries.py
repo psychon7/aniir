@@ -17,7 +17,7 @@ from sqlalchemy import select, func, and_, desc, asc
 from pydantic import BaseModel, Field, ConfigDict
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_async_db
 from app.services.cache_service import cache_service, CacheTTL, CacheKeys
 from app.models.delivery_form import DeliveryForm, DeliveryFormLine
 from app.models.client import Client
@@ -261,7 +261,7 @@ def _sync_list_deliveries(
 # Dependency Injection
 # ==========================================================================
 
-def get_delivery_service(db: Session = Depends(get_db)) -> DeliveryService:
+def get_delivery_service(db = Depends(get_async_db)) -> DeliveryService:
     """Get delivery service instance."""
     return DeliveryService(db)
 
@@ -503,6 +503,7 @@ def _sync_get_delivery_detail(db: Session, delivery_id: int):
             DeliveryForm.dfo_id,
             DeliveryForm.dfo_code,
             DeliveryForm.cli_id,
+            DeliveryForm.soc_id,
             DeliveryForm.cod_id,
             DeliveryForm.dfo_d_creation,
             DeliveryForm.dfo_d_update,

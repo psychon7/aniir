@@ -780,6 +780,7 @@ def _sync_get_order_detail(db: Session, order_id: int):
             ClientOrder.cod_id,
             ClientOrder.cod_code,
             ClientOrder.cli_id,
+            ClientOrder.soc_id,
             ClientOrder.cod_d_creation,
             ClientOrder.cod_d_update,
             ClientOrder.cod_d_pre_delivery_from,
