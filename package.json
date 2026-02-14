@@ -1,0 +1,14 @@
+{
+  "name": "@axtech/aniir",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Repo-agnostic self-healing incident runner",
+  "scripts": {
+    "test": "node --test tests",
+    "lint": "node --check src/index.js",
+    "typecheck": "echo \"No static typecheck configured yet\"",
+    "dev": "node src/server/start.js",
+    "incident": "node src/cli.js run-incident"
+  }
+}
