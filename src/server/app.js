@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
-import { normalizeSentryEvent } from "../sentry/normalize.js";
-import { verifySentrySignature } from "../sentry/verify.js";
+import { normalizeWebhookIncident } from "../webhooks/normalize.js";
+import { verifyWebhookSignature } from "../webhooks/signature.js";
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -9,19 +9,49 @@ function jsonResponse(statusCode, payload) {
   };
 }
 
-export function buildApp({ sentrySecret, onIncident } = {}) {
+export function buildApp(options = {}) {
+  const { sentrySecret, onIncident, webhookSecrets: providedWebhookSecrets = {} } = options;
+  const webhookSecrets = {
+    sentry: sentrySecret,
+    ...providedWebhookSecrets
+  };
+
+  function parseRoute(urlString = "") {
+    const url = new URL(urlString, "http://localhost");
+    if (url.pathname === "/webhooks/sentry") {
+      return { platform: "sentry", tenantId: url.searchParams.get("tenant_id") ?? null };
+    }
+    const match = url.pathname.match(/^\/api\/webhooks\/([a-z0-9_-]+)$/i);
+    if (!match) return null;
+    return {
+      platform: match[1].toLowerCase(),
+      tenantId: url.searchParams.get("tenant_id") ?? null
+    };
+  }
+
   async function handleRequest(reqLike) {
     const req = reqLike ?? {};
-    if (req.method !== "POST" || req.url !== "/webhooks/sentry") {
+    if (req.method !== "POST") {
       return jsonResponse(404, { error: "not found" });
     }
 
-    const verified = verifySentrySignature(req.headers ?? {}, sentrySecret);
+    const route = parseRoute(req.url);
+    if (!route) {
+      return jsonResponse(404, { error: "not found" });
+    }
+
+    const secret = webhookSecrets[route.platform];
+    const verified = verifyWebhookSignature({
+      platform: route.platform,
+      headers: req.headers ?? {},
+      payload: req.payload ?? {},
+      secret
+    });
     if (!verified) {
       return jsonResponse(401, { error: "invalid signature" });
     }
 
-    const incident = normalizeSentryEvent(req.payload ?? {});
+    const incident = normalizeWebhookIncident(route.platform, req.payload ?? {}, route.tenantId);
     if (typeof onIncident === "function") {
       await onIncident(incident);
     }
