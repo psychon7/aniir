@@ -1,0 +1,33 @@
+version: 1
+repo:
+  id: "axtech/erp2025"
+  default_branch: "main"
+
+sentry:
+  project: "erp2025-prod"
+  severity_threshold: "error"
+
+memory:
+  path: ".aniir/known-issues.json"
+  state_branch: "aniir-state"
+
+commands:
+  test:
+    - "npm test"
+
+playwright:
+  enabled: true
+  command: "npx playwright test tests/auth-flow.api.spec.ts"
+
+verification:
+  mode: full
+  allow_fix_only_for:
+    - docs
+  force_full_for:
+    - auth
+    - payments
+
+pr:
+  labels:
+    - aniir
+    - auto-fix

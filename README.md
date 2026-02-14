@@ -259,6 +259,21 @@ The original .NET application is preserved in the `Legacy/` folder for reference
 - `Legacy/ERP.Repositories/` - Data access
 - `Legacy/ERP.Entities/` - Domain models
 
+## Aniir Self-Healing Agent
+
+This repository includes `aniir/`, a repo-agnostic incident automation runner.
+
+Quick start:
+
+```bash
+cd aniir
+npm test
+npm run dev
+```
+
+Template config is available at `aniir/templates/aniir.config.yaml`.
+Default verification is `full`; `fix_only` is opt-in via config.
+
 ## License
 
 Proprietary - AXTECH
