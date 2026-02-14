@@ -6,8 +6,8 @@
   "description": "Repo-agnostic self-healing incident runner",
   "scripts": {
     "test": "node --test tests",
-    "lint": "node --check src/index.js",
-    "typecheck": "echo \"No static typecheck configured yet\"",
+    "lint": "find src tests -name '*.js' -print0 | xargs -0 -n1 node --check",
+    "typecheck": "node -e \"console.log('No static typecheck configured yet')\"",
     "dev": "node src/server/start.js",
     "incident": "node src/cli.js run-incident"
   }
