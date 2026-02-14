@@ -14,7 +14,6 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 
 from app.database import AsyncSessionWrapper, get_async_db
-from app.dependencies import get_current_user
 from app.services.shipment_service import (
     ShipmentService,
     get_shipment_service,
@@ -84,17 +83,9 @@ def handle_shipment_error(error: ShipmentServiceError) -> HTTPException:
 
 def resolve_society_id(
     explicit_society_id: Optional[int],
-    current_user: Optional[object],
 ) -> Optional[int]:
-    """Resolve society scope: explicit query param overrides current user context."""
-    if explicit_society_id is not None:
-        return explicit_society_id
-    if current_user is None:
-        return None
-    # Do not force a society filter when auth is still in development mock mode.
-    if type(current_user).__name__ == "MockUser":
-        return None
-    return getattr(current_user, "soc_id", None) or getattr(current_user, "society_id", None)
+    """Resolve society scope from explicit query parameter only."""
+    return explicit_society_id
 
 
 # ==========================================================================
@@ -158,13 +149,12 @@ async def search_shipments(
     sort_by: str = Query("shp_created_at", description="Sort field"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort order"),
     db: AsyncSessionWrapper = Depends(get_async_db),
-    current_user=Depends(get_current_user),
 ):
     """Search shipments with filters and pagination."""
     service = get_shipment_service(db)
 
     params = ShipmentSearchParams(
-        society_id=resolve_society_id(society_id, current_user),
+        society_id=resolve_society_id(society_id),
         reference=reference,
         carrier_id=carrier_id,
         status_id=status_id,
@@ -207,7 +197,6 @@ async def get_shipment(
     shipment_id: int = Path(..., description="Shipment ID"),
     society_id: Optional[int] = Query(None, description="Society ID scope"),
     db: AsyncSessionWrapper = Depends(get_async_db),
-    current_user=Depends(get_current_user),
 ):
     """Get shipment by ID."""
     service = get_shipment_service(db)
@@ -215,7 +204,7 @@ async def get_shipment(
     try:
         shipment = await service.get_shipment(
             shipment_id,
-            society_id=resolve_society_id(society_id, current_user),
+            society_id=resolve_society_id(society_id),
         )
         return service._to_detail_response(shipment)
     except ShipmentServiceError as e:
@@ -236,7 +225,6 @@ async def get_shipment_by_reference(
     reference: str = Path(..., description="Shipment reference"),
     society_id: Optional[int] = Query(None, description="Society ID scope"),
     db: AsyncSessionWrapper = Depends(get_async_db),
-    current_user=Depends(get_current_user),
 ):
     """Get shipment by reference."""
     service = get_shipment_service(db)
@@ -244,7 +232,7 @@ async def get_shipment_by_reference(
     try:
         shipment = await service.get_shipment_by_reference(
             reference,
-            society_id=resolve_society_id(society_id, current_user),
+            society_id=resolve_society_id(society_id),
         )
         return service._to_detail_response(shipment)
     except ShipmentServiceError as e:
@@ -265,14 +253,12 @@ async def get_shipment_by_reference_alias(
     reference: str = Path(..., description="Shipment reference"),
     society_id: Optional[int] = Query(None, description="Society ID scope"),
     db: AsyncSessionWrapper = Depends(get_async_db),
-    current_user=Depends(get_current_user),
 ):
     """Alias for shipment lookup by reference."""
     return await get_shipment_by_reference(
         reference=reference,
         society_id=society_id,
         db=db,
-        current_user=current_user,
     )
 
 
@@ -529,7 +515,6 @@ async def get_tracking_info(
     shipment_id: int = Path(..., description="Shipment ID"),
     society_id: Optional[int] = Query(None, description="Society ID scope"),
     db: AsyncSessionWrapper = Depends(get_async_db),
-    current_user=Depends(get_current_user),
 ):
     """Get tracking information for a shipment."""
     service = get_shipment_service(db)
@@ -537,7 +522,7 @@ async def get_tracking_info(
     try:
         return await service.get_tracking_info(
             shipment_id,
-            society_id=resolve_society_id(society_id, current_user),
+            society_id=resolve_society_id(society_id),
         )
     except ShipmentServiceError as e:
         raise handle_shipment_error(e)
@@ -553,7 +538,6 @@ async def track_by_tracking_number(
     tracking_number: str = Path(..., description="Carrier tracking number"),
     society_id: Optional[int] = Query(None, description="Society ID scope"),
     db: AsyncSessionWrapper = Depends(get_async_db),
-    current_user=Depends(get_current_user),
 ):
     """Track a shipment by tracking number."""
     service = get_shipment_service(db)
@@ -561,7 +545,7 @@ async def track_by_tracking_number(
     try:
         return await service.track_by_tracking_number(
             tracking_number,
-            society_id=resolve_society_id(society_id, current_user),
+            society_id=resolve_society_id(society_id),
         )
     except ShipmentServiceError as e:
         raise handle_shipment_error(e)
@@ -577,13 +561,11 @@ async def track_by_tracking_number_alias(
     tracking_number: str = Path(..., description="Carrier tracking number"),
     society_id: Optional[int] = Query(None, description="Society ID scope"),
     db: AsyncSessionWrapper = Depends(get_async_db),
-    current_user=Depends(get_current_user),
 ):
     return await track_by_tracking_number(
         tracking_number=tracking_number,
         society_id=society_id,
         db=db,
-        current_user=current_user,
     )
 
 
@@ -667,14 +649,13 @@ async def get_statistics(
     to_date: Optional[datetime] = Query(None, description="End date for statistics"),
     society_id: Optional[int] = Query(None, description="Society ID scope"),
     db: AsyncSessionWrapper = Depends(get_async_db),
-    current_user=Depends(get_current_user),
 ):
     """Get shipment statistics (frontend-friendly)."""
     service = get_shipment_service(db)
     return await service.get_statistics(
         from_date,
         to_date,
-        society_id=resolve_society_id(society_id, current_user),
+        society_id=resolve_society_id(society_id),
     )
 
 
@@ -689,14 +670,13 @@ async def get_statistics_legacy(
     end_date: Optional[datetime] = Query(None, description="End date for statistics"),
     society_id: Optional[int] = Query(None, description="Society ID scope"),
     db: AsyncSessionWrapper = Depends(get_async_db),
-    current_user=Depends(get_current_user),
 ):
     """Get shipment statistics (legacy wrapper)."""
     service = get_shipment_service(db)
     stats = await service.get_statistics(
         start_date,
         end_date,
-        society_id=resolve_society_id(society_id, current_user),
+        society_id=resolve_society_id(society_id),
     )
     return {
         "success": True,
