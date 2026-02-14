@@ -95,3 +95,4 @@ secrets.json
 # Tool-specific
 .automaker/
 .codex/
+.worktrees/
