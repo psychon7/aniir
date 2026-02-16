@@ -46,18 +46,44 @@ async function loadRuntimeConfig(defaultRepoId) {
     return await loadConfig("aniir.config.yaml");
   } catch (error) {
     if (error?.code !== "ENOENT") throw error;
+    if (!defaultRepoId) {
+      throw new Error(
+        "No config file found and no repo ID available.\n" +
+        "Provide --config <path> or set GITHUB_REPOSITORY / GITHUB_REPO_ID."
+      );
+    }
     return validateConfig(withConfigDefaults({ repo: { id: defaultRepoId } }));
   }
 }
 
+/**
+ * In CI, subscription auth (browser/device-code) is not available.
+ * When the config says subscription mode, auto-switch to openai_api
+ * if an API key is available.  Returns the (possibly modified) config.
+ */
 function enforceCiAiPolicy(config, env = process.env) {
   const isCi = Boolean(env.CI);
-  if (!isCi) return;
+  if (!isCi) return config;
+
   const mode = config?.ai?.mode ?? "codex_cloud_subscription";
+  if (mode === "openai_api") return config;
+
   const allow = config?.ai?.allow_subscription_in_ci === true;
-  if (mode !== "openai_api" && !allow) {
-    throw new Error("CI requires ai.mode=openai_api unless ai.allow_subscription_in_ci=true");
+  if (allow) return config;
+
+  // Auto-fallback: if OPENAI_API_KEY is set, silently switch to openai_api
+  const apiKeyEnv = config?.ai?.openai?.api_key_env ?? "OPENAI_API_KEY";
+  if (env[apiKeyEnv]) {
+    return {
+      ...config,
+      ai: { ...config.ai, mode: "openai_api" }
+    };
   }
+
+  throw new Error(
+    "CI detected — subscription auth is not supported in non-interactive environments.\n" +
+    `Set the ${apiKeyEnv} secret for openai_api mode, or set ai.allow_subscription_in_ci: true in config.`
+  );
 }
 
 function splitRepoId(repoId) {
@@ -77,11 +103,12 @@ async function main() {
     }
 
     const dryRun = hasFlag("--dry-run");
-    const runtimeConfig = await loadRuntimeConfig(process.env.GITHUB_REPO_ID ?? "AXTECH-Shop/ERP");
+    const defaultRepoId = process.env.GITHUB_REPOSITORY ?? process.env.GITHUB_REPO_ID;
+    let runtimeConfig = await loadRuntimeConfig(defaultRepoId);
+    runtimeConfig = enforceCiAiPolicy(runtimeConfig, process.env);
     const fromConfig = splitRepoId(runtimeConfig?.repo?.id);
-    const owner = process.env.GITHUB_OWNER ?? fromConfig.owner ?? "axtech";
-    const repo = process.env.GITHUB_REPO ?? fromConfig.repo ?? "erp2025";
-    enforceCiAiPolicy(runtimeConfig, process.env);
+    const owner = process.env.GITHUB_OWNER ?? fromConfig.owner;
+    const repo = process.env.GITHUB_REPO ?? fromConfig.repo;
 
     // Resolve tokens from credentials store + env (profile-aware)
     const profile = runtimeConfig.auth?.profile ?? "default";
@@ -118,11 +145,12 @@ async function main() {
   if (command === "run-sync") {
     const dryRun = hasFlag("--dry-run");
     const verbose = hasFlag("--verbose");
-    const runtimeConfig = await loadRuntimeConfig(process.env.GITHUB_REPO_ID ?? "AXTECH-Shop/ERP");
+    const defaultRepoId = process.env.GITHUB_REPOSITORY ?? process.env.GITHUB_REPO_ID;
+    let runtimeConfig = await loadRuntimeConfig(defaultRepoId);
+    runtimeConfig = enforceCiAiPolicy(runtimeConfig, process.env);
     const fromConfig = splitRepoId(runtimeConfig?.repo?.id);
-    const owner = process.env.GITHUB_OWNER ?? fromConfig.owner ?? "axtech";
-    const repo = process.env.GITHUB_REPO ?? fromConfig.repo ?? "erp2025";
-    enforceCiAiPolicy(runtimeConfig, process.env);
+    const owner = process.env.GITHUB_OWNER ?? fromConfig.owner;
+    const repo = process.env.GITHUB_REPO ?? fromConfig.repo;
 
     const logger = createStderrLogger(verbose);
 

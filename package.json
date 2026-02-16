@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Repo-agnostic self-healing incident runner",
+  "description": "Org-agnostic self-healing incident runner — syncs Sentry issues and proposes AI fixes",
+  "bin": {
+    "aniir": "src/cli.js"
+  },
   "scripts": {
     "test": "node --test tests/*.test.js",
     "lint": "find src tests -name '*.js' -print0 | xargs -0 -n1 node --check",
@@ -12,12 +15,6 @@
     "init": "node src/cli.js init",
     "doctor": "node src/cli.js doctor",
     "sync": "node src/cli.js run-sync",
-    "sync:python": "node src/cli.js run-sync --config aniir.python-fastapi.yaml",
-    "sync:react": "node src/cli.js run-sync --config aniir.javascript-react.yaml",
-    "sync:python:verbose": "node src/cli.js run-sync --config aniir.python-fastapi.yaml --verbose",
-    "sync:react:verbose": "node src/cli.js run-sync --config aniir.javascript-react.yaml --verbose",
-    "plan:python": "node src/cli.js run-sync --config aniir.python-fastapi.yaml --dry-run --verbose",
-    "plan:react": "node src/cli.js run-sync --config aniir.javascript-react.yaml --dry-run --verbose",
     "incident": "node src/cli.js run-incident",
     "artifacts": "node src/cli.js generate-artifacts"
   },

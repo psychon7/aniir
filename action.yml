@@ -1,0 +1,80 @@
+# ── Aniir GitHub Composite Action ────────────────────────────────────────
+#
+# Usage in any consumer repo:
+#
+#   - uses: psychon7/aniir@main
+#     with:
+#       config: .aniir/python-fastapi.yaml
+#       sentry-token: ${{ secrets.SENTRY_TOKEN }}
+#       openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+#
+# The action installs its own dependencies, runs doctor checks, then syncs
+# Sentry issues and proposes fixes via pull request.
+# ─────────────────────────────────────────────────────────────────────────
+
+name: "Aniir Self-Healing Sync"
+description: "Sync Sentry issues and propose AI-powered fixes via pull requests"
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  config:
+    description: "Path to aniir config YAML (relative to consumer repo root)"
+    required: true
+  sentry-token:
+    description: "Sentry API auth token"
+    required: true
+  github-token:
+    description: "GitHub token for creating branches and PRs"
+    required: false
+    default: ""
+  openai-api-key:
+    description: "OpenAI API key for AI-powered fix proposals"
+    required: true
+  dry-run:
+    description: "Plan only — no AI calls, no PRs"
+    required: false
+    default: "false"
+  verbose:
+    description: "Enable verbose logging to stderr"
+    required: false
+    default: "true"
+  node-version:
+    description: "Node.js version"
+    required: false
+    default: "20"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install Aniir dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts
+
+    - name: Aniir doctor
+      shell: bash
+      env:
+        CI: "true"
+        SENTRY_TOKEN: ${{ inputs.sentry-token }}
+        GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+      run: node ${{ github.action_path }}/src/cli.js doctor --config ${{ inputs.config }}
+
+    - name: Aniir sync
+      shell: bash
+      env:
+        CI: "true"
+        SENTRY_TOKEN: ${{ inputs.sentry-token }}
+        GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+      run: |
+        FLAGS="--verbose"
+        if [ "${{ inputs.dry-run }}" = "true" ]; then FLAGS="$FLAGS --dry-run"; fi
+        node ${{ github.action_path }}/src/cli.js run-sync --config ${{ inputs.config }} $FLAGS

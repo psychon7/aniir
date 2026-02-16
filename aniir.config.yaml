@@ -1,56 +1,47 @@
+# ── Aniir example configuration ──────────────────────────────────────────
+#
+# Copy this file into your project repo (e.g. .aniir/config.yaml) and
+# customise the values for your organisation and Sentry project.
+#
+# In CI, set secrets via environment variables:
+#   SENTRY_TOKEN, OPENAI_API_KEY, GITHUB_TOKEN
+#
+# Locally, run `npx aniir connect --profile <name>` to save tokens once.
+# ─────────────────────────────────────────────────────────────────────────
+
 version: 1
 repo:
-  id: "AXTECH-Shop/ERP"
+  id: "owner/repo-name"               # GitHub owner/repo (auto-detected in CI via GITHUB_REPOSITORY)
   default_branch: "main"
 
 auth:
-  profile: "axtech"
+  profile: "default"                   # credentials profile from ~/.aniir/credentials.json
 
 ai:
-  # mode options: codex_cloud_subscription | codex_local_subscription | openai_api
-  mode: "codex_cloud_subscription"
+  # codex_cloud_subscription → interactive login (local dev)
+  # openai_api               → API key (CI, recommended)
+  # In CI, aniir auto-switches to openai_api when OPENAI_API_KEY is set.
+  mode: "openai_api"
   model: "gpt-5-codex"
+  timeout_seconds: 300                 # 0 = no timeout
   openai:
     api_key_env: "OPENAI_API_KEY"
 
 sentry:
   api_token_env: "SENTRY_TOKEN"
   api_host_env: "SENTRY_API_HOST"
-  org_slug: "axtech-jk"
-  project: "python-fastapi"
+  org_slug: "your-sentry-org"
+  project: "your-sentry-project"
   status: "unresolved"
   limit: 20
   severity_threshold: "error"
 
-webhooks:
-  secrets:
-    sentry: "replace-with-sentry-secret"
-    pagerduty: "replace-with-pagerduty-secret"
-    datadog: "replace-with-datadog-secret"
-    grafana: "replace-with-grafana-secret"
-    opsgenie: "replace-with-opsgenie-secret"
-    incidentio: "replace-with-incidentio-secret"
-    signoz: "replace-with-signoz-secret"
-
-memory:
-  path: ".aniir/known-issues.json"
-  state_branch: "aniir-state"
-
-commands:
-  test:
-    - "npm test"
-
-playwright:
-  enabled: true
-  command: "npx playwright test tests/auth-flow.api.spec.ts"
-
 verification:
   mode: full
-  allow_fix_only_for:
-    - docs
-  force_full_for:
-    - auth
-    - payments
+
+sync:
+  max_prs_per_run: 3
+  state_path: ".aniir/sync-state.json"
 
 prompts:
   triage:
@@ -62,12 +53,7 @@ prompts:
   pr_body:
     user_instructions: ""
 
-pr:
-  labels:
-    - aniir
-    - auto-fix
-
 notifications:
   slack:
-    enabled: true
-    channel: "#engineering-alerts"
+    enabled: false
+    channel: ""
