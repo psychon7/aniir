@@ -1,0 +1,9 @@
+{
+  "repo": {
+    "id": "axtech/erp2025"
+  },
+  "ai": {
+    "mode": "codex_cloud_subscription",
+    "allow_subscription_in_ci": true
+  }
+}

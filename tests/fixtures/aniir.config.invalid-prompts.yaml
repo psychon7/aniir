@@ -1,0 +1,10 @@
+{
+  "repo": {
+    "id": "axtech/erp2025"
+  },
+  "prompts": {
+    "unknown_step": {
+      "user_instructions": "do anything"
+    }
+  }
+}

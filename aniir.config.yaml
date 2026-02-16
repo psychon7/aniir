@@ -1,21 +1,23 @@
 version: 1
 repo:
-  id: "axtech/erp2025"
+  id: "AXTECH-Shop/ERP"
   default_branch: "main"
+
+auth:
+  profile: "axtech"
 
 ai:
   # mode options: codex_cloud_subscription | codex_local_subscription | openai_api
   mode: "codex_cloud_subscription"
   model: "gpt-5-codex"
-  allow_subscription_in_ci: false
   openai:
     api_key_env: "OPENAI_API_KEY"
 
 sentry:
   api_token_env: "SENTRY_TOKEN"
   api_host_env: "SENTRY_API_HOST"
-  org_slug: "axtech"
-  project: "erp2025-prod"
+  org_slug: "axtech-jk"
+  project: "python-fastapi"
   status: "unresolved"
   limit: 20
   severity_threshold: "error"
@@ -59,10 +61,6 @@ prompts:
     user_instructions: ""
   pr_body:
     user_instructions: ""
-
-sync:
-  max_prs_per_run: 3
-  state_path: ".aniir/sync-state.json"
 
 pr:
   labels:
