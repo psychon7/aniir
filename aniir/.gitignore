@@ -1,0 +1,4 @@
+node_modules/
+.aniir/
+.DS_Store
+coverage/

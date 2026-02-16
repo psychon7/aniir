@@ -16,6 +16,26 @@ function parseScalar(value) {
   return trimmed;
 }
 
+function stripInlineComment(value) {
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  for (let i = 0; i < value.length; i += 1) {
+    const char = value[i];
+    if (char === "'" && !inDoubleQuote) {
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+    if (char === "\"" && !inSingleQuote) {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+    if (char === "#" && !inSingleQuote && !inDoubleQuote) {
+      return value.slice(0, i).trimEnd();
+    }
+  }
+  return value;
+}
+
 function nextSignificantLine(lines, from) {
   for (let i = from; i < lines.length; i += 1) {
     const raw = lines[i];
@@ -52,7 +72,7 @@ function parseYaml(text) {
         parent.push(item);
         stack.push({ indent, container: item });
       } else {
-        parent.push(parseScalar(itemText));
+        parent.push(parseScalar(stripInlineComment(itemText)));
       }
       continue;
     }
@@ -63,7 +83,7 @@ function parseYaml(text) {
     }
 
     const key = trimmed.slice(0, colonIndex).trim();
-    const valueText = trimmed.slice(colonIndex + 1).trim();
+    const valueText = stripInlineComment(trimmed.slice(colonIndex + 1)).trim();
 
     if (valueText) {
       parent[key] = parseScalar(valueText);

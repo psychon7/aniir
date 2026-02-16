@@ -45,6 +45,7 @@ export function buildApp(options = {}) {
       platform: route.platform,
       headers: req.headers ?? {},
       payload: req.payload ?? {},
+      rawBody: req.rawBody,
       secret
     });
     if (!verified) {
@@ -68,12 +69,21 @@ export function buildApp(options = {}) {
         req.on("data", (chunk) => chunks.push(chunk));
         req.on("end", async () => {
           const body = chunks.length ? Buffer.concat(chunks).toString("utf8") : "{}";
-          const payload = JSON.parse(body || "{}");
+          let payload;
+          try {
+            payload = JSON.parse(body || "{}");
+          } catch {
+            res.statusCode = 400;
+            res.setHeader("content-type", "application/json");
+            res.end(JSON.stringify({ error: "invalid json" }));
+            return;
+          }
           const result = await handleRequest({
             method: req.method,
             url: req.url,
             headers: req.headers,
-            payload
+            payload,
+            rawBody: body
           });
           res.statusCode = result.statusCode;
           res.setHeader("content-type", "application/json");

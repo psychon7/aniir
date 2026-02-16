@@ -1,6 +1,13 @@
-export async function runInvestigateFix(issue, codexClient) {
+import { buildStepPrompt } from "../../prompts/builder.js";
+
+export async function runInvestigateFix(issue, codexClient, config = {}) {
   if (!codexClient || typeof codexClient.proposeFix !== "function") {
     throw new Error("Codex client with proposeFix is required");
   }
-  return codexClient.proposeFix(issue);
+  const prompt = buildStepPrompt({ step: "investigate_fix", issue, config });
+  return codexClient.proposeFix({
+    ...issue,
+    prompt: prompt.text,
+    promptVariables: prompt.variables
+  });
 }

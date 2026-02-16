@@ -7,7 +7,6 @@ ai:
   # mode options: codex_cloud_subscription | codex_local_subscription | openai_api
   mode: "codex_cloud_subscription"
   model: "gpt-5-codex"
-  allow_subscription_in_ci: false
   openai:
     api_key_env: "OPENAI_API_KEY"
 
@@ -59,10 +58,6 @@ prompts:
     user_instructions: ""
   pr_body:
     user_instructions: ""
-
-sync:
-  max_prs_per_run: 3
-  state_path: ".aniir/sync-state.json"
 
 pr:
   labels:

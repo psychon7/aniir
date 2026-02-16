@@ -12,4 +12,13 @@ test("template config includes verification mode docs", async () => {
   assert.match(template, /mode:\s*full/);
   assert.match(template, /ai:/);
   assert.match(template, /codex_cloud_subscription/);
+  assert.match(template, /allow_subscription_in_ci:\s*false/);
+  assert.match(template, /org_slug:/);
+  assert.match(template, /status:\s*\"unresolved\"/);
+  assert.match(template, /api_token_env:/);
+  assert.match(template, /api_host_env:/);
+  assert.match(template, /prompts:/);
+  assert.match(template, /investigate_fix:/);
+  assert.match(template, /sync:/);
+  assert.match(template, /max_prs_per_run:\s*3/);
 });
